@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 class="mb-4">Analytics</h2>
+<div class="row g-4">
+	<div class="col-md-6">
+		<div class="card">
+			<div class="card-header">Weekly Task Completions</div>
+			<img src="{{ url_for('static', filename='charts/weekly_completions.png') }}" class="card-img-top" alt="Weekly completions chart">
+		</div>
+	</div>
+	<div class="col-md-6">
+		<div class="card">
+			<div class="card-header">On-time vs Late Completion</div>
+			<img src="{{ url_for('static', filename='charts/on_time_rate.png') }}" class="card-img-top" alt="On-time rate chart">
+		</div>
+	</div>
+</div>
+{% endblock %}

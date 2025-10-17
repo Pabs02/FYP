@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 class="mb-3">Tasks</h2>
+<div class="table-responsive">
+	<table class="table table-striped align-middle">
+		<thead>
+			<tr>
+				<th scope="col">ID</th>
+				<th scope="col">Title</th>
+				<th scope="col">Student</th>
+				<th scope="col">Module</th>
+				<th scope="col">Due Date</th>
+				<th scope="col">Status</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for t in tasks %}
+			<tr>
+				<td>{{ t.id }}</td>
+				<td>{{ t.title }}</td>
+				<td>{{ t.student_name }}</td>
+				<td>{{ t.module_code }}</td>
+				<td>{{ t.due_date }}</td>
+				<td><span class="badge text-bg-{{ 'success' if t.status=='completed' else ('warning' if t.status=='in_progress' else 'secondary') }}">{{ t.status }}</span></td>
+			</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+</div>
+{% if not tasks %}
+<div class="alert alert-info">No tasks found.</div>
+{% endif %}
+{% endblock %}
