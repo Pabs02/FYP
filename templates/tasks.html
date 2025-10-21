@@ -1,6 +1,22 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2 class="mb-3">Tasks</h2>
+<div class="d-flex justify-content-between align-items-center mb-3">
+	<h2>Tasks</h2>
+	<a href="/add-data" class="btn btn-primary">➕ Add New Task</a>
+</div>
+
+<!-- Flash Messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+	{% if messages %}
+		{% for category, message in messages %}
+			<div class="alert alert-{{ 'success' if category=='success' else 'danger' }} alert-dismissible fade show" role="alert">
+				{{ message }}
+				<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+			</div>
+		{% endfor %}
+	{% endif %}
+{% endwith %}
+
 <div class="table-responsive">
 	<table class="table table-striped align-middle">
 		<thead>
@@ -11,6 +27,7 @@
 				<th scope="col">Module</th>
 				<th scope="col">Due Date</th>
 				<th scope="col">Status</th>
+				<th scope="col">Actions</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -22,12 +39,22 @@
 				<td>{{ t.module_code }}</td>
 				<td>{{ t.due_date }}</td>
 				<td><span class="badge text-bg-{{ 'success' if t.status=='completed' else ('warning' if t.status=='in_progress' else 'secondary') }}">{{ t.status }}</span></td>
+				<td>
+					<form action="/update-task-status/{{ t.id }}" method="POST" style="display: inline;">
+						<select name="status" class="form-select form-select-sm" style="width: auto; display: inline-block;" onchange="this.form.submit()">
+							<option value="">Update...</option>
+							<option value="pending" {% if t.status=='pending' %}disabled{% endif %}>Mark Pending</option>
+							<option value="in_progress" {% if t.status=='in_progress' %}disabled{% endif %}>Mark In Progress</option>
+							<option value="completed" {% if t.status=='completed' %}disabled{% endif %}>Mark Completed</option>
+						</select>
+					</form>
+				</td>
 			</tr>
 			{% endfor %}
 		</tbody>
 	</table>
 </div>
 {% if not tasks %}
-<div class="alert alert-info">No tasks found.</div>
+<div class="alert alert-info">No tasks found. <a href="/add-data">Add your first task</a>.</div>
 {% endif %}
 {% endblock %}

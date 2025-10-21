@@ -1,0 +1,47 @@
+# Environment and secrets
+.env
+.env.*
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Cursor
+.cursor/
+
+# Project specific
+static/charts/*.png
+static/charts/*.html
+static/charts/*.txt
+scripts/~*
+*.pyc
+*.log
+*.pid
+
+# Documentation output
+*.docx
+

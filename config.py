@@ -56,3 +56,8 @@ def get_flask_config() -> FlaskConfig:
 	except ValueError:
 		port = 5001
 	return FlaskConfig(host=host, port=port)
+
+
+def get_supabase_database_url() -> Optional[str]:
+	url = os.getenv("SUPABASE_DATABASE_URL")
+	return url if url else None

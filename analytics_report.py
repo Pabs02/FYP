@@ -4,7 +4,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime
 
-from db import fetch_all
+from config import get_supabase_database_url
+
+if get_supabase_database_url():
+	from db_supabase import fetch_all  # type: ignore
+else:
+	from db import fetch_all  # type: ignore
 
 
 def _load_task_data() -> pd.DataFrame:
@@ -16,10 +21,10 @@ def _load_task_data() -> pd.DataFrame:
 	rows = fetch_all(sql)
 	df = pd.DataFrame(rows)
 	if not df.empty:
-		# Parse dates if present
+		# Parse dates as UTC so comparisons are tz-consistent
 		for col in ["due_date", "completed_at"]:
 			if col in df.columns:
-				df[col] = pd.to_datetime(df[col], errors="coerce")
+				df[col] = pd.to_datetime(df[col], errors="coerce", utc=True)
 	return df
 
 
@@ -29,6 +34,7 @@ def _weekly_completions(df: pd.DataFrame) -> pd.DataFrame:
 	completed = df[df["status"] == "completed"].copy()
 	if completed.empty:
 		return pd.DataFrame({"week": [], "count": []})
+	# Use weekly period; plotting uses naive timestamps which is fine for charts
 	completed["week"] = completed["completed_at"].dt.to_period("W").dt.start_time
 	agg = completed.groupby("week").size().reset_index(name="count").sort_values("week")
 	return agg
