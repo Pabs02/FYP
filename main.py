@@ -235,6 +235,7 @@ def register():
 		email = request.form.get("email", "").strip().lower()
 		password = request.form.get("password", "")
 		password_confirm = request.form.get("password_confirm", "")
+		canvas_api_token = request.form.get("canvas_api_token", "").strip()
 		
 		# Validation
 		if not name or not email or not password:
@@ -259,14 +260,15 @@ def register():
 		password_hash = generate_password_hash(password)
 		
 		try:
-			# Insert new user
+			# Insert new user (with optional Canvas token)
 			sb_execute(
-				"""INSERT INTO students (name, email, password_hash, created_at) 
-				   VALUES (:name, :email, :password_hash, NOW())""",
+				"""INSERT INTO students (name, email, password_hash, canvas_api_token, created_at) 
+				   VALUES (:name, :email, :password_hash, :canvas_api_token, NOW())""",
 				{
 					"name": name,
 					"email": email,
-					"password_hash": password_hash
+					"password_hash": password_hash,
+					"canvas_api_token": canvas_api_token if canvas_api_token else None
 				}
 			)
 			
@@ -287,6 +289,43 @@ def logout():
 	logout_user()
 	flash("You have been logged out successfully.", "success")
 	return redirect(url_for("login"))
+
+
+@app.route("/profile")
+@login_required
+def profile():
+	"""User profile page"""
+	return render_template("profile.html")
+
+
+@app.route("/update-profile", methods=["POST"])
+@login_required
+def update_profile():
+	"""Update user profile (Canvas token)"""
+	canvas_api_token = request.form.get("canvas_api_token", "").strip()
+	
+	try:
+		# Update Canvas API token
+		sb_execute(
+			"UPDATE students SET canvas_api_token = :canvas_api_token WHERE id = :id",
+			{
+				"canvas_api_token": canvas_api_token if canvas_api_token else None,
+				"id": current_user.id
+			}
+		)
+		
+		# Update the current user's token in memory
+		current_user.canvas_api_token = canvas_api_token if canvas_api_token else None
+		
+		if canvas_api_token:
+			flash("✅ Canvas API token updated successfully!", "success")
+		else:
+			flash("Canvas API token removed.", "success")
+		
+	except Exception as e:
+		flash(f"Error updating profile: {str(e)}", "error")
+	
+	return redirect(url_for("profile"))
 
 
 # ============================================================================

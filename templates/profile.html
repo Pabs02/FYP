@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Profile Settings{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+	<div class="row">
+		<div class="col-md-8 mx-auto">
+			<h2 class="mb-4">👤 Profile Settings</h2>
+			
+			<!-- Flash Messages -->
+			{% with messages = get_flashed_messages(with_categories=true) %}
+				{% if messages %}
+					{% for category, message in messages %}
+						<div class="alert alert-{{ 'success' if category=='success' else 'danger' }} alert-dismissible fade show" role="alert">
+							{{ message }}
+							<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+						</div>
+					{% endfor %}
+				{% endif %}
+			{% endwith %}
+			
+			<!-- Account Information -->
+			<div class="card mb-4">
+				<div class="card-header">
+					<h5 class="mb-0">📧 Account Information</h5>
+				</div>
+				<div class="card-body">
+					<div class="row mb-3">
+						<div class="col-sm-4 fw-bold">Name:</div>
+						<div class="col-sm-8">{{ current_user.name }}</div>
+					</div>
+					<div class="row mb-3">
+						<div class="col-sm-4 fw-bold">Email:</div>
+						<div class="col-sm-8">{{ current_user.email }}</div>
+					</div>
+					<div class="row">
+						<div class="col-sm-4 fw-bold">Student ID:</div>
+						<div class="col-sm-8">#{{ current_user.id }}</div>
+					</div>
+				</div>
+			</div>
+			
+			<!-- Canvas API Token -->
+			<div class="card mb-4">
+				<div class="card-header">
+					<h5 class="mb-0">🎓 Canvas LMS Integration</h5>
+				</div>
+				<div class="card-body">
+					<form method="POST" action="{{ url_for('update_profile') }}">
+						<div class="mb-3">
+							<label for="canvas_api_token" class="form-label">Canvas API Token</label>
+							<input type="text" class="form-control" id="canvas_api_token" name="canvas_api_token" 
+								   value="{{ current_user.canvas_api_token or '' }}" 
+								   placeholder="Paste your UCC Canvas API token here">
+							<div class="form-text">
+								{% if current_user.canvas_api_token %}
+									<span class="badge bg-success">✅ Token Configured</span>
+									<small class="text-muted ms-2">Update your token here if needed.</small>
+								{% else %}
+									<span class="badge bg-warning">⚠️ No Token Set</span>
+									<small class="text-muted ms-2">Add your Canvas token to enable assignment sync.</small>
+								{% endif %}
+							</div>
+						</div>
+						
+						<div class="alert alert-info mb-3">
+							<strong>📖 How to get your Canvas API token:</strong><br>
+							1. Go to <a href="https://ucc.instructure.com/profile/settings" target="_blank" class="text-decoration-none">UCC Canvas Profile Settings</a><br>
+							2. Scroll down to "Approved Integrations"<br>
+							3. Click "+ New Access Token"<br>
+							4. Give it a name (e.g., "Task Manager")<br>
+							5. Leave expiry blank for no expiration<br>
+							6. Click "Generate Token"<br>
+							7. Copy the token and paste it here
+						</div>
+						
+						<button type="submit" class="btn btn-primary">
+							<i class="bi bi-save"></i> Save Canvas Token
+						</button>
+						
+						{% if current_user.canvas_api_token %}
+							<a href="{{ url_for('sync_canvas') }}" class="btn btn-success ms-2">
+								<i class="bi bi-arrow-repeat"></i> Sync Canvas Assignments
+							</a>
+						{% endif %}
+					</form>
+				</div>
+			</div>
+			
+			<!-- Password Change (Future Feature) -->
+			<div class="card mb-4">
+				<div class="card-header">
+					<h5 class="mb-0">🔒 Security</h5>
+				</div>
+				<div class="card-body">
+					<p class="text-muted mb-0">
+						<i class="bi bi-info-circle"></i> Password change functionality coming soon!
+					</p>
+				</div>
+			</div>
+			
+			<!-- Back Button -->
+			<div class="mb-4">
+				<a href="{{ url_for('index') }}" class="btn btn-secondary">
+					<i class="bi bi-arrow-left"></i> Back to Dashboard
+				</a>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}
+

@@ -45,12 +45,23 @@
 								<div class="form-text">At least 6 characters</div>
 							</div>
 							
-							<div class="mb-3">
-								<label for="password_confirm" class="form-label">Confirm Password</label>
-								<input type="password" class="form-control" id="password_confirm" name="password_confirm" required minlength="6">
+						<div class="mb-3">
+							<label for="password_confirm" class="form-label">Confirm Password</label>
+							<input type="password" class="form-control" id="password_confirm" name="password_confirm" required minlength="6">
+						</div>
+						
+						<hr class="my-4">
+						
+						<div class="mb-3">
+							<label for="canvas_api_token" class="form-label">🎓 Canvas API Token <span class="badge bg-secondary">Optional</span></label>
+							<input type="text" class="form-control" id="canvas_api_token" name="canvas_api_token" placeholder="Paste your UCC Canvas API token here">
+							<div class="form-text">
+								<small>Add your Canvas token now to sync assignments, or add it later from Canvas Sync page.</small><br>
+								<a href="https://ucc.instructure.com/profile/settings" target="_blank" class="text-decoration-none">📖 Get your Canvas token →</a>
 							</div>
-							
-							<button type="submit" class="btn btn-primary w-100 mb-3">Register</button>
+						</div>
+						
+						<button type="submit" class="btn btn-primary w-100 mb-3">Register</button>
 							
 							<div class="text-center">
 								<small class="text-muted">Already have an account? <a href="{{ url_for('login') }}">Login here</a></small>
