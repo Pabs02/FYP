@@ -42,8 +42,17 @@ def fetch_one(sql: str, params: Optional[Dict[str, Any]] = None) -> Optional[Dic
 
 
 def execute(sql: str, params: Optional[Dict[str, Any]] = None) -> int:
-	with get_conn() as c:
-		res = c.execute(text(sql), params or {})
-		c.commit()
+	if _engine is None:
+		init_engine()
+	assert _engine is not None
+	
+	# Use begin() for automatic transaction management
+	with _engine.begin() as conn:
+		if params:
+			# Execute with bound parameters
+			stmt = text(sql).bindparams(**params)
+			res = conn.execute(stmt)
+		else:
+			res = conn.execute(text(sql))
 		return res.rowcount or 0
 

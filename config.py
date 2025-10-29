@@ -3,10 +3,10 @@ from dataclasses import dataclass
 from typing import Optional
 
 try:
-	from dotenv import load_dotenv  # type: ignore
+	from dotenv import load_dotenv
 	load_dotenv()
 except Exception:
-	# dotenv is optional; ignore if not installed
+
 	pass
 
 

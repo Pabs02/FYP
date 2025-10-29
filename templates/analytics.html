@@ -50,7 +50,7 @@
 					<div class="chart-container" style="height: 300px;">
 						{% for week in analytics.weekly_data %}
 						<div class="d-flex align-items-end mb-2">
-							<div class="me-2" style="width: 80px; font-size: 12px;">{{ week.week }}</div>
+							<div class="me-2" style="width: 80px; font-size: 12px;">{{ week.week | irish_date }}</div>
 							<div class="flex-grow-1">
 								<div class="progress" style="height: 20px;">
 									<div class="progress-bar bg-primary" role="progressbar" 

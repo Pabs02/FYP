@@ -34,10 +34,15 @@
 			{% for t in tasks %}
 			<tr>
 				<td>{{ t.id }}</td>
-				<td>{{ t.title }}</td>
+				<td>
+					{{ t.title }}
+					{% if t.canvas_assignment_id %}
+						<span class="badge bg-info ms-1" title="Synced from Canvas LMS">📚 Canvas</span>
+					{% endif %}
+				</td>
 				<td>{{ t.student_name }}</td>
 				<td>{{ t.module_code }}</td>
-				<td>{{ t.due_date }}</td>
+				<td>{{ t.due_date | irish_date }}</td>
 				<td><span class="badge text-bg-{{ 'success' if t.status=='completed' else ('warning' if t.status=='in_progress' else 'secondary') }}">{{ t.status }}</span></td>
 				<td>
 					<form action="/update-task-status/{{ t.id }}" method="POST" style="display: inline;">
