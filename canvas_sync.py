@@ -242,6 +242,16 @@ def sync_canvas_calendar_events(
                 location = ev.get('location_address') or ev.get('location_name') or None
                 start_at = ev.get('start_at')
                 end_at = ev.get('end_at') or start_at
+                # Ensure timed events have a positive duration so they appear in week/day views
+                try:
+                    from datetime import datetime, timedelta
+                    start_dt = datetime.fromisoformat(start_at.replace('Z', '+00:00')) if isinstance(start_at, str) else start_at
+                    end_dt = datetime.fromisoformat(end_at.replace('Z', '+00:00')) if isinstance(end_at, str) else end_at
+                    if not end_dt or end_dt <= start_dt:
+                        end_dt = start_dt + timedelta(minutes=60)
+                        end_at = end_dt.isoformat()
+                except Exception:
+                    pass
                 # Parse course id if available
                 context_code = ev.get('context_code')  # e.g., "course_123"
                 canvas_course_id = None
