@@ -167,12 +167,12 @@ def sync_canvas_calendar_events(
     """
     stats = {"events_new": 0, "events_updated": 0, "errors": 0}
 
-    # Date window: default to past 14 days and next 90 days
+    # Date window: default to past 14 days and next 90 days (Canvas prefers YYYY-MM-DD)
     if not start_iso or not end_iso:
         from datetime import datetime, timedelta, timezone
         now = datetime.now(timezone.utc)
-        start_iso = (now - timedelta(days=14)).isoformat()
-        end_iso = (now + timedelta(days=90)).isoformat()
+        start_iso = (now - timedelta(days=14)).date().isoformat()
+        end_iso = (now + timedelta(days=90)).date().isoformat()
 
     headers = {"Authorization": f"Bearer {api_token}"}
 
@@ -182,6 +182,12 @@ def sync_canvas_calendar_events(
         user = canvas.get_current_user()
         courses = list(user.get_courses(enrollment_state='active'))
         context_codes = [f"course_{c.id}" for c in courses if getattr(c, 'id', None)]
+        # Include user's personal calendar for manually added lectures/events
+        try:
+            if getattr(user, 'id', None):
+                context_codes.append(f"user_{user.id}")
+        except Exception:
+            pass
 
         # Paginate through calendar_events endpoint
         # API: GET /api/v1/calendar_events?type=event&context_codes[]=course_123
@@ -207,10 +213,14 @@ def sync_canvas_calendar_events(
                 events.extend(page_items)
                 # Pagination via Link header
                 next_url = None
-                if 'link' in resp.headers:
-                    for part in resp.headers['link'].split(','):
+                link_header = resp.headers.get('Link') or resp.headers.get('link')
+                if link_header:
+                    for part in link_header.split(','):
                         if 'rel="next"' in part:
-                            next_url = part[part.find('<')+1:part.find('>')]
+                            start = part.find('<') + 1
+                            end = part.find('>')
+                            if start > 0 and end > start:
+                                next_url = part[start:end]
                             break
                 url = next_url
                 per_params = None  # next pages include params in URL already
