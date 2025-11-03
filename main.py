@@ -428,6 +428,42 @@ def calendar_view():
 			}
 		})
 
+	# Include timed events (lectures) from events table
+	try:
+		rows_ev: List[Dict] = sb_fetch_all(
+			"""
+			SELECT e.id, e.title, e.start_at, e.end_at, e.location, e.canvas_course_id, m.code AS module_code
+			FROM events e
+			LEFT JOIN modules m ON m.id = e.module_id
+			WHERE e.student_id = :student_id
+			AND e.start_at IS NOT NULL
+			AND e.end_at IS NOT NULL
+			ORDER BY e.start_at ASC
+			LIMIT 1000
+			""",
+			{"student_id": current_user.id}
+		)
+	except Exception:
+		rows_ev = []
+
+	for ev in rows_ev:
+		start_iso = ev.get("start_at")
+		end_iso = ev.get("end_at")
+		mod = ev.get("module_code")
+		title = ev.get("title")
+		events.append({
+			"id": f"event-{ev.get('id')}",
+			"title": f"{title} [{mod}]" if mod else title,
+			"start": start_iso,
+			"end": end_iso,
+			"allDay": False,
+			"color": "#0ea5e9",  # cyan for lectures/events
+			"extendedProps": {
+				"module": mod,
+				"location": ev.get("location")
+			}
+		})
+
 	return render_template("calendar.html", events=events)
 
 
@@ -544,13 +580,23 @@ def sync_canvas():
 		
 		try:
 			# Import Canvas sync module
-			from canvas_sync import sync_canvas_assignments
+			from canvas_sync import sync_canvas_assignments, sync_canvas_calendar_events
 			
 			# Canvas URL for UCC
 			CANVAS_URL = "https://ucc.instructure.com"
 			
-			# Perform sync
+			# Perform assignment sync
 			stats = sync_canvas_assignments(
+				canvas_url=CANVAS_URL,
+				api_token=current_user.canvas_api_token,
+				student_id=current_user.id,
+				db_execute=sb_execute,
+				db_fetch_all=sb_fetch_all,
+				db_fetch_one=sb_fetch_one
+			)
+
+			# Perform calendar events sync (lectures/timed events)
+			cal_stats = sync_canvas_calendar_events(
 				canvas_url=CANVAS_URL,
 				api_token=current_user.canvas_api_token,
 				student_id=current_user.id,
@@ -569,6 +615,7 @@ def sync_canvas():
 			success_msg += f"New: {stats['assignments_new']}, "
 			success_msg += f"Updated: {stats['assignments_updated']}, "
 			success_msg += f"Skipped: {stats['assignments_skipped']}"
+			success_msg += f" | Events +{cal_stats['events_new']}/~{cal_stats['events_updated']}"
 			
 			if stats['modules_created'] > 0:
 				success_msg += f", Modules Created: {stats['modules_created']}"

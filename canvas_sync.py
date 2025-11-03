@@ -6,6 +6,7 @@ Handles syncing assignments from Canvas to the Student Task Management System
 from canvasapi import Canvas
 from datetime import datetime
 from typing import List, Dict, Optional
+import requests
 import pytz
 
 def sync_canvas_assignments(canvas_url: str, api_token: str, student_id: int, db_execute, db_fetch_all, db_fetch_one):
@@ -145,4 +146,157 @@ def sync_canvas_assignments(canvas_url: str, api_token: str, student_id: int, db
 def get_canvas_assignment_url(canvas_url: str, course_id: int, assignment_id: int) -> str:
     """Generate Canvas assignment URL"""
     return f"{canvas_url}/courses/{course_id}/assignments/{assignment_id}"
+
+
+def sync_canvas_calendar_events(
+    canvas_url: str,
+    api_token: str,
+    student_id: int,
+    db_execute,
+    db_fetch_all,
+    db_fetch_one,
+    start_iso: Optional[str] = None,
+    end_iso: Optional[str] = None,
+) -> Dict[str, int]:
+    """
+    Syncs Canvas calendar events (e.g., lectures) into an events table with start/end times.
+
+    Creates the event if not present for this student, otherwise updates title/time/location.
+
+    Returns: { 'events_new': X, 'events_updated': Y, 'errors': Z }
+    """
+    stats = {"events_new": 0, "events_updated": 0, "errors": 0}
+
+    # Date window: default to past 14 days and next 90 days
+    if not start_iso or not end_iso:
+        from datetime import datetime, timedelta, timezone
+        now = datetime.now(timezone.utc)
+        start_iso = (now - timedelta(days=14)).isoformat()
+        end_iso = (now + timedelta(days=90)).isoformat()
+
+    headers = {"Authorization": f"Bearer {api_token}"}
+
+    try:
+        # Fetch user's active courses to build context codes
+        canvas = Canvas(canvas_url, api_token)
+        user = canvas.get_current_user()
+        courses = list(user.get_courses(enrollment_state='active'))
+        context_codes = [f"course_{c.id}" for c in courses if getattr(c, 'id', None)]
+
+        # Paginate through calendar_events endpoint
+        # API: GET /api/v1/calendar_events?type=event&context_codes[]=course_123
+        params = {
+            "type": "event",
+            "all_events": "true",
+            "start_date": start_iso,
+            "end_date": end_iso,
+        }
+
+        events: List[Dict] = []
+        # Query per-course to stay within URL length limits
+        for code in context_codes:
+            per_params = dict(params)
+            per_params["context_codes[]"] = code
+            url = f"{canvas_url}/api/v1/calendar_events"
+            while url:
+                resp = requests.get(url, headers=headers, params=per_params)
+                if resp.status_code != 200:
+                    stats["errors"] += 1
+                    break
+                page_items = resp.json()
+                events.extend(page_items)
+                # Pagination via Link header
+                next_url = None
+                if 'link' in resp.headers:
+                    for part in resp.headers['link'].split(','):
+                        if 'rel="next"' in part:
+                            next_url = part[part.find('<')+1:part.find('>')]
+                            break
+                url = next_url
+                per_params = None  # next pages include params in URL already
+
+        # Upsert events
+        for ev in events:
+            try:
+                canvas_event_id = ev.get('id')
+                title = ev.get('title') or "(Untitled event)"
+                location = ev.get('location_address') or ev.get('location_name') or None
+                start_at = ev.get('start_at')
+                end_at = ev.get('end_at') or start_at
+                # Parse course id if available
+                context_code = ev.get('context_code')  # e.g., "course_123"
+                canvas_course_id = None
+                if context_code and context_code.startswith('course_'):
+                    try:
+                        canvas_course_id = int(context_code.split('_')[1])
+                    except Exception:
+                        canvas_course_id = None
+
+                # Map to module if possible
+                module_id = None
+                if canvas_course_id is not None:
+                    mod = db_fetch_one(
+                        "SELECT id FROM modules WHERE canvas_course_id = :cid OR code = :code",
+                        {"cid": canvas_course_id, "code": ev.get('course_id') or ''}
+                    )
+                    if mod:
+                        module_id = mod['id']
+
+                existing = db_fetch_one(
+                    """
+                    SELECT id FROM events 
+                    WHERE student_id = :student_id AND canvas_event_id = :canvas_event_id
+                    """,
+                    {"student_id": student_id, "canvas_event_id": canvas_event_id}
+                )
+
+                if existing:
+                    db_execute(
+                        """
+                        UPDATE events
+                        SET title = :title,
+                            start_at = :start_at,
+                            end_at = :end_at,
+                            location = :location,
+                            module_id = :module_id,
+                            canvas_course_id = :canvas_course_id
+                        WHERE id = :id
+                        """,
+                        {
+                            "title": title,
+                            "start_at": start_at,
+                            "end_at": end_at,
+                            "location": location,
+                            "module_id": module_id,
+                            "canvas_course_id": canvas_course_id,
+                            "id": existing['id'],
+                        }
+                    )
+                    stats["events_updated"] += 1
+                else:
+                    db_execute(
+                        """
+                        INSERT INTO events
+                        (student_id, module_id, title, start_at, end_at, location, canvas_event_id, canvas_course_id)
+                        VALUES (:student_id, :module_id, :title, :start_at, :end_at, :location, :canvas_event_id, :canvas_course_id)
+                        """,
+                        {
+                            "student_id": student_id,
+                            "module_id": module_id,
+                            "title": title,
+                            "start_at": start_at,
+                            "end_at": end_at,
+                            "location": location,
+                            "canvas_event_id": canvas_event_id,
+                            "canvas_course_id": canvas_course_id,
+                        }
+                    )
+                    stats["events_new"] += 1
+            except Exception:
+                stats["errors"] += 1
+
+    except Exception:
+        stats["errors"] += 1
+
+    return stats
 
