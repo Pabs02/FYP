@@ -407,10 +407,16 @@ def calendar_view():
 				start_iso = due_at.isoformat()
 			except Exception:
 				start_iso = str(due_at)
-			# Provide a small duration so timed assignments are visible (15 minutes)
+			# Give a small, same-day duration to avoid spanning into next day (prevents list duplicates)
 			try:
 				from datetime import timedelta
-				end_iso = (r.get("due_at") + timedelta(minutes=15)).isoformat()
+				start_dt = r.get("due_at")
+				end_dt = start_dt + timedelta(minutes=5)
+				# Cap to 23:59:59 of the same day
+				end_of_day = start_dt.replace(hour=23, minute=59, second=59, microsecond=0)
+				if end_dt > end_of_day:
+					end_dt = end_of_day
+				end_iso = end_dt.isoformat()
 			except Exception:
 				end_iso = start_iso
 		else:
@@ -436,13 +442,14 @@ def calendar_view():
 			"id": r.get("id"),
 			"title": f"{prefix}{r.get('title')} [{r.get('module_code')}]",
 			"start": start_iso,
-			"end": None if (not due_at) else end_iso,
+			"end": end_iso,
 			"allDay": False if due_at else True,
 			"color": color,
 			"extendedProps": {
 				"status": status,
 				"module": r.get("module_code")
-			}
+			},
+			"classNames": ["assignment"]
 		}
 		# If we only know date, keep allDay true, else timed
 		events.append(event)
