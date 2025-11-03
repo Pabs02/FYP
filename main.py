@@ -447,8 +447,17 @@ def calendar_view():
 		rows_ev = []
 
 	for ev in rows_ev:
-		start_iso = ev.get("start_at")
-		end_iso = ev.get("end_at")
+		start_val = ev.get("start_at")
+		end_val = ev.get("end_at")
+		# Ensure ISO-8601 strings for FullCalendar
+		try:
+			start_iso = start_val.isoformat()
+		except Exception:
+			start_iso = str(start_val)
+		try:
+			end_iso = end_val.isoformat()
+		except Exception:
+			end_iso = str(end_val)
 		mod = ev.get("module_code")
 		title = ev.get("title")
 		events.append({
