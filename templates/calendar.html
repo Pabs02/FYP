@@ -48,20 +48,29 @@
 			themeSystem: 'standard',
 			expandRows: true,
 			stickyHeaderDates: true,
+			contentHeight: 'auto',
 			
-			/* Prevent visual overlaps and keep events in distinct boxes */
+			/* Time grid range and scroll */
+			slotMinTime: '07:00:00',
+			slotMaxTime: '24:00:00',
+			scrollTime: '09:00:00',
+			
+			/* Month cell behavior */
+			dayMaxEvents: true,
+			dayMaxEventRows: 4,
+			moreLinkClick: 'popover',
+			eventOrder: ['start','-allDay','title'],
+			eventOrderStrict: true,
+			
+			/* Prevent overlaps in time grid */
 			eventOverlap: false,
 			slotEventOverlap: false,
-			dayMaxEvents: true,
-			dayMaxEventRows: true,
-			moreLinkClick: 'popover',
 			
 			/* Rendering */
 			eventDisplay: 'block',
 			displayEventTime: true,
 			eventTimeFormat: { hour: 'numeric', minute: '2-digit', hour12: true, meridiem: 'long' },
 			slotLabelFormat: { hour: 'numeric', minute: '2-digit', hour12: true, meridiem: 'long' },
-			eventOrder: ['start','-allDay','title'],
 			events,
 			eventDidMount: function(info) {
 				const props = info.event.extendedProps || {};
@@ -77,7 +86,9 @@
 <style>
 	#calendar { max-width: 1100px; margin: 0 auto 40px auto; }
 	.fc .fc-toolbar-title { font-size: 1.25rem; }
+	/* Month cells: keep each event in its own row, prevent text spill */
+	.fc-daygrid-event { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	/* Ensure distinct columns for simultaneous timeGrid events */
-	.fc-timegrid-event { margin-right: 2px; }
+	.fc-timegrid-event { margin-right: 3px; }
 </style>
 {% endblock %}
