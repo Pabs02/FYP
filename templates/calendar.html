@@ -45,19 +45,31 @@
 			editable: false,
 			navLinks: true,
 			themeSystem: 'standard',
-			expandRows: true,
+			expandRows: false,              // lock month cell heights
+			fixedWeekCount: true,          // always 6 weeks in month view
 			stickyHeaderDates: true,
-			contentHeight: 'auto',
+			handleWindowResize: true,
+			windowResizeDelay: 100,
+			height: 'calc(100vh - 180px)',  // shrink to fit screen
+			aspectRatio: 1.35,
 			
-			/* Time grid range and scroll */
-			slotMinTime: '07:00:00',
-			slotMaxTime: '24:00:00',
-			scrollTime: '09:00:00',
+			/* Time grid range/slots */
+			slotMinTime: '08:00:00',
+			slotMaxTime: '22:00:00',
+			scrollTime: '10:00:00',
+			slotDuration: '01:00:00',      // fewer slots → more compact
+			snapDuration: '00:30:00',
+			
+			/* Default duration for events without an end (assignments) */
+			defaultTimedEventDuration: '01:00:00',
+			forceEventDuration: true,
 			
 			/* Month cell behavior */
 			dayMaxEvents: true,
-			dayMaxEventRows: 6,
+			dayMaxEventRows: 4,
 			moreLinkClick: 'popover',
+			moreLinkText: 'more',
+			dayHeaderFormat: { weekday: 'short', month: 'numeric', day: 'numeric' },
 			eventOrder: ['start','-allDay','title'],
 			eventOrderStrict: true,
 			
@@ -84,10 +96,12 @@
 
 <style>
 	#calendar { max-width: 1100px; margin: 0 auto 40px auto; }
-	.fc .fc-toolbar-title { font-size: 1.25rem; }
+	.fc .fc-toolbar-title { font-size: 1.1rem; }
 	/* Month cells: keep each event in its own row, prevent text spill */
-	.fc-daygrid-event { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 2px 0; }
-	/* Ensure distinct columns for simultaneous timeGrid events */
-	.fc-timegrid-event { margin-right: 3px; }
+	.fc-daygrid-event { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 1px 0; font-size: 12px; padding: 1px 2px; }
+	/* Ensure timed items remain legible */
+	.fc-timegrid-slot { height: 32px; }
+	.fc-timegrid-event { min-height: 26px; }
+	.fc-timegrid-event.assignment .fc-event-main { font-weight: 600; }
 </style>
 {% endblock %}
