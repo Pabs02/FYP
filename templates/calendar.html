@@ -45,20 +45,20 @@
 			editable: false,
 			navLinks: true,
 			themeSystem: 'standard',
-			expandRows: false,              // lock month cell heights
-			fixedWeekCount: true,          // always 6 weeks in month view
+			expandRows: true,
+			fixedWeekCount: true,
 			stickyHeaderDates: true,
 			handleWindowResize: true,
 			windowResizeDelay: 100,
-			height: 'calc(100vh - 180px)',  // shrink to fit screen
-			aspectRatio: 1.35,
+			height: 'auto',
+			contentHeight: 'auto',
 			
 			/* Time grid range/slots */
 			slotMinTime: '08:00:00',
-			slotMaxTime: '22:00:00',
-			scrollTime: '10:00:00',
-			slotDuration: '01:00:00',      // fewer slots → more compact
-			snapDuration: '00:30:00',
+			slotMaxTime: '25:00:00',      // show 8am → 1am next day
+			scrollTime: '08:00:00',
+			slotDuration: '00:30:00',
+			snapDuration: '00:15:00',
 			
 			/* Default duration for events without an end (assignments) */
 			defaultTimedEventDuration: '01:00:00',
@@ -66,7 +66,7 @@
 			
 			/* Month cell behavior */
 			dayMaxEvents: true,
-			dayMaxEventRows: 4,
+			dayMaxEventRows: 6,
 			moreLinkClick: 'popover',
 			moreLinkText: 'more',
 			dayHeaderFormat: { weekday: 'short', month: 'numeric', day: 'numeric' },
@@ -95,13 +95,13 @@
 </script>
 
 <style>
-	#calendar { max-width: 1100px; margin: 0 auto 40px auto; }
-	.fc .fc-toolbar-title { font-size: 1.1rem; }
+    #calendar { max-width: 1200px; margin: 0 auto 24px auto; }
+    .fc .fc-toolbar-title { font-size: 1.2rem; }
 	/* Month cells: keep each event in its own row, prevent text spill */
-	.fc-daygrid-event { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 1px 0; font-size: 12px; padding: 1px 2px; }
+    .fc-daygrid-event { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 2px 0; font-size: 12px; padding: 2px 3px; }
 	/* Ensure timed items remain legible */
-	.fc-timegrid-slot { height: 32px; }
-	.fc-timegrid-event { min-height: 26px; }
+    .fc-timegrid-slot { height: 42px; }
+    .fc-timegrid-event { min-height: 32px; }
 	.fc-timegrid-event.assignment .fc-event-main { font-weight: 600; }
 </style>
 {% endblock %}
