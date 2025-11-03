@@ -383,6 +383,7 @@ def calendar_view():
 	# Fetch tasks for current user to render as calendar events
 	sql = """
 		SELECT t.id, t.title, t.status, t.due_date,
+		       t.due_at,
 		       t.canvas_assignment_id, m.code AS module_code
 		FROM tasks t
 		JOIN modules m ON m.id = t.module_id
@@ -399,9 +400,18 @@ def calendar_view():
 	# Prepare events for FullCalendar
 	events: List[Dict] = []
 	for r in rows:
-		# FullCalendar expects ISO date strings (YYYY-MM-DD) for all-day events
-		due_date = r.get("due_date")
-		date_str = due_date.strftime("%Y-%m-%d") if hasattr(due_date, "strftime") else str(due_date)
+		# Prefer timed event if due_at is present; otherwise all-day by date
+		due_at = r.get("due_at")
+		start_val = due_at or r.get("due_date")
+		if due_at:
+			try:
+				start_iso = due_at.isoformat()
+			except Exception:
+				start_iso = str(due_at)
+		else:
+			# All-day date string
+			due_date = r.get("due_date")
+			start_iso = due_date.strftime("%Y-%m-%d") if hasattr(due_date, "strftime") else str(due_date)
 
 		# Color coding by status
 		status = r.get("status", "pending")
@@ -416,17 +426,19 @@ def calendar_view():
 		is_canvas = r.get("canvas_assignment_id") is not None
 		prefix = "📚 " if is_canvas else ""
 
-		events.append({
+		event = {
 			"id": r.get("id"),
 			"title": f"{prefix}{r.get('title')} [{r.get('module_code')}]",
-			"start": date_str,
-			"allDay": True,
+			"start": start_iso,
+			"allDay": False if due_at else True,
 			"color": color,
 			"extendedProps": {
 				"status": status,
 				"module": r.get("module_code")
 			}
-		})
+		}
+		# If we only know date, keep allDay true, else timed
+		events.append(event)
 
 	# Include timed events (lectures) from events table
 	try:

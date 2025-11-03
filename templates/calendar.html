@@ -48,6 +48,8 @@
 			themeSystem: 'standard',
 			eventDisplay: 'block',
 			displayEventTime: true,
+			eventTimeFormat: { hour: 'numeric', minute: '2-digit', hour12: true, meridiem: 'long' },
+			slotLabelFormat: { hour: 'numeric', minute: '2-digit', hour12: true, meridiem: 'long' },
 			events,
 			eventDidMount: function(info) {
 				const props = info.event.extendedProps || {};

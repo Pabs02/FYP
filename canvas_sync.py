@@ -80,9 +80,15 @@ def sync_canvas_assignments(canvas_url: str, api_token: str, student_id: int, db
                             stats['assignments_skipped'] += 1
                             continue
                         
-                        # Parse due date
-                        due_date_str = assignment.due_at.split('T')[0]
-                        due_date = datetime.strptime(due_date_str, '%Y-%m-%d').date()
+                        # Parse due date and full timestamp (due_at)
+                        due_dt_iso = assignment.due_at.replace('Z', '+00:00')
+                        try:
+                            due_dt = datetime.fromisoformat(due_dt_iso)
+                        except Exception:
+                            # Fallback to date-only
+                            due_date_str = assignment.due_at.split('T')[0]
+                            due_dt = datetime.strptime(due_date_str, '%Y-%m-%d')
+                        due_date = due_dt.date()
                         
                         # Check if assignment already exists
                         existing_task = db_fetch_one(
@@ -101,11 +107,13 @@ def sync_canvas_assignments(canvas_url: str, api_token: str, student_id: int, db
                                 """UPDATE tasks 
                                    SET title = :title,
                                        due_date = :due_date,
+                                       due_at = :due_at,
                                        module_id = :module_id
                                    WHERE id = :task_id""",
                                 {
                                     "title": assignment.name,
                                     "due_date": due_date,
+                                    "due_at": due_dt,
                                     "module_id": module_id,
                                     "task_id": existing_task['id']
                                 }
@@ -115,13 +123,14 @@ def sync_canvas_assignments(canvas_url: str, api_token: str, student_id: int, db
                             # Insert new task
                             db_execute(
                                 """INSERT INTO tasks 
-                                   (title, student_id, module_id, due_date, status, canvas_assignment_id, canvas_course_id)
-                                   VALUES (:title, :student_id, :module_id, :due_date, :status, :canvas_assignment_id, :canvas_course_id)""",
+                                   (title, student_id, module_id, due_date, due_at, status, canvas_assignment_id, canvas_course_id)
+                                   VALUES (:title, :student_id, :module_id, :due_date, :due_at, :status, :canvas_assignment_id, :canvas_course_id)""",
                                 {
                                     "title": assignment.name,
                                     "student_id": student_id,
                                     "module_id": module_id,
                                     "due_date": due_date,
+                                    "due_at": due_dt,
                                     "status": "pending",
                                     "canvas_assignment_id": assignment.id,
                                     "canvas_course_id": course.id
