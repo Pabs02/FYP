@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Calendar{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+	<div class="d-flex align-items-center justify-content-between mb-3">
+		<h2 class="mb-0">🗓️ Assignment Calendar</h2>
+		<div>
+			<a href="/tasks" class="btn btn-outline-secondary">List View</a>
+		</div>
+	</div>
+	<div id="calendar"></div>
+</div>
+
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css' rel='stylesheet' />
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
+
+<script>
+	document.addEventListener('DOMContentLoaded', function() {
+		const calendarEl = document.getElementById('calendar');
+		const calendar = new FullCalendar.Calendar(calendarEl, {
+			initialView: 'dayGridMonth',
+			headerToolbar: {
+				left: 'prev,next today',
+				center: 'title',
+				right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+			},
+			nowIndicator: true,
+			editable: false,
+			navLinks: true,
+			themeSystem: 'standard',
+			eventDisplay: 'block',
+			displayEventTime: false,
+			events: {{ events | tojson }},
+			eventDidMount: function(info) {
+				// Add tooltip text
+				const props = info.event.extendedProps || {};
+				const status = props.status ? props.status.replace('_',' ') : 'pending';
+				info.el.title = `${info.event.title} - ${status}`;
+			}
+		});
+		calendar.render();
+	});
+</script>
+
+<style>
+	#calendar {
+		max-width: 1100px;
+		margin: 0 auto 40px auto;
+	}
+	.fc .fc-toolbar-title {
+		font-size: 1.25rem;
+	}
+</style>
+{% endblock %}

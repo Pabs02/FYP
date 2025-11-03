@@ -376,6 +376,61 @@ def tasks():
 	return render_template("tasks.html", tasks=rows)
 
 
+@app.route("/calendar")
+@login_required
+def calendar_view():
+	"""Calendar view of tasks by due date for the current user"""
+	# Fetch tasks for current user to render as calendar events
+	sql = """
+		SELECT t.id, t.title, t.status, t.due_date,
+		       t.canvas_assignment_id, m.code AS module_code
+		FROM tasks t
+		JOIN modules m ON m.id = t.module_id
+		WHERE t.student_id = :student_id
+		AND t.due_date IS NOT NULL
+		ORDER BY t.due_date ASC
+		LIMIT 500
+	"""
+	try:
+		rows: List[Dict] = sb_fetch_all(sql, {"student_id": current_user.id})
+	except Exception:
+		rows = []
+
+	# Prepare events for FullCalendar
+	events: List[Dict] = []
+	for r in rows:
+		# FullCalendar expects ISO date strings (YYYY-MM-DD) for all-day events
+		due_date = r.get("due_date")
+		date_str = due_date.strftime("%Y-%m-%d") if hasattr(due_date, "strftime") else str(due_date)
+
+		# Color coding by status
+		status = r.get("status", "pending")
+		if status == "completed":
+			color = "#16a34a"  # green
+		elif status == "in_progress":
+			color = "#f59e0b"  # amber
+		else:
+			color = "#2563eb"  # blue (pending/default)
+
+		# Badge for Canvas-synced tasks
+		is_canvas = r.get("canvas_assignment_id") is not None
+		prefix = "📚 " if is_canvas else ""
+
+		events.append({
+			"id": r.get("id"),
+			"title": f"{prefix}{r.get('title')} [{r.get('module_code')}]",
+			"start": date_str,
+			"allDay": True,
+			"color": color,
+			"extendedProps": {
+				"status": status,
+				"module": r.get("module_code")
+			}
+		})
+
+	return render_template("calendar.html", events=events)
+
+
 @app.route("/analytics")
 @login_required
 def analytics():
