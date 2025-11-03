@@ -523,6 +523,43 @@ def debug_calendar():
 	return jsonify({"ok": True, "counts": counts}), 200
 
 
+@app.route("/debug/events")
+@login_required
+def debug_events():
+	"""Return next 50 timed events for current user for troubleshooting"""
+	try:
+		rows = sb_fetch_all(
+			"""
+			SELECT id, title, start_at, end_at, canvas_course_id
+			FROM events
+			WHERE student_id = :sid
+			AND start_at >= NOW() - INTERVAL '14 days'
+			ORDER BY start_at ASC
+			LIMIT 50
+			""",
+			{"sid": current_user.id}
+		)
+		# Normalize for JSON
+		def to_iso(x):
+			try:
+				return x.isoformat()
+			except Exception:
+				return str(x)
+		items = [
+			{
+				"id": r.get("id"),
+				"title": r.get("title"),
+				"start_at": to_iso(r.get("start_at")),
+				"end_at": to_iso(r.get("end_at")),
+				"canvas_course_id": r.get("canvas_course_id"),
+			}
+			for r in rows
+		]
+		return jsonify({"ok": True, "events": items}), 200
+	except Exception as exc:
+		return jsonify({"ok": False, "error": str(exc)}), 500
+
+
 @app.route("/analytics")
 @login_required
 def analytics():
