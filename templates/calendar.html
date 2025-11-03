@@ -46,10 +46,22 @@
 			editable: false,
 			navLinks: true,
 			themeSystem: 'standard',
+			expandRows: true,
+			stickyHeaderDates: true,
+			
+			/* Prevent visual overlaps and keep events in distinct boxes */
+			eventOverlap: false,
+			slotEventOverlap: false,
+			dayMaxEvents: true,
+			dayMaxEventRows: true,
+			moreLinkClick: 'popover',
+			
+			/* Rendering */
 			eventDisplay: 'block',
 			displayEventTime: true,
 			eventTimeFormat: { hour: 'numeric', minute: '2-digit', hour12: true, meridiem: 'long' },
 			slotLabelFormat: { hour: 'numeric', minute: '2-digit', hour12: true, meridiem: 'long' },
+			eventOrder: ['start','-allDay','title'],
 			events,
 			eventDidMount: function(info) {
 				const props = info.event.extendedProps || {};
@@ -65,5 +77,7 @@
 <style>
 	#calendar { max-width: 1100px; margin: 0 auto 40px auto; }
 	.fc .fc-toolbar-title { font-size: 1.25rem; }
+	/* Ensure distinct columns for simultaneous timeGrid events */
+	.fc-timegrid-event { margin-right: 2px; }
 </style>
 {% endblock %}
