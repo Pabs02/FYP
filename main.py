@@ -473,7 +473,28 @@ def calendar_view():
 			}
 		})
 
+	# Simple diagnostics to server logs
+	try:
+		print(f"[calendar] user={current_user.id} events_total={len(events)}")
+	except Exception:
+		pass
+
 	return render_template("calendar.html", events=events)
+
+
+@app.route("/debug/calendar")
+@login_required
+def debug_calendar():
+	"""Return counts of tasks and events for current user for troubleshooting"""
+	counts = {"tasks": 0, "events": 0}
+	try:
+		row = sb_fetch_one("SELECT COUNT(*) AS c FROM tasks WHERE student_id = :sid", {"sid": current_user.id})
+		counts["tasks"] = row["c"] if row else 0
+		rowe = sb_fetch_one("SELECT COUNT(*) AS c FROM events WHERE student_id = :sid", {"sid": current_user.id})
+		counts["events"] = rowe["c"] if rowe else 0
+	except Exception as exc:
+		return jsonify({"ok": False, "error": str(exc)}), 500
+	return jsonify({"ok": True, "counts": counts}), 200
 
 
 @app.route("/analytics")
