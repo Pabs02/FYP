@@ -402,16 +402,22 @@ def calendar_view():
 	for r in rows:
 		# Prefer timed event if due_at is present; otherwise all-day by date
 		due_at = r.get("due_at")
-		start_val = due_at or r.get("due_date")
 		if due_at:
 			try:
 				start_iso = due_at.isoformat()
 			except Exception:
 				start_iso = str(due_at)
+			# Provide a small duration so timed assignments are visible (15 minutes)
+			try:
+				from datetime import timedelta
+				end_iso = (r.get("due_at") + timedelta(minutes=15)).isoformat()
+			except Exception:
+				end_iso = start_iso
 		else:
 			# All-day date string
 			due_date = r.get("due_date")
 			start_iso = due_date.strftime("%Y-%m-%d") if hasattr(due_date, "strftime") else str(due_date)
+			end_iso = start_iso
 
 		# Color coding by status
 		status = r.get("status", "pending")
@@ -430,6 +436,7 @@ def calendar_view():
 			"id": r.get("id"),
 			"title": f"{prefix}{r.get('title')} [{r.get('module_code')}]",
 			"start": start_iso,
+			"end": None if (not due_at) else end_iso,
 			"allDay": False if due_at else True,
 			"color": color,
 			"extendedProps": {
