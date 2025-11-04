@@ -233,7 +233,6 @@ def sync_canvas_calendar_events(
                     stats["errors"] += 1
                     break
 
-        # Upsert events
         for ev in events:
             try:
                 canvas_event_id = ev.get('id')
