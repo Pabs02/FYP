@@ -175,7 +175,7 @@ def sync_canvas_calendar_events(
     if not start_iso or not end_iso:
         from datetime import datetime, timedelta, timezone
         now = datetime.now(timezone.utc)
-        start_iso = (now - timedelta(days=7)).date().isoformat()
+        start_iso = (now - timedelta(days=30)).date().isoformat()
         end_iso = (now + timedelta(days=30)).date().isoformat()
 
     headers = {"Authorization": f"Bearer {api_token}"}
@@ -184,7 +184,7 @@ def sync_canvas_calendar_events(
         canvas = Canvas(canvas_url, api_token)
         user = canvas.get_current_user()
         courses = list(user.get_courses(enrollment_state='active'))
-        context_codes = [f"course_{c.id}" for c in courses[:15] if getattr(c, 'id', None)]
+        context_codes = [f"course_{c.id}" for c in courses[:10] if getattr(c, 'id', None)]
         try:
             if getattr(user, 'id', None):
                 context_codes.append(f"user_{user.id}")
@@ -193,7 +193,6 @@ def sync_canvas_calendar_events(
 
         params = {
             "type": "event",
-            "all_events": "true",
             "start_date": start_iso,
             "end_date": end_iso,
         }
