@@ -69,7 +69,20 @@
 			dayMaxEventRows: 6,
 			moreLinkClick: 'popover',
 			moreLinkText: 'more',
-			dayHeaderFormat: { weekday: 'short' },
+			dayHeaderFormat: { weekday: 'short', day: 'numeric' },
+			titleFormat: { 
+				year: 'numeric',
+				month: 'long',
+				day: 'numeric'
+			},
+			views: {
+				timeGridDay: {
+					titleFormat: { year: 'numeric', month: 'long', day: 'numeric' }
+				},
+				timeGridWeek: {
+					titleFormat: { year: 'numeric', month: 'long', day: 'numeric' }
+				}
+			},
 			showNonCurrentDates: false,
 			fixedWeekCount: false,
 			eventOrder: ['start','-allDay','title'],
