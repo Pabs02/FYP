@@ -46,7 +46,7 @@
 			navLinks: true,
 			themeSystem: 'standard',
 			expandRows: true,
-			fixedWeekCount: true,
+			fixedWeekCount: false,
 			stickyHeaderDates: true,
 			handleWindowResize: true,
 			windowResizeDelay: 100,
@@ -70,6 +70,8 @@
 			moreLinkClick: 'popover',
 			moreLinkText: 'more',
 			dayHeaderFormat: { weekday: 'short', day: 'numeric' },
+			showNonCurrentDates: false,
+			fixedWeekCount: false,
 			eventOrder: ['start','-allDay','title'],
 			eventOrderStrict: true,
 			
@@ -97,11 +99,12 @@
 <style>
     #calendar { max-width: 1200px; margin: 0 auto 24px auto; }
     .fc .fc-toolbar-title { font-size: 1.2rem; }
-	/* Month cells: keep each event in its own row, prevent text spill */
     .fc-daygrid-event { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 2px 0; font-size: 12px; padding: 2px 3px; }
-	/* Ensure timed items remain legible */
     .fc-timegrid-slot { height: 42px; }
     .fc-timegrid-event { min-height: 32px; }
 	.fc-timegrid-event.assignment .fc-event-main { font-weight: 600; }
+	/* Hide dates from other months completely */
+	.fc-day-other { visibility: hidden; }
+	.fc-day-other .fc-daygrid-day-number { display: none; }
 </style>
 {% endblock %}
