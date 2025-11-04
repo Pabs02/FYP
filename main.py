@@ -712,7 +712,7 @@ def sync_canvas():
 				success_msg += f", Modules Created: {stats['modules_created']}"
 			
 			flash(success_msg, "success")
-			return redirect(url_for("tasks"))
+			return redirect(url_for("sync_canvas"))
 			
 		except Exception as e:
 			flash(f"Canvas sync failed: {str(e)}", "error")
