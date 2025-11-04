@@ -691,18 +691,51 @@ def sync_canvas():
 
 			# Perform calendar events sync (lectures/timed events) - skip if it takes too long
 			print(f"[sync] Starting calendar events sync...")
+			cal_stats = {"events_new": 0, "events_updated": 0, "errors": 0}
 			try:
-				cal_stats = sync_canvas_calendar_events(
-					canvas_url=CANVAS_URL,
-					api_token=current_user.canvas_api_token,
-					student_id=current_user.id,
-					db_execute=sb_execute,
-					db_fetch_all=sb_fetch_all,
-					db_fetch_one=sb_fetch_one
-				)
-				print(f"[sync] Calendar events sync complete: {cal_stats}")
+				# Use threading timeout to prevent indefinite hanging
+				import threading
+				import queue
+				
+				result_queue = queue.Queue()
+				
+				def sync_worker():
+					try:
+						result = sync_canvas_calendar_events(
+							canvas_url=CANVAS_URL,
+							api_token=current_user.canvas_api_token,
+							student_id=current_user.id,
+							db_execute=sb_execute,
+							db_fetch_all=sb_fetch_all,
+							db_fetch_one=sb_fetch_one
+						)
+						result_queue.put(("success", result))
+					except Exception as e:
+						result_queue.put(("error", str(e)))
+				
+				thread = threading.Thread(target=sync_worker, daemon=True)
+				thread.start()
+				thread.join(timeout=15)  # 15 second timeout
+				
+				if thread.is_alive():
+					print(f"[sync] Calendar events sync timed out after 15 seconds")
+					cal_stats = {"events_new": 0, "events_updated": 0, "errors": 1}
+					flash("Calendar events sync timed out (skipped)", "warning")
+				else:
+					if not result_queue.empty():
+						status, result = result_queue.get()
+						if status == "success":
+							cal_stats = result
+							print(f"[sync] Calendar events sync complete: {cal_stats}")
+						else:
+							print(f"[sync] Calendar events sync failed: {result}")
+							cal_stats = {"events_new": 0, "events_updated": 0, "errors": 1}
+							flash(f"Calendar events sync skipped: {result}", "warning")
+					else:
+						print(f"[sync] Calendar events sync returned no result")
+						cal_stats = {"events_new": 0, "events_updated": 0, "errors": 1}
 			except Exception as cal_error:
-				print(f"[sync] Calendar events sync failed: {cal_error}")
+				print(f"[sync] Calendar events sync exception: {cal_error}")
 				cal_stats = {"events_new": 0, "events_updated": 0, "errors": 1}
 				flash(f"Calendar events sync skipped: {str(cal_error)}", "warning")
 			
