@@ -694,6 +694,10 @@ def sync_canvas():
 			cal_stats = {"events_new": 0, "events_updated": 0, "errors": 0}
 			try:
 				# Use threading timeout to prevent indefinite hanging
+				# Capture values before thread (current_user is thread-local)
+				api_token = current_user.canvas_api_token
+				student_id = current_user.id
+				
 				import threading
 				import queue
 				
@@ -703,8 +707,8 @@ def sync_canvas():
 					try:
 						result = sync_canvas_calendar_events(
 							canvas_url=CANVAS_URL,
-							api_token=current_user.canvas_api_token,
-							student_id=current_user.id,
+							api_token=api_token,
+							student_id=student_id,
 							db_execute=sb_execute,
 							db_fetch_all=sb_fetch_all,
 							db_fetch_one=sb_fetch_one
