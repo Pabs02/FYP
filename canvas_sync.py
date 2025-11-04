@@ -35,8 +35,9 @@ def sync_canvas_assignments(canvas_url: str, api_token: str, student_id: int, db
     }
     
     try:
-        # Initialize Canvas connection
+        # Initialize Canvas connection with timeout
         canvas = Canvas(canvas_url, api_token)
+        canvas._session.timeout = 30  # 30 second timeout for API calls
         
         # Get current user
         user = canvas.get_current_user()
@@ -70,8 +71,19 @@ def sync_canvas_assignments(canvas_url: str, api_token: str, student_id: int, db
                 
                 module_id = module['id']
                 
-                # Get assignments for this course
-                assignments = list(course.get_assignments())
+                # Get assignments for this course (only upcoming/past 30 days to speed up sync)
+                try:
+                    assignments = list(course.get_assignments(bucket="upcoming"))
+                    # Also get recent past assignments (last 30 days)
+                    past_assignments = list(course.get_assignments(bucket="past"))
+                    # Limit past to recent ones only
+                    from datetime import datetime, timedelta
+                    cutoff = datetime.now() - timedelta(days=30)
+                    recent_past = [a for a in past_assignments if hasattr(a, 'due_at') and a.due_at and datetime.fromisoformat(a.due_at.replace('Z', '+00:00')) > cutoff]
+                    assignments.extend(recent_past)
+                except Exception:
+                    # Fallback to all assignments if bucket filtering fails
+                    assignments = list(course.get_assignments())
                 
                 for assignment in assignments:
                     try:
@@ -213,26 +225,36 @@ def sync_canvas_calendar_events(
             per_params = dict(params)
             per_params["context_codes[]"] = code
             url = f"{canvas_url}/api/v1/calendar_events"
-            while url:
-                resp = requests.get(url, headers=headers, params=per_params)
-                if resp.status_code != 200:
+            page_count = 0
+            max_pages = 50  # Safety limit to prevent infinite loops
+            while url and page_count < max_pages:
+                try:
+                    resp = requests.get(url, headers=headers, params=per_params, timeout=30)
+                    if resp.status_code != 200:
+                        stats["errors"] += 1
+                        break
+                    page_items = resp.json()
+                    events.extend(page_items)
+                    page_count += 1
+                    # Pagination via Link header
+                    next_url = None
+                    link_header = resp.headers.get('Link') or resp.headers.get('link')
+                    if link_header:
+                        for part in link_header.split(','):
+                            if 'rel="next"' in part:
+                                start = part.find('<') + 1
+                                end = part.find('>')
+                                if start > 0 and end > start:
+                                    next_url = part[start:end]
+                                break
+                    url = next_url
+                    per_params = None  # next pages include params in URL already
+                except requests.exceptions.Timeout:
                     stats["errors"] += 1
                     break
-                page_items = resp.json()
-                events.extend(page_items)
-                # Pagination via Link header
-                next_url = None
-                link_header = resp.headers.get('Link') or resp.headers.get('link')
-                if link_header:
-                    for part in link_header.split(','):
-                        if 'rel="next"' in part:
-                            start = part.find('<') + 1
-                            end = part.find('>')
-                            if start > 0 and end > start:
-                                next_url = part[start:end]
-                            break
-                url = next_url
-                per_params = None  # next pages include params in URL already
+                except Exception as e:
+                    stats["errors"] += 1
+                    break
 
         # Upsert events
         for ev in events:
