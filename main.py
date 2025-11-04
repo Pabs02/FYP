@@ -672,11 +672,13 @@ def sync_canvas():
 		try:
 			# Import Canvas sync module
 			from canvas_sync import sync_canvas_assignments, sync_canvas_calendar_events
+			import signal
 			
 			# Canvas URL for UCC
 			CANVAS_URL = "https://ucc.instructure.com"
 			
-			# Perform assignment sync
+			# Perform assignment sync with timeout protection
+			print(f"[sync] Starting assignment sync for user {current_user.id}...")
 			stats = sync_canvas_assignments(
 				canvas_url=CANVAS_URL,
 				api_token=current_user.canvas_api_token,
@@ -685,16 +687,24 @@ def sync_canvas():
 				db_fetch_all=sb_fetch_all,
 				db_fetch_one=sb_fetch_one
 			)
+			print(f"[sync] Assignment sync complete: {stats}")
 
-			# Perform calendar events sync (lectures/timed events)
-			cal_stats = sync_canvas_calendar_events(
-				canvas_url=CANVAS_URL,
-				api_token=current_user.canvas_api_token,
-				student_id=current_user.id,
-				db_execute=sb_execute,
-				db_fetch_all=sb_fetch_all,
-				db_fetch_one=sb_fetch_one
-			)
+			# Perform calendar events sync (lectures/timed events) - skip if it takes too long
+			print(f"[sync] Starting calendar events sync...")
+			try:
+				cal_stats = sync_canvas_calendar_events(
+					canvas_url=CANVAS_URL,
+					api_token=current_user.canvas_api_token,
+					student_id=current_user.id,
+					db_execute=sb_execute,
+					db_fetch_all=sb_fetch_all,
+					db_fetch_one=sb_fetch_one
+				)
+				print(f"[sync] Calendar events sync complete: {cal_stats}")
+			except Exception as cal_error:
+				print(f"[sync] Calendar events sync failed: {cal_error}")
+				cal_stats = {"events_new": 0, "events_updated": 0, "errors": 1}
+				flash(f"Calendar events sync skipped: {str(cal_error)}", "warning")
 			
 			# Show results
 			if stats['errors']:

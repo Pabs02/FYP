@@ -35,9 +35,9 @@ def sync_canvas_assignments(canvas_url: str, api_token: str, student_id: int, db
     }
     
     try:
-        # Initialize Canvas connection with timeout
+        # Initialize Canvas connection
+        # Note: canvasapi library uses requests, timeout handled at request level
         canvas = Canvas(canvas_url, api_token)
-        canvas._session.timeout = 30  # 30 second timeout for API calls
         
         # Get current user
         user = canvas.get_current_user()
@@ -45,6 +45,9 @@ def sync_canvas_assignments(canvas_url: str, api_token: str, student_id: int, db
         # Get active courses
         courses = list(user.get_courses(enrollment_state='active'))
         stats['courses_found'] = len(courses)
+        
+        if not courses:
+            return stats  # Early return if no courses
         
         for course in courses:
             try:
@@ -188,12 +191,12 @@ def sync_canvas_calendar_events(
     """
     stats = {"events_new": 0, "events_updated": 0, "errors": 0}
 
-    # Date window: default to past 14 days and next 90 days (Canvas prefers YYYY-MM-DD)
+    # Date window: default to past 7 days and next 30 days (reduced for faster sync)
     if not start_iso or not end_iso:
         from datetime import datetime, timedelta, timezone
         now = datetime.now(timezone.utc)
-        start_iso = (now - timedelta(days=14)).date().isoformat()
-        end_iso = (now + timedelta(days=90)).date().isoformat()
+        start_iso = (now - timedelta(days=7)).date().isoformat()
+        end_iso = (now + timedelta(days=30)).date().isoformat()
 
     headers = {"Authorization": f"Bearer {api_token}"}
 
@@ -202,7 +205,7 @@ def sync_canvas_calendar_events(
         canvas = Canvas(canvas_url, api_token)
         user = canvas.get_current_user()
         courses = list(user.get_courses(enrollment_state='active'))
-        context_codes = [f"course_{c.id}" for c in courses if getattr(c, 'id', None)]
+        context_codes = [f"course_{c.id}" for c in courses[:15] if getattr(c, 'id', None)]  # Limit to 15 courses max
         # Include user's personal calendar for manually added lectures/events
         try:
             if getattr(user, 'id', None):
