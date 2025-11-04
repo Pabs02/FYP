@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """
-Test Canvas API connection and fetch user data
-Run this to verify your Canvas token works before integrating
+Test Canvas API connection
 """
 
 from canvasapi import Canvas
 from datetime import datetime
 
-# UCC Canvas configuration
 CANVAS_URL = "https://ucc.instructure.com"
 API_TOKEN = "13518~WXBMkD6LHmBmJeePx3t2ZAeFNNwyUkTZ4yUy4c4eP3Q4EkBZyuLZUGKr47ycrCrA"
 
@@ -17,32 +15,27 @@ def test_canvas_connection():
     print("="*70)
     
     try:
-        # Initialize Canvas
         canvas = Canvas(CANVAS_URL, API_TOKEN)
         print(f"\n✅ Connected to: {CANVAS_URL}")
         
-        # Get current user
         user = canvas.get_current_user()
         print(f"✅ Authenticated User: {user.name}")
         print(f"   └─ Email: {user.email if hasattr(user, 'email') else 'N/A'}")
         print(f"   └─ User ID: {user.id}")
         
-        # Get enrolled courses
         print(f"\n📚 Fetching Your Courses...")
         courses = list(user.get_courses(enrollment_state='active'))
         print(f"✅ Found {len(courses)} Active Courses:")
         
-        for course in courses[:10]:  # Show first 10
+        for course in courses[:10]:
             print(f"\n   📖 {course.name}")
             print(f"      └─ Course ID: {course.id}")
             print(f"      └─ Code: {course.course_code if hasattr(course, 'course_code') else 'N/A'}")
             
-            # Get assignments for this course
             try:
                 assignments = list(course.get_assignments())
                 print(f"      └─ Assignments: {len(assignments)}")
                 
-                # Show upcoming assignments
                 upcoming = [a for a in assignments if hasattr(a, 'due_at') and a.due_at]
                 if upcoming:
                     print(f"      └─ Upcoming due dates:")
