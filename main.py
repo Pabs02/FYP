@@ -161,9 +161,7 @@ def test_database_connection():
 		return False
 
 
-# ============================================================================
-# AUTHENTICATION ROUTES
-# ============================================================================
+# AUTHENTICATION ROUTE
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -328,9 +326,9 @@ def update_profile():
 	return redirect(url_for("profile"))
 
 
-# ============================================================================
+
 # MAIN APPLICATION ROUTES
-# ============================================================================
+
 
 @app.route("/")
 @login_required
@@ -407,7 +405,7 @@ def calendar_view():
 				start_iso = due_at.isoformat()
 			except Exception:
 				start_iso = str(due_at)
-			# Give a small, same-day duration to avoid spanning into next day (prevents list duplicates)
+			# Give a small, same-day duration to avoid spanning into next day
 			try:
 				from datetime import timedelta
 				start_dt = r.get("due_at")
