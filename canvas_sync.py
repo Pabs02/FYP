@@ -225,7 +225,7 @@ def sync_canvas_calendar_events(
                                     next_url = part[start:end]
                                 break
                     url = next_url
-                    per_params = None  # next pages include params in URL already
+                    per_params = None
                 except requests.exceptions.Timeout:
                     stats["errors"] += 1
                     break
