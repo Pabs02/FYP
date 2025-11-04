@@ -1,13 +1,13 @@
--- ============================================================================
--- Add Canvas Integration Fields to Tasks Table
--- Run this in Supabase SQL Editor before syncing Canvas assignments
--- ============================================================================
 
--- Add Canvas assignment ID field
+-- Add Canvas Integration Fields to Tasks Table
+
+
+
+
 ALTER TABLE tasks 
 ADD COLUMN IF NOT EXISTS canvas_assignment_id BIGINT;
 
--- Add Canvas course ID field
+
 ALTER TABLE tasks 
 ADD COLUMN IF NOT EXISTS canvas_course_id BIGINT;
 
@@ -34,10 +34,9 @@ WHERE table_name = 'tasks'
 AND column_name LIKE '%canvas%'
 ORDER BY ordinal_position;
 
--- ============================================================================
--- Migration Complete!
--- You can now sync Canvas assignments
--- ============================================================================
+
+
+
 
 SELECT 'Canvas fields added successfully!' as message;
 

@@ -18,7 +18,6 @@ def add_sample_data():
     print("🌱 Adding realistic sample data...")
     
     try:
-        # Add more students
         students = [
             (2, 'Bob Smith'),
             (3, 'Carol Davis'),
@@ -168,10 +167,8 @@ def add_sample_data():
 
 def main():
     """Main function to add sample data."""
-    # Load environment variables
     load_dotenv()
     
-    # Check if we have database connection
     if not get_supabase_database_url():
         print("❌ No Supabase database URL found. Please set SUPABASE_DATABASE_URL environment variable.")
         return

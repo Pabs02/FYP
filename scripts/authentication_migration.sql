@@ -1,7 +1,6 @@
--- ============================================================================
+
 -- Authentication Migration SQL
--- Run this directly in Supabase SQL Editor to add authentication fields
--- ============================================================================
+
 
 -- Add authentication fields to students table
 ALTER TABLE students 
@@ -31,8 +30,5 @@ FROM information_schema.columns
 WHERE table_name = 'students'
 ORDER BY ordinal_position;
 
--- ============================================================================
--- Migration Complete!
--- Students can now register with email/password
--- ============================================================================
+
 

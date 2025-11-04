@@ -11,16 +11,14 @@ SUPABASE_URL = get_supabase_database_url()
 
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
-app.secret_key = "your-secret-key-change-this-in-production"  # For flash messages and sessions
+app.secret_key = "your-secret-key-change-this-in-production"
 
-# Initialize Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Please log in to access this page.'
 
 
-# User model for Flask-Login
 class User(UserMixin):
 	"""User model for authentication"""
 	def __init__(self, id: int, name: str, email: str, canvas_api_token: Optional[str] = None):
@@ -62,23 +60,19 @@ def load_user(user_id):
 	return User.get(int(user_id))
 
 
-# Custom Jinja2 filter for Irish date format (DD/MM/YYYY)
 @app.template_filter('irish_date')
 def format_irish_date(value):
-	"""Format date/datetime to Irish format DD/MM/YYYY"""
+	"""Format date to DD/MM/YYYY"""
 	if value is None:
 		return ""
 	
-	# Handle both datetime and date objects, and strings
 	if isinstance(value, str):
 		try:
-			# Try parsing common datetime formats
 			from datetime import datetime
 			value = datetime.fromisoformat(value.replace('Z', '+00:00'))
 		except:
 			return value
 	
-	# Format as DD/MM/YYYY
 	try:
 		return value.strftime('%d/%m/%Y')
 	except:
@@ -87,7 +81,7 @@ def format_irish_date(value):
 
 @app.template_filter('irish_datetime')
 def format_irish_datetime(value):
-	"""Format datetime to Irish format DD/MM/YYYY HH:MM"""
+	"""Format datetime to DD/MM/YYYY HH:MM"""
 	if value is None:
 		return ""
 	
@@ -104,16 +98,13 @@ def format_irish_datetime(value):
 		return str(value)
 
 
-# Startup Connection Test
 def test_database_connection():
-	"""Test Supabase database connection on startup"""
+	"""Check database connection on startup"""
 	print("\n" + "="*70)
 	print("🚀 STUDENT TASK MANAGEMENT SYSTEM")
 	print("="*70)
 	
-	# Check database URL
 	if SUPABASE_URL:
-		# Extract safe info (hide password)
 		try:
 			from urllib.parse import urlparse
 			parsed = urlparse(SUPABASE_URL)
@@ -124,14 +115,12 @@ def test_database_connection():
 		except:
 			print(f"📊 Database: Supabase PostgreSQL (configured)")
 		
-		# Test connection
 		try:
 			result = sb_fetch_one("SELECT version(), current_database(), current_user")
 			print(f"✅ Database Connection: SUCCESS")
 			print(f"   └─ Database: {result['current_database']}")
 			print(f"   └─ User: {result['current_user']}")
 			
-			# Test table access
 			tables = sb_fetch_all("""
 				SELECT table_name 
 				FROM information_schema.tables 
@@ -161,12 +150,9 @@ def test_database_connection():
 		return False
 
 
-# AUTHENTICATION ROUTE
-
 @app.route("/login", methods=["GET", "POST"])
 def login():
 	"""User login page and handler"""
-	# Redirect if already logged in
 	if current_user.is_authenticated:
 		return redirect(url_for("index"))
 	
@@ -178,7 +164,6 @@ def login():
 			flash("Please provide both email and password", "error")
 			return render_template("login.html")
 		
-		# Get user from database
 		user_data = sb_fetch_one(
 			"SELECT id, name, email, password_hash, canvas_api_token FROM students WHERE email = :email",
 			{"email": email}
@@ -188,7 +173,6 @@ def login():
 			flash("Invalid email or password", "error")
 			return render_template("login.html")
 		
-		# Check password
 		if not user_data.get('password_hash'):
 			flash("Account not activated. Please register first.", "error")
 			return render_template("login.html")
@@ -206,7 +190,6 @@ def login():
 		)
 		login_user(user, remember=True)
 		
-		# Update last login time
 		sb_execute(
 			"UPDATE students SET last_login = NOW() WHERE id = :id",
 			{"id": user.id}
@@ -214,7 +197,6 @@ def login():
 		
 		flash(f"Welcome back, {user.name}!", "success")
 		
-		# Redirect to next page or home
 		next_page = request.args.get('next')
 		return redirect(next_page) if next_page else redirect(url_for('index'))
 	
@@ -224,7 +206,6 @@ def login():
 @app.route("/register", methods=["GET", "POST"])
 def register():
 	"""User registration page and handler"""
-	# Redirect if already logged in
 	if current_user.is_authenticated:
 		return redirect(url_for("index"))
 	
@@ -235,7 +216,6 @@ def register():
 		password_confirm = request.form.get("password_confirm", "")
 		canvas_api_token = request.form.get("canvas_api_token", "").strip()
 		
-		# Validation
 		if not name or not email or not password:
 			flash("All fields are required", "error")
 			return render_template("register.html")
@@ -248,17 +228,14 @@ def register():
 			flash("Passwords do not match", "error")
 			return render_template("register.html")
 		
-		# Check if email already exists
 		existing = sb_fetch_one("SELECT id FROM students WHERE email = :email", {"email": email})
 		if existing:
 			flash("Email already registered. Please login instead.", "error")
 			return redirect(url_for("login"))
 		
-		# Hash password
 		password_hash = generate_password_hash(password)
 		
 		try:
-			# Insert new user (with optional Canvas token)
 			sb_execute(
 				"""INSERT INTO students (name, email, password_hash, canvas_api_token, created_at) 
 				   VALUES (:name, :email, :password_hash, :canvas_api_token, NOW())""",
@@ -303,7 +280,6 @@ def update_profile():
 	canvas_api_token = request.form.get("canvas_api_token", "").strip()
 	
 	try:
-		# Update Canvas API token
 		sb_execute(
 			"UPDATE students SET canvas_api_token = :canvas_api_token WHERE id = :id",
 			{
@@ -312,7 +288,6 @@ def update_profile():
 			}
 		)
 		
-		# Update the current user's token in memory
 		current_user.canvas_api_token = canvas_api_token if canvas_api_token else None
 		
 		if canvas_api_token:
@@ -354,7 +329,6 @@ def debug_db():
 @app.route("/tasks")
 @login_required
 def tasks():
-	# Only show tasks for the logged-in student
 	sql = """
 		SELECT t.id, t.title, t.status, t.due_date, 
 		       t.canvas_assignment_id, t.canvas_course_id,
@@ -377,8 +351,7 @@ def tasks():
 @app.route("/calendar")
 @login_required
 def calendar_view():
-	"""Calendar view of tasks by due date for the current user"""
-	# Fetch tasks for current user to render as calendar events
+	"""Calendar view of tasks by due date"""
 	sql = """
 		SELECT t.id, t.title, t.status, t.due_date,
 		       t.due_at,
@@ -395,22 +368,18 @@ def calendar_view():
 	except Exception:
 		rows = []
 
-	# Prepare events for FullCalendar
 	events: List[Dict] = []
 	for r in rows:
-		# Prefer timed event if due_at is present; otherwise all-day by date
 		due_at = r.get("due_at")
 		if due_at:
 			try:
 				start_iso = due_at.isoformat()
 			except Exception:
 				start_iso = str(due_at)
-			# Give a small, same-day duration to avoid spanning into next day
 			try:
 				from datetime import timedelta
 				start_dt = r.get("due_at")
 				end_dt = start_dt + timedelta(minutes=5)
-				# Cap to 23:59:59 of the same day
 				end_of_day = start_dt.replace(hour=23, minute=59, second=59, microsecond=0)
 				if end_dt > end_of_day:
 					end_dt = end_of_day
@@ -418,21 +387,18 @@ def calendar_view():
 			except Exception:
 				end_iso = start_iso
 		else:
-			# All-day date string
 			due_date = r.get("due_date")
 			start_iso = due_date.strftime("%Y-%m-%d") if hasattr(due_date, "strftime") else str(due_date)
 			end_iso = start_iso
 
-		# Color coding by status
 		status = r.get("status", "pending")
 		if status == "completed":
-			color = "#16a34a"  # green
+			color = "#16a34a"
 		elif status == "in_progress":
-			color = "#f59e0b"  # amber
+			color = "#f59e0b"
 		else:
-			color = "#2563eb"  # blue (pending/default)
+			color = "#2563eb"
 
-		# Badge for Canvas-synced tasks
 		is_canvas = r.get("canvas_assignment_id") is not None
 		prefix = "📚 " if is_canvas else ""
 
@@ -449,10 +415,8 @@ def calendar_view():
 			},
 			"classNames": ["assignment"]
 		}
-		# If we only know date, keep allDay true, else timed
 		events.append(event)
 
-	# Include timed events (lectures) from events table
 	try:
 		rows_ev: List[Dict] = sb_fetch_all(
 			"""
@@ -497,7 +461,6 @@ def calendar_view():
 			}
 		})
 
-	# Simple diagnostics to server logs
 	try:
 		print(f"[calendar] user={current_user.id} events_total={len(events)}")
 	except Exception:
@@ -524,7 +487,7 @@ def debug_calendar():
 @app.route("/debug/events")
 @login_required
 def debug_events():
-	"""Return next 50 timed events for current user for troubleshooting"""
+	"""Return next 50 timed events for troubleshooting"""
 	try:
 		rows = sb_fetch_all(
 			"""
@@ -537,7 +500,6 @@ def debug_events():
 			""",
 			{"sid": current_user.id}
 		)
-		# Normalize for JSON
 		def to_iso(x):
 			try:
 				return x.isoformat()
@@ -564,9 +526,7 @@ def analytics():
 	charts_dir = os.path.join(app.static_folder or "static", "charts")
 	os.makedirs(charts_dir, exist_ok=True)
 
-	# Get analytics data from database (filtered by current user)
 	try:
-		# Task status overview for current user
 		status_overview = sb_fetch_all("""
 			SELECT status, COUNT(id) as count
 			FROM tasks
@@ -574,13 +534,11 @@ def analytics():
 			GROUP BY status
 		""", {"student_id": current_user.id})
 		
-		# Calculate totals
 		total_tasks = sum(s['count'] for s in status_overview)
 		completed_tasks = next((s['count'] for s in status_overview if s['status'] == 'completed'), 0)
 		in_progress_tasks = next((s['count'] for s in status_overview if s['status'] == 'in_progress'), 0)
 		pending_tasks = next((s['count'] for s in status_overview if s['status'] == 'pending'), 0)
 		
-		# Weekly completion data for current user
 		weekly_data = sb_fetch_all("""
 			SELECT 
 				DATE_TRUNC('week', completed_at) as week,
@@ -593,10 +551,8 @@ def analytics():
 			ORDER BY week
 		""", {"student_id": current_user.id})
 		
-		# Calculate max for scaling
 		max_weekly_completions = max((w['completions'] for w in weekly_data), default=1)
 		
-		# Completion timing data for current user
 		completion_stats = sb_fetch_one("""
 			SELECT 
 				COUNT(*) as total_completed,
@@ -608,14 +564,12 @@ def analytics():
 			  AND completed_at IS NOT NULL
 		""", {"student_id": current_user.id})
 		
-		# Calculate percentages
 		if completion_stats and completion_stats['total_completed'] > 0:
 			on_time_percentage = round((completion_stats['on_time'] / completion_stats['total_completed']) * 100, 1)
 			late_percentage = round((completion_stats['late'] / completion_stats['total_completed']) * 100, 1)
 			completion_stats['on_time_percentage'] = on_time_percentage
 			completion_stats['late_percentage'] = late_percentage
 		
-		# Module performance data for current user
 		module_stats = sb_fetch_all("""
 			SELECT 
 				m.code as module_code,
@@ -664,20 +618,16 @@ def analytics():
 def sync_canvas():
 	"""Sync assignments from Canvas LMS"""
 	if request.method == "POST":
-		# Check if user has Canvas API token
 		if not current_user.canvas_api_token:
 			flash("Please add your Canvas API token in your profile first.", "error")
 			return redirect(url_for("sync_canvas"))
 		
 		try:
-			# Import Canvas sync module
 			from canvas_sync import sync_canvas_assignments, sync_canvas_calendar_events
 			import signal
 			
-			# Canvas URL for UCC
 			CANVAS_URL = "https://ucc.instructure.com"
 			
-			# Perform assignment sync with timeout protection
 			print(f"[sync] Starting assignment sync for user {current_user.id}...")
 			stats = sync_canvas_assignments(
 				canvas_url=CANVAS_URL,
@@ -689,12 +639,9 @@ def sync_canvas():
 			)
 			print(f"[sync] Assignment sync complete: {stats}")
 
-			# Perform calendar events sync (lectures/timed events) - skip if it takes too long
 			print(f"[sync] Starting calendar events sync...")
 			cal_stats = {"events_new": 0, "events_updated": 0, "errors": 0}
 			try:
-				# Use threading timeout to prevent indefinite hanging
-				# Capture values before thread (current_user is thread-local)
 				api_token = current_user.canvas_api_token
 				student_id = current_user.id
 				
@@ -743,7 +690,6 @@ def sync_canvas():
 				cal_stats = {"events_new": 0, "events_updated": 0, "errors": 1}
 				flash(f"Calendar events sync skipped: {str(cal_error)}", "warning")
 			
-			# Show results
 			if stats['errors']:
 				for error in stats['errors']:
 					flash(error, "warning")
@@ -765,10 +711,8 @@ def sync_canvas():
 			flash(f"Canvas sync failed: {str(e)}", "error")
 			return redirect(url_for("sync_canvas"))
 	
-	# GET request - show sync page
 	has_token = current_user.canvas_api_token is not None and current_user.canvas_api_token != ""
 	
-	# Get sync statistics
 	canvas_tasks_count = sb_fetch_one(
 		"SELECT COUNT(*) as count FROM tasks WHERE student_id = :student_id AND canvas_assignment_id IS NOT NULL",
 		{"student_id": current_user.id}
@@ -790,8 +734,7 @@ def sync_canvas():
 @app.route("/add-data")
 @login_required
 def add_data_form():
-	"""Display forms for adding modules and tasks (current user only)"""
-	# Get all modules for dropdown
+	"""Display forms for adding modules and tasks"""
 	modules = sb_fetch_all("SELECT id, code FROM modules ORDER BY code")
 	return render_template("add_data.html", modules=modules)
 
@@ -827,7 +770,6 @@ def add_task():
 		due_date = request.form.get("due_date")
 		status = request.form.get("status", "pending")
 		
-		# Validation
 		if not title:
 			flash("Task title is required", "error")
 			return redirect(url_for("add_data_form"))
@@ -838,7 +780,6 @@ def add_task():
 			flash("Due date is required", "error")
 			return redirect(url_for("add_data_form"))
 		
-		# Use current user's ID
 		sb_execute(
 			"""INSERT INTO tasks (title, student_id, module_id, due_date, status) 
 			   VALUES (:title, :student_id, :module_id, :due_date, :status)""",
@@ -860,21 +801,19 @@ def add_task():
 @app.route("/update-task-status/<int:task_id>", methods=["POST"])
 @login_required
 def update_task_status(task_id):
-	"""Update the status of a task (only for current user's tasks)"""
+	"""Update the status of a task"""
 	try:
 		status = request.form.get("status")
 		if status not in ["pending", "in_progress", "completed"]:
 			flash("Invalid status", "error")
 			return redirect(url_for("tasks"))
 		
-		# Verify task belongs to current user
 		task = sb_fetch_one("SELECT id FROM tasks WHERE id = :id AND student_id = :student_id", 
 		                    {"id": task_id, "student_id": current_user.id})
 		if not task:
 			flash("Task not found or you don't have permission to update it", "error")
 			return redirect(url_for("tasks"))
 		
-		# If marking as completed, set completed_at timestamp
 		if status == "completed":
 			sb_execute(
 				"""UPDATE tasks 
@@ -898,7 +837,6 @@ def update_task_status(task_id):
 
 
 if __name__ == "__main__":
-	# Test database connection on startup
 	test_database_connection()
 	
 	cfg = get_flask_config()

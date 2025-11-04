@@ -35,33 +35,24 @@ def sync_canvas_assignments(canvas_url: str, api_token: str, student_id: int, db
     }
     
     try:
-        # Initialize Canvas connection
-        # Note: canvasapi library uses requests, timeout handled at request level
         canvas = Canvas(canvas_url, api_token)
-        
-        # Get current user
         user = canvas.get_current_user()
-        
-        # Get active courses
         courses = list(user.get_courses(enrollment_state='active'))
         stats['courses_found'] = len(courses)
         
         if not courses:
-            return stats  # Early return if no courses
+            return stats
         
         for course in courses:
             try:
-                # Get or create module for this course
                 course_code = course.course_code if hasattr(course, 'course_code') else f"CANVAS-{course.id}"
                 
-                # Check if module exists
                 module = db_fetch_one(
                     "SELECT id FROM modules WHERE code = :code",
                     {"code": course_code}
                 )
                 
                 if not module:
-                    # Create new module
                     db_execute(
                         "INSERT INTO modules (code) VALUES (:code)",
                         {"code": course_code}
@@ -74,38 +65,30 @@ def sync_canvas_assignments(canvas_url: str, api_token: str, student_id: int, db
                 
                 module_id = module['id']
                 
-                # Get assignments for this course (only upcoming/past 30 days to speed up sync)
                 try:
                     assignments = list(course.get_assignments(bucket="upcoming"))
-                    # Also get recent past assignments (last 30 days)
                     past_assignments = list(course.get_assignments(bucket="past"))
-                    # Limit past to recent ones only
                     from datetime import datetime, timedelta
                     cutoff = datetime.now() - timedelta(days=30)
                     recent_past = [a for a in past_assignments if hasattr(a, 'due_at') and a.due_at and datetime.fromisoformat(a.due_at.replace('Z', '+00:00')) > cutoff]
                     assignments.extend(recent_past)
                 except Exception:
-                    # Fallback to all assignments if bucket filtering fails
                     assignments = list(course.get_assignments())
                 
                 for assignment in assignments:
                     try:
-                        # Skip if no due date
                         if not hasattr(assignment, 'due_at') or not assignment.due_at:
                             stats['assignments_skipped'] += 1
                             continue
                         
-                        # Parse due date and full timestamp (due_at)
                         due_dt_iso = assignment.due_at.replace('Z', '+00:00')
                         try:
                             due_dt = datetime.fromisoformat(due_dt_iso)
                         except Exception:
-                            # Fallback to date-only
                             due_date_str = assignment.due_at.split('T')[0]
                             due_dt = datetime.strptime(due_date_str, '%Y-%m-%d')
                         due_date = due_dt.date()
                         
-                        # Check if assignment already exists
                         existing_task = db_fetch_one(
                             """SELECT id FROM tasks 
                                WHERE canvas_assignment_id = :canvas_id 
@@ -117,7 +100,6 @@ def sync_canvas_assignments(canvas_url: str, api_token: str, student_id: int, db
                         )
                         
                         if existing_task:
-                            # Update existing task
                             db_execute(
                                 """UPDATE tasks 
                                    SET title = :title,
@@ -135,7 +117,6 @@ def sync_canvas_assignments(canvas_url: str, api_token: str, student_id: int, db
                             )
                             stats['assignments_updated'] += 1
                         else:
-                            # Insert new task
                             db_execute(
                                 """INSERT INTO tasks 
                                    (title, student_id, module_id, due_date, due_at, status, canvas_assignment_id, canvas_course_id)
@@ -191,7 +172,6 @@ def sync_canvas_calendar_events(
     """
     stats = {"events_new": 0, "events_updated": 0, "errors": 0}
 
-    # Date window: default to past 7 days and next 30 days (reduced for faster sync)
     if not start_iso or not end_iso:
         from datetime import datetime, timedelta, timezone
         now = datetime.now(timezone.utc)
@@ -201,20 +181,16 @@ def sync_canvas_calendar_events(
     headers = {"Authorization": f"Bearer {api_token}"}
 
     try:
-        # Fetch user's active courses to build context codes
         canvas = Canvas(canvas_url, api_token)
         user = canvas.get_current_user()
         courses = list(user.get_courses(enrollment_state='active'))
-        context_codes = [f"course_{c.id}" for c in courses[:15] if getattr(c, 'id', None)]  # Limit to 15 courses max
-        # Include user's personal calendar for manually added lectures/events
+        context_codes = [f"course_{c.id}" for c in courses[:15] if getattr(c, 'id', None)]
         try:
             if getattr(user, 'id', None):
                 context_codes.append(f"user_{user.id}")
         except Exception:
             pass
 
-        # Paginate through calendar_events endpoint
-        # API: GET /api/v1/calendar_events?type=event&context_codes[]=course_123
         params = {
             "type": "event",
             "all_events": "true",
@@ -223,13 +199,12 @@ def sync_canvas_calendar_events(
         }
 
         events: List[Dict] = []
-        # Query per-course to stay within URL length limits
         for code in context_codes:
             per_params = dict(params)
             per_params["context_codes[]"] = code
             url = f"{canvas_url}/api/v1/calendar_events"
             page_count = 0
-            max_pages = 50  # Safety limit to prevent infinite loops
+            max_pages = 50
             while url and page_count < max_pages:
                 try:
                     resp = requests.get(url, headers=headers, params=per_params, timeout=30)
@@ -239,7 +214,6 @@ def sync_canvas_calendar_events(
                     page_items = resp.json()
                     events.extend(page_items)
                     page_count += 1
-                    # Pagination via Link header
                     next_url = None
                     link_header = resp.headers.get('Link') or resp.headers.get('link')
                     if link_header:
@@ -267,7 +241,6 @@ def sync_canvas_calendar_events(
                 location = ev.get('location_address') or ev.get('location_name') or None
                 start_at = ev.get('start_at')
                 end_at = ev.get('end_at') or start_at
-                # Ensure timed events have a positive duration so they appear in week/day views
                 try:
                     from datetime import datetime, timedelta
                     start_dt = datetime.fromisoformat(start_at.replace('Z', '+00:00')) if isinstance(start_at, str) else start_at
@@ -277,8 +250,7 @@ def sync_canvas_calendar_events(
                         end_at = end_dt.isoformat()
                 except Exception:
                     pass
-                # Parse course id if available
-                context_code = ev.get('context_code')  # e.g., "course_123"
+                context_code = ev.get('context_code')
                 canvas_course_id = None
                 if context_code and context_code.startswith('course_'):
                     try:
@@ -286,7 +258,6 @@ def sync_canvas_calendar_events(
                     except Exception:
                         canvas_course_id = None
 
-                # Map to module if possible
                 module_id = None
                 if canvas_course_id is not None:
                     mod = db_fetch_one(

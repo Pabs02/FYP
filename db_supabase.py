@@ -46,10 +46,8 @@ def execute(sql: str, params: Optional[Dict[str, Any]] = None) -> int:
 		init_engine()
 	assert _engine is not None
 	
-	# Use begin() for automatic transaction management
 	with _engine.begin() as conn:
 		if params:
-			# Execute with bound parameters
 			stmt = text(sql).bindparams(**params)
 			res = conn.execute(stmt)
 		else:
