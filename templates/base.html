@@ -4,57 +4,802 @@
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>Smart Student Planner</title>
-	<!-- Reference: Bootstrap 5 Documentation - Getting Started -->
-	<!-- https://getbootstrap.com/docs/5.3/getting-started/introduction/ -->
-	<!-- Bootstrap 5.3.3 CDN for responsive UI components -->
+	<!-- Bootstrap 5.3.3 CDN -->
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+	<!-- Google Fonts - DM Sans for modern look -->
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+	<style>
+		:root {
+			--island-bg: rgba(15, 15, 20, 0.92);
+			--island-border: rgba(255, 255, 255, 0.08);
+			--island-glow: rgba(99, 102, 241, 0.15);
+			--accent-primary: #818cf8;
+			--accent-secondary: #6366f1;
+			--text-primary: #f8fafc;
+			--text-muted: rgba(248, 250, 252, 0.6);
+			--hover-bg: rgba(255, 255, 255, 0.08);
+			--active-bg: rgba(129, 140, 248, 0.2);
+		}
+		
+		body {
+			font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+			padding-top: 90px;
+		}
+
+		/* ═══════════════════════════════════════════
+		   DYNAMIC ISLAND NAVIGATION
+		   ═══════════════════════════════════════════ */
+		.dynamic-island {
+			position: fixed;
+			top: 16px;
+			left: 50%;
+			transform: translateX(-50%);
+			z-index: 9999;
+			display: flex;
+			align-items: center;
+			gap: 4px;
+			padding: 6px 8px;
+			background: var(--island-bg);
+			backdrop-filter: blur(20px) saturate(180%);
+			-webkit-backdrop-filter: blur(20px) saturate(180%);
+			border: 1px solid var(--island-border);
+			border-radius: 50px;
+			box-shadow: 
+				0 4px 24px rgba(0, 0, 0, 0.4),
+				0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+				0 0 60px var(--island-glow);
+			transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+		}
+		
+		.dynamic-island:hover {
+			box-shadow: 
+				0 8px 32px rgba(0, 0, 0, 0.5),
+				0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+				0 0 80px var(--island-glow);
+		}
+
+		/* Logo/Home */
+		.island-brand {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			width: 38px;
+			height: 38px;
+			background: linear-gradient(135deg, var(--accent-secondary), var(--accent-primary));
+			border-radius: 50%;
+			color: white;
+			font-weight: 700;
+			font-size: 14px;
+			text-decoration: none;
+			transition: all 0.3s ease;
+			flex-shrink: 0;
+		}
+		
+		.island-brand:hover {
+			transform: scale(1.08);
+			box-shadow: 0 0 20px var(--accent-primary);
+		}
+		
+		.island-brand.active {
+			box-shadow: 0 0 16px var(--accent-primary), 0 0 0 2px rgba(129, 140, 248, 0.3);
+		}
+
+		/* Divider */
+		.island-divider {
+			width: 1px;
+			height: 24px;
+			background: var(--island-border);
+			margin: 0 4px;
+		}
+
+		/* Navigation Items */
+		.island-nav {
+			display: flex;
+			align-items: center;
+			gap: 2px;
+		}
+
+		.island-link {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			padding: 8px 14px;
+			color: var(--text-muted);
+			text-decoration: none;
+			font-size: 13px;
+			font-weight: 500;
+			border-radius: 24px;
+			transition: all 0.25s ease;
+			white-space: nowrap;
+		}
+		
+		.island-link:hover {
+			color: var(--text-primary);
+			background: var(--hover-bg);
+		}
+		
+		.island-link.active {
+			color: var(--accent-primary);
+			background: var(--active-bg);
+		}
+		
+		.island-link svg {
+			width: 16px;
+			height: 16px;
+			opacity: 0.8;
+		}
+		
+		.island-link:hover svg,
+		.island-link.active svg {
+			opacity: 1;
+		}
+
+		/* More Menu Dropdown */
+		.island-more {
+			position: relative;
+		}
+
+		.island-more-btn {
+			display: flex;
+			align-items: center;
+			gap: 4px;
+			padding: 8px 12px;
+			color: var(--text-muted);
+			background: transparent;
+			border: none;
+			font-size: 13px;
+			font-weight: 500;
+			border-radius: 24px;
+			cursor: pointer;
+			transition: all 0.25s ease;
+		}
+		
+		.island-more-btn:hover {
+			color: var(--text-primary);
+			background: var(--hover-bg);
+		}
+		
+		.island-more-btn svg {
+			width: 14px;
+			height: 14px;
+			transition: transform 0.3s ease;
+		}
+		
+		.island-more.open .island-more-btn svg {
+			transform: rotate(180deg);
+		}
+
+		.island-dropdown {
+			position: absolute;
+			top: calc(100% + 12px);
+			right: 0;
+			min-width: 220px;
+			padding: 8px;
+			background: var(--island-bg);
+			backdrop-filter: blur(20px) saturate(180%);
+			-webkit-backdrop-filter: blur(20px) saturate(180%);
+			border: 1px solid var(--island-border);
+			border-radius: 16px;
+			box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+			opacity: 0;
+			visibility: hidden;
+			transform: translateY(-8px) scale(0.96);
+			transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+		}
+		
+		.island-more.open .island-dropdown {
+			opacity: 1;
+			visibility: visible;
+			transform: translateY(0) scale(1);
+		}
+
+		.dropdown-section {
+			padding: 4px 0;
+		}
+		
+		.dropdown-section:not(:last-child) {
+			border-bottom: 1px solid var(--island-border);
+			margin-bottom: 4px;
+		}
+
+		.dropdown-label {
+			padding: 6px 12px 4px;
+			font-size: 10px;
+			font-weight: 600;
+			text-transform: uppercase;
+			letter-spacing: 0.08em;
+			color: var(--text-muted);
+		}
+
+		.dropdown-link {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			padding: 10px 12px;
+			color: var(--text-muted);
+			text-decoration: none;
+			font-size: 13px;
+			font-weight: 500;
+			border-radius: 10px;
+			transition: all 0.2s ease;
+		}
+		
+		.dropdown-link:hover {
+			color: var(--text-primary);
+			background: var(--hover-bg);
+		}
+		
+		.dropdown-link.active {
+			color: var(--accent-primary);
+			background: var(--active-bg);
+		}
+		
+		.dropdown-link svg {
+			width: 16px;
+			height: 16px;
+			opacity: 0.7;
+		}
+
+		/* User Profile Pill & Dropdown */
+		.island-user-wrapper {
+			position: relative;
+		}
+
+		.island-user {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			padding: 5px 12px 5px 5px;
+			background: var(--hover-bg);
+			border-radius: 24px;
+			text-decoration: none;
+			cursor: pointer;
+			border: none;
+			transition: all 0.25s ease;
+		}
+		
+		.island-user:hover {
+			background: rgba(255, 255, 255, 0.12);
+		}
+
+		.user-avatar {
+			width: 28px;
+			height: 28px;
+			background: linear-gradient(135deg, #10b981, #34d399);
+			border-radius: 50%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 12px;
+			font-weight: 600;
+			color: white;
+		}
+
+		.user-name {
+			font-size: 13px;
+			font-weight: 500;
+			color: var(--text-primary);
+			max-width: 100px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.user-dropdown {
+			position: absolute;
+			top: calc(100% + 12px);
+			right: 0;
+			min-width: 180px;
+			padding: 8px;
+			background: var(--island-bg);
+			backdrop-filter: blur(20px) saturate(180%);
+			-webkit-backdrop-filter: blur(20px) saturate(180%);
+			border: 1px solid var(--island-border);
+			border-radius: 14px;
+			box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+			opacity: 0;
+			visibility: hidden;
+			transform: translateY(-8px) scale(0.96);
+			transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+		}
+
+		.island-user-wrapper.open .user-dropdown {
+			opacity: 1;
+			visibility: visible;
+			transform: translateY(0) scale(1);
+		}
+
+		.user-dropdown-link {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			padding: 10px 12px;
+			color: var(--text-muted);
+			text-decoration: none;
+			font-size: 13px;
+			font-weight: 500;
+			border-radius: 8px;
+			transition: all 0.2s ease;
+		}
+
+		.user-dropdown-link:hover {
+			color: var(--text-primary);
+			background: var(--hover-bg);
+		}
+
+		.user-dropdown-link.logout {
+			color: #f87171;
+		}
+
+		.user-dropdown-link.logout:hover {
+			background: rgba(248, 113, 113, 0.15);
+			color: #fca5a5;
+		}
+
+		.user-dropdown-link svg {
+			width: 16px;
+			height: 16px;
+			opacity: 0.7;
+		}
+
+		.user-dropdown-divider {
+			height: 1px;
+			background: var(--island-border);
+			margin: 6px 0;
+		}
+
+		/* Auth buttons for logged out */
+		.island-auth {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+		}
+		
+		.island-auth-link {
+			padding: 8px 14px;
+			color: var(--text-muted);
+			text-decoration: none;
+			font-size: 13px;
+			font-weight: 500;
+			border-radius: 24px;
+			transition: all 0.25s ease;
+		}
+		
+		.island-auth-link:hover {
+			color: var(--text-primary);
+			background: var(--hover-bg);
+		}
+		
+		.island-auth-btn {
+			padding: 8px 16px;
+			background: linear-gradient(135deg, var(--accent-secondary), var(--accent-primary));
+			color: white;
+			text-decoration: none;
+			font-size: 13px;
+			font-weight: 600;
+			border-radius: 24px;
+			transition: all 0.25s ease;
+		}
+		
+		.island-auth-btn:hover {
+			transform: scale(1.02);
+			box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+			color: white;
+		}
+
+		/* Mobile Navigation */
+		.island-mobile-toggle {
+			display: none;
+			align-items: center;
+			justify-content: center;
+			width: 38px;
+			height: 38px;
+			background: transparent;
+			border: none;
+			color: var(--text-primary);
+			border-radius: 50%;
+			cursor: pointer;
+			transition: all 0.25s ease;
+		}
+		
+		.island-mobile-toggle:hover {
+			background: var(--hover-bg);
+		}
+		
+		.island-mobile-toggle svg {
+			width: 20px;
+			height: 20px;
+		}
+
+		@media (max-width: 1100px) {
+			.island-nav {
+				display: none;
+			}
+			
+			.island-more {
+				display: none;
+			}
+			
+			.island-mobile-toggle {
+				display: flex;
+			}
+			
+			.dynamic-island.mobile-open {
+				flex-wrap: wrap;
+				width: calc(100% - 32px);
+				max-width: 400px;
+				padding: 12px;
+				border-radius: 24px;
+			}
+			
+			.dynamic-island.mobile-open .island-nav {
+				display: flex;
+				flex-direction: column;
+				width: 100%;
+				padding-top: 12px;
+				border-top: 1px solid var(--island-border);
+				margin-top: 8px;
+				gap: 4px;
+			}
+			
+			.dynamic-island.mobile-open .island-link {
+				justify-content: flex-start;
+				padding: 12px 16px;
+			}
+			
+			.dynamic-island.mobile-open .island-more {
+				display: block;
+				width: 100%;
+			}
+			
+			.dynamic-island.mobile-open .island-more-btn {
+				width: 100%;
+				justify-content: space-between;
+				padding: 12px 16px;
+			}
+			
+			.dynamic-island.mobile-open .island-dropdown {
+				position: static;
+				width: 100%;
+				margin-top: 8px;
+				transform: none;
+			}
+		}
+
+		/* ═══════════════════════════════════════════
+		   EXISTING STYLES (preserved)
+		   ═══════════════════════════════════════════ */
+		.hero-card {
+			background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+			border: 1px solid #e5e7eb;
+			box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+		}
+		.hero-card .hero-title {
+			font-weight: 700;
+			letter-spacing: -0.4px;
+		}
+		.hero-card .hero-actions .btn {
+			border-radius: 999px;
+			padding: 0.5rem 1rem;
+			box-shadow: 0 6px 16px rgba(37, 99, 235, 0.18);
+		}
+		.hero-card .hero-actions .btn.btn-outline-secondary,
+		.hero-card .hero-actions .btn.btn-outline-dark {
+			box-shadow: none;
+		}
+		.hero-card .hero-chip {
+			background: #111827;
+			color: #fff;
+			border-radius: 999px;
+			padding: 0.35rem 0.75rem;
+			font-size: 0.85rem;
+		}
+		.hero-card .hero-meta {
+			border-left: 3px solid #4f46e5;
+			background: rgba(79, 70, 229, 0.08);
+			padding: 0.75rem 1rem;
+			border-radius: 0.75rem;
+		}
+		.table-card {
+			border: 1px solid #e5e7eb;
+			border-radius: 1rem;
+			box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+			background: #fff;
+		}
+		.table-card .card-header {
+			background: #f8fafc;
+			border-bottom: 1px solid #e5e7eb;
+		}
+		.table-tasks {
+			margin-bottom: 0;
+		}
+		.table-tasks thead th {
+			font-size: 0.72rem;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
+			color: #475569;
+			background: #f8fafc;
+			border-bottom: 1px solid #e2e8f0;
+		}
+		.table-tasks tbody tr {
+			transition: background 0.15s ease, box-shadow 0.15s ease;
+		}
+		.table-tasks tbody tr:hover {
+			background: #f8fafc;
+		}
+		.table-tasks td {
+			vertical-align: middle;
+		}
+		.task-title {
+			max-width: 280px;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+		.dashboard-card {
+			border: 1px solid #e5e7eb;
+			border-radius: 1rem;
+			box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+			background: #fff;
+		}
+		.dashboard-card .card-header {
+			background: #f8fafc;
+			border-bottom: 1px solid #e5e7eb;
+			font-weight: 600;
+		}
+		.dashboard-card.h-100 {
+			height: auto !important;
+		}
+		.dashboard-page .card.h-100,
+		.dashboard-page .card-body.h-100 {
+			height: auto !important;
+		}
+		.dashboard-scroll {
+			max-height: 280px;
+			overflow-y: auto;
+		}
+		@media (min-height: 900px) {
+			.dashboard-scroll {
+				max-height: 350px;
+			}
+		}
+		.text-truncate-2 {
+			display: -webkit-box;
+			-webkit-line-clamp: 2;
+			-webkit-box-orient: vertical;
+			overflow: hidden;
+		}
+		.min-width-0 {
+			min-width: 0;
+		}
+		.dashboard-page .row > [class*="col-"] > .card.h-100 {
+			display: flex;
+			flex-direction: column;
+		}
+		.dashboard-page .card.h-100 .card-body {
+			flex: 1 1 auto;
+		}
+		.badge-soft {
+			background: rgba(79, 70, 229, 0.12);
+			color: #4338ca;
+			border: 1px solid rgba(79, 70, 229, 0.2);
+		}
+		.badge-status {
+			text-transform: capitalize;
+		}
+	</style>
 </head>
 <body>
-	<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-		<div class="container-fluid">
-			<a class="navbar-brand" href="/">🎓 Student Planner</a>
-			<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-				<span class="navbar-toggler-icon"></span>
+	<!-- Dynamic Island Navigation -->
+	<nav class="dynamic-island" id="dynamicIsland">
+		<!-- Brand/Home -->
+		<a href="/" class="island-brand {% if request.path == '/' %}active{% endif %}" title="Home">SP</a>
+		
+		<span class="island-divider"></span>
+		
+		<!-- Mobile Toggle -->
+		<button class="island-mobile-toggle" onclick="toggleMobileNav()" aria-label="Toggle menu">
+			<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+			</svg>
+		</button>
+		
+		<!-- Main Navigation -->
+		<div class="island-nav">
+			<a href="/tasks" class="island-link {% if request.path == '/tasks' %}active{% endif %}">
+				<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+				</svg>
+				Tasks
+			</a>
+			<a href="/calendar" class="island-link {% if request.path == '/calendar' %}active{% endif %}">
+				<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+				</svg>
+				Calendar
+			</a>
+			<a href="/analytics" class="island-link {% if request.path == '/analytics' %}active{% endif %}">
+				<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+				</svg>
+				Analytics
+			</a>
+			<a href="/study-planner" class="island-link {% if request.path == '/study-planner' %}active{% endif %}">
+				<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+				</svg>
+				Planner
+			</a>
+		</div>
+		
+		<!-- More Dropdown -->
+		<div class="island-more" id="moreMenu">
+			<button class="island-more-btn" onclick="toggleMoreMenu()">
+				More
+				<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+				</svg>
 			</button>
-			<div class="collapse navbar-collapse" id="navbarNav">
-				<ul class="navbar-nav me-auto">
-					<li class="nav-item"><a class="nav-link" href="/tasks">Tasks</a></li>
-					<li class="nav-item"><a class="nav-link" href="/calendar">Calendar</a></li>
-					<li class="nav-item"><a class="nav-link" href="/analytics">Analytics</a></li>
-					<li class="nav-item"><a class="nav-link" href="/study-planner">📚 Study Planner</a></li>
-					<li class="nav-item"><a class="nav-link" href="/assignment-review">🤖 Assignment Review</a></li>
-					<li class="nav-item"><a class="nav-link" href="/reviews">📝 Review History</a></li>
-					<li class="nav-item"><a class="nav-link" href="/course-bot">📖 Course Bot</a></li>
-					<li class="nav-item"><a class="nav-link" href="/subtasks">🧩 Microtasks</a></li>
-					<li class="nav-item"><a class="nav-link" href="/semester">📅 Active Semester</a></li>
-					<li class="nav-item"><a class="nav-link" href="/lecturer-messages">📨 Lecturer Messages</a></li>
-					<li class="nav-item"><a class="nav-link" href="/sync-canvas">🎓 Canvas Sync</a></li>
-					<li class="nav-item"><a class="nav-link" href="/ai-workspace">AI Workspace</a></li>
-					<li class="nav-item"><a class="nav-link" href="/add-data">Add Data</a></li>
-					<li class="nav-item"><a class="nav-link" href="/debug/db">DB Debug</a></li>
-				</ul>
-				<ul class="navbar-nav">
-					{% if current_user.is_authenticated %}
-						<li class="nav-item">
-							<a class="nav-link" href="{{ url_for('profile') }}">
-								👤 {{ current_user.name }}
-							</a>
-						</li>
-						<li class="nav-item">
-							<a class="nav-link btn btn-outline-light btn-sm" href="{{ url_for('logout') }}">Logout</a>
-						</li>
-					{% else %}
-						<li class="nav-item">
-							<a class="nav-link" href="{{ url_for('login') }}">Login</a>
-						</li>
-						<li class="nav-item">
-							<a class="nav-link btn btn-outline-light btn-sm" href="{{ url_for('register') }}">Register</a>
-						</li>
-					{% endif %}
-				</ul>
+			<div class="island-dropdown">
+				<div class="dropdown-section">
+					<div class="dropdown-label">AI Tools</div>
+					<a href="/ai-workspace" class="dropdown-link {% if request.path == '/ai-workspace' %}active{% endif %}">
+						<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+						</svg>
+						AI Workspace
+					</a>
+					<a href="/course-bot" class="dropdown-link {% if request.path == '/course-bot' %}active{% endif %}">
+						<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+						</svg>
+						Course Bot
+					</a>
+					<a href="/assignment-review" class="dropdown-link {% if request.path == '/assignment-review' %}active{% endif %}">
+						<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+						</svg>
+						Assignment Review
+					</a>
+				</div>
+				<div class="dropdown-section">
+					<div class="dropdown-label">Manage</div>
+					<a href="/subtasks" class="dropdown-link {% if request.path == '/subtasks' %}active{% endif %}">
+						<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+						</svg>
+						Microtasks
+					</a>
+					<a href="/semester" class="dropdown-link {% if request.path == '/semester' %}active{% endif %}">
+						<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+						</svg>
+						Semester
+					</a>
+					<a href="/lecturer-messages" class="dropdown-link {% if request.path == '/lecturer-messages' %}active{% endif %}">
+						<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+						</svg>
+						Messages
+					</a>
+				</div>
+				<div class="dropdown-section">
+					<div class="dropdown-label">History</div>
+					<a href="/reviews" class="dropdown-link {% if request.path == '/reviews' %}active{% endif %}">
+						<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+						</svg>
+						Review History
+					</a>
+				</div>
+				<div class="dropdown-section">
+					<div class="dropdown-label">Settings</div>
+					<a href="/sync-canvas" class="dropdown-link {% if request.path == '/sync-canvas' %}active{% endif %}">
+						<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+						</svg>
+						Canvas Sync
+					</a>
+					<a href="/add-data" class="dropdown-link {% if request.path == '/add-data' %}active{% endif %}">
+						<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+						</svg>
+						Add Data
+					</a>
+				</div>
 			</div>
 		</div>
+		
+		<span class="island-divider"></span>
+		
+		<!-- User Section -->
+		{% if current_user.is_authenticated %}
+			<div class="island-user-wrapper" id="userMenu">
+				<button class="island-user" onclick="toggleUserMenu()">
+					<span class="user-avatar">{{ current_user.name[0]|upper }}</span>
+					<span class="user-name">{{ current_user.name.split(' ')[0] }}</span>
+				</button>
+				<div class="user-dropdown">
+					<a href="{{ url_for('profile') }}" class="user-dropdown-link">
+						<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+						</svg>
+						Profile
+					</a>
+					<div class="user-dropdown-divider"></div>
+					<a href="{{ url_for('logout') }}" class="user-dropdown-link logout">
+						<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+						</svg>
+						Logout
+					</a>
+				</div>
+			</div>
+		{% else %}
+			<div class="island-auth">
+				<a href="{{ url_for('login') }}" class="island-auth-link">Login</a>
+				<a href="{{ url_for('register') }}" class="island-auth-btn">Sign Up</a>
+			</div>
+		{% endif %}
 	</nav>
+
+	<script>
+		// Toggle More dropdown
+		function toggleMoreMenu() {
+			const menu = document.getElementById('moreMenu');
+			menu.classList.toggle('open');
+			// Close user menu when opening more menu
+			const userMenu = document.getElementById('userMenu');
+			if (userMenu) userMenu.classList.remove('open');
+		}
+		
+		// Toggle User dropdown
+		function toggleUserMenu() {
+			const userMenu = document.getElementById('userMenu');
+			if (userMenu) {
+				userMenu.classList.toggle('open');
+				// Close more menu when opening user menu
+				document.getElementById('moreMenu').classList.remove('open');
+			}
+		}
+		
+		// Toggle mobile navigation
+		function toggleMobileNav() {
+			const island = document.getElementById('dynamicIsland');
+			island.classList.toggle('mobile-open');
+		}
+		
+		// Close dropdowns when clicking outside
+		document.addEventListener('click', function(e) {
+			const moreMenu = document.getElementById('moreMenu');
+			const userMenu = document.getElementById('userMenu');
+			const island = document.getElementById('dynamicIsland');
+			
+			if (!moreMenu.contains(e.target)) {
+				moreMenu.classList.remove('open');
+			}
+			
+			if (userMenu && !userMenu.contains(e.target)) {
+				userMenu.classList.remove('open');
+			}
+			
+			if (!island.contains(e.target)) {
+				island.classList.remove('mobile-open');
+			}
+		});
+		
+		// Keyboard navigation (Escape to close)
+		document.addEventListener('keydown', function(e) {
+			if (e.key === 'Escape') {
+				document.getElementById('moreMenu').classList.remove('open');
+				const userMenu = document.getElementById('userMenu');
+				if (userMenu) userMenu.classList.remove('open');
+				document.getElementById('dynamicIsland').classList.remove('mobile-open');
+			}
+		});
+	</script>
 	<main class="container">
 		{% block content %}{% endblock %}
 	</main>
