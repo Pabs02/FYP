@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+	<h2>📝 Review History</h2>
+	<a href="/" class="btn btn-outline-secondary">← Back to Dashboard</a>
+</div>
+
+{% if reviews %}
+	{% for review in reviews %}
+	<div class="border rounded p-3 mb-3">
+		<div class="d-flex justify-content-between align-items-start mb-2">
+			<div>
+				<h6 class="mb-1">
+					{% if review.filename %}📄 {{ review.filename }}{% else %}📝 Text Review{% endif %}
+					{% if review.task_title %}
+						<small class="text-muted"> - {{ review.task_title }}{% if review.module_code %} ({{ review.module_code }}){% endif %}</small>
+					{% endif %}
+				</h6>
+				<small class="text-muted">Reviewed {{ review.reviewed_at | irish_datetime }}</small>
+			</div>
+			{% if review.ai_score_estimate is not none %}
+				<div class="text-end">
+					{% if review.ai_possible_score and review.ai_possible_score > 0 %}
+						{% set percent = (review.ai_score_estimate / review.ai_possible_score * 100) %}
+						<div class="badge bg-secondary fs-6">
+							{{ percent|round|int }}%
+						</div>
+					{% else %}
+						<div class="badge bg-secondary fs-6">
+							{{ '%.1f'|format(review.ai_score_estimate) }}
+						</div>
+					{% endif %}
+				</div>
+			{% endif %}
+		</div>
+		{% if review.ai_feedback %}
+			<div class="mb-2">
+				<strong>Feedback:</strong>
+				<div class="mt-2 p-2 bg-light rounded" style="white-space: pre-wrap; line-height: 1.6;">{{ review.ai_feedback }}</div>
+			</div>
+		{% endif %}
+	</div>
+	{% endfor %}
+
+	<nav class="mt-3">
+		<ul class="pagination">
+			<li class="page-item {% if page <= 1 %}disabled{% endif %}">
+				<a class="page-link" href="?page={{ page - 1 }}">Previous</a>
+			</li>
+			<li class="page-item disabled">
+				<span class="page-link">Page {{ page }} of {{ total_pages }}</span>
+			</li>
+			<li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+				<a class="page-link" href="?page={{ page + 1 }}">Next</a>
+			</li>
+		</ul>
+	</nav>
+{% else %}
+	<p class="text-muted">No reviews found yet. Submit an assignment review to see it here.</p>
+{% endif %}
+{% endblock %}

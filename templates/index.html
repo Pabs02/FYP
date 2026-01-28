@@ -1,14 +1,225 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="p-4 rounded-3 bg-light">
+<div class="p-4 rounded-3 bg-light mb-4">
 	<h1 class="display-6 mb-3">Smart Student Planner</h1>
 	<p class="lead">Plan, track, and analyse coursework and assignments.</p>
 	<hr>
-	<div class="d-flex gap-2">
+	<div class="d-flex gap-2 flex-wrap">
 		<a class="btn btn-primary" href="/tasks">View Tasks</a>
 		<a class="btn btn-success" href="/add-data">➕ Add Data</a>
 		<a class="btn btn-secondary" href="/analytics">View Analytics</a>
+		<a class="btn btn-outline-dark" href="/sync-canvas">Sync Canvas</a>
 		<a class="btn btn-outline-dark" href="/debug/db">DB Debug</a>
+	</div>
+</div>
+
+<div class="row g-4">
+	<div class="col-lg-4">
+		<!-- Reference: ChatGPT (OpenAI) - Dashboard Grade Display Copy
+		     Date: 2026-01-22
+		     Prompt: "I want a clear dashboard label for Canvas grades and a short
+		     explanation for the priority ordering. Can you suggest UI wording?"
+		     ChatGPT provided the UI copy guidance used in this dashboard section. -->
+		<div class="card h-100">
+			<div class="card-header">Progress Overview</div>
+			<div class="card-body">
+				{% if progress %}
+					{% set status = progress.status or 'on_track' %}
+					<div class="d-flex align-items-center mb-3">
+						<span class="badge text-bg-{{ 'success' if status=='on_track' else ('warning' if status=='warning' else 'danger') }} me-2">{{ status.replace('_', ' ')|title }}</span>
+						<p class="mb-0 text-muted">Automated health-check</p>
+					</div>
+					<ul class="list-group list-group-flush">
+						<li class="list-group-item d-flex justify-content-between align-items-center">
+							Overdue tasks
+							<span class="badge text-bg-{{ 'danger' if progress.overdue else 'secondary' }}">{{ progress.overdue }}</span>
+						</li>
+						<li class="list-group-item d-flex justify-content-between align-items-center">
+							Due in 48h
+							<span class="badge text-bg-{{ 'warning' if progress.nearly_due else 'secondary' }}">{{ progress.nearly_due }}</span>
+						</li>
+						<li class="list-group-item d-flex justify-content-between align-items-center">
+							Completed this week
+							<span class="badge text-bg-success">{{ progress.completed_this_week }}</span>
+						</li>
+					</ul>
+					<p class="small text-muted mt-3">Keep pending tasks at zero overdue items to stay on track.</p>
+				{% else %}
+					<p class="text-muted mb-0">No task data available yet. Add assignments to see your progress.</p>
+				{% endif %}
+			</div>
+		</div>
+		<div class="card mt-4">
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<span>Reminders</span>
+				<form method="POST" action="/reminders/clear" class="m-0">
+					<button type="submit" class="btn btn-sm btn-outline-danger" {% if not reminders %}disabled{% endif %}>
+						Clear All
+					</button>
+				</form>
+			</div>
+			<div class="card-body">
+				{% if reminders %}
+					<ul class="list-group list-group-flush">
+						{% for reminder in reminders %}
+							<li class="list-group-item">
+								<div class="d-flex justify-content-between align-items-start">
+									<div>
+										<div class="fw-semibold">{{ reminder.message }}</div>
+										{% if reminder.due_at %}
+											<small class="text-muted">Due {{ reminder.due_at | irish_datetime }}</small>
+										{% endif %}
+									</div>
+									<form method="POST" action="/reminders/{{ reminder.id }}/read">
+										<button type="submit" class="btn btn-sm btn-outline-secondary">Mark read</button>
+									</form>
+								</div>
+							</li>
+						{% endfor %}
+					</ul>
+				{% else %}
+					<p class="text-muted mb-0">No reminders right now. You're all caught up.</p>
+				{% endif %}
+			</div>
+		</div>
+		<div class="card mt-4">
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<span>Quick Connect Lecturers</span>
+			</div>
+			<div class="card-body">
+				{% if lecturers %}
+					<form method="POST" action="/contact-lecturer">
+						<div class="mb-2">
+							<label for="lecturer_id" class="form-label">Lecturer</label>
+							<select id="lecturer_id" name="lecturer_id" class="form-select" required>
+								<option value="">Select a lecturer...</option>
+								{% for lec in lecturers %}
+									<option value="{{ lec.id }}" {% if lecturer_id and lecturer_id|string == lec.id|string %}selected{% endif %}>
+										{{ lec.name }}{% if lec.module_code %} ({{ lec.module_code }}){% endif %}
+									</option>
+								{% endfor %}
+							</select>
+						</div>
+						<div class="mb-2">
+							<label for="lecturer_subject" class="form-label">Subject</label>
+							<input type="text" id="lecturer_subject" name="subject" class="form-control" placeholder="e.g., Assignment query" value="{{ lecturer_subject or '' }}" required>
+						</div>
+						<div class="mb-2">
+							<label for="lecturer_request" class="form-label">What do you need from the lecturer?</label>
+							<textarea id="lecturer_request" name="request_text" class="form-control" rows="2" placeholder="Short description for AI drafting">{{ lecturer_request or '' }}</textarea>
+						</div>
+						<div class="mb-2">
+							<label for="lecturer_message" class="form-label">Message (manual or AI draft)</label>
+							<textarea id="lecturer_message" name="message" class="form-control" rows="3">{{ lecturer_draft or '' }}</textarea>
+						</div>
+						<div class="d-flex gap-2">
+							<button type="submit" name="action" value="generate" class="btn btn-outline-secondary w-50">Generate Draft</button>
+							<button type="submit" name="action" value="send" class="btn btn-outline-primary w-50">Send Message</button>
+						</div>
+					</form>
+					<script>
+						const lecturerForm = document.querySelector('form[action="/contact-lecturer"]');
+						if (lecturerForm) {
+							const messageField = lecturerForm.querySelector('#lecturer_message');
+							const requestField = lecturerForm.querySelector('#lecturer_request');
+							const subjectField = lecturerForm.querySelector('#lecturer_subject');
+							const lecturerField = lecturerForm.querySelector('#lecturer_id');
+							lecturerForm.addEventListener('submit', (event) => {
+								const submitter = event.submitter;
+								if (!submitter) {
+									return;
+								}
+								const isGenerate = submitter.value === 'generate';
+								if (messageField) {
+									messageField.required = !isGenerate;
+								}
+								if (requestField) {
+									requestField.required = isGenerate;
+								}
+								if (subjectField) {
+									subjectField.required = true;
+								}
+								if (lecturerField) {
+									lecturerField.required = true;
+								}
+							});
+						}
+					</script>
+					{% if lecturer_history %}
+						<hr class="my-3">
+						<h6 class="mb-2">Recent Messages</h6>
+						<div class="list-group">
+							{% for item in lecturer_history %}
+								<div class="list-group-item">
+									<div class="d-flex justify-content-between align-items-start">
+										<div>
+											<div class="fw-semibold">{{ item.subject }}</div>
+											<small class="text-muted">
+												To {{ item.lecturer_name or 'Lecturer' }}
+												{% if item.module_code %} ({{ item.module_code }}){% endif %}
+												· {{ item.sent_at | irish_datetime }}
+											</small>
+										</div>
+										<span class="badge {% if item.email_status == 'sent' %}text-bg-success{% else %}text-bg-secondary{% endif %}">
+											{{ item.email_status or 'unknown' }}
+										</span>
+									</div>
+									{% if item.message %}
+										<div class="small text-muted mt-2" style="white-space: pre-wrap;">{{ item.message }}</div>
+									{% endif %}
+									{% if item.email_error %}
+										<div class="small text-danger mt-2">{{ item.email_error }}</div>
+									{% endif %}
+								</div>
+							{% endfor %}
+						</div>
+					{% endif %}
+				{% else %}
+					<p class="text-muted mb-2">No lecturers configured yet.</p>
+					<a class="btn btn-sm btn-outline-secondary" href="/add-data">Add Lecturers</a>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+	<div class="col-lg-8">
+		<!-- Reference: ChatGPT (OpenAI) - Canvas Grade Display UI
+		     Date: 2026-01-22
+		     Prompt: "I want to show the latest Canvas score in the 'Next assignments'
+		     cards with a simple label. Can you suggest a concise UI label?"
+		     ChatGPT provided the UI label for the grade display. -->
+		<div class="card h-100">
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<span>Next assignments</span>
+				<span class="text-muted small">Prioritised by impact &amp; urgency</span>
+			</div>
+			<div class="card-body">
+				{% if upcoming_cards %}
+					<div class="row g-3">
+						{% for card in upcoming_cards %}
+							<div class="col-md-4">
+								<div class="border rounded-3 p-3 h-100 d-flex flex-column justify-content-between">
+									<div>
+										<p class="text-muted mb-1">{{ card.module_code or 'Module' }}</p>
+										<h5 class="mb-2">{{ card.title }}</h5>
+										<p class="mb-2"><span class="badge text-bg-primary">Due in {{ card.time_label }}</span></p>
+										<p class="small text-muted mb-2">Priority score: {{ "%.1f"|format(card.priority) }}{% if card.weight %} · Weight {{ card.weight }}%{% endif %}</p>
+										{% if card.score_text %}
+											<p class="small text-success mb-2">Latest result: {{ card.score_text }}</p>
+										{% endif %}
+									</div>
+									<div class="d-flex justify-content-between align-items-center">
+										<a class="btn btn-sm btn-outline-secondary" href="{{ url_for('task_detail', task_id=card.id) }}">Plan micro-tasks</a>
+										<a class="btn btn-sm btn-outline-primary" href="{{ url_for('ai_workspace') }}">✨ AI Workspace</a>
+									</div>
+								</div>
+							</div>
+						{% endfor %}
+					</div>
+				{% else %}
+					<p class="text-muted">No upcoming assignments found. Add tasks or sync Canvas to populate this list.</p>
+				{% endif %}
+			</div>
+		</div>
 	</div>
 </div>
 {% endblock %}

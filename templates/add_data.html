@@ -63,7 +63,16 @@
 						<label for="task_due_date" class="form-label">Due Date <span class="text-danger">*</span></label>
 						<input type="date" class="form-control" id="task_due_date" name="due_date" required>
 					</div>
-					
+					<div class="mb-3">
+						<label for="task_due_time" class="form-label">Due Time</label>
+						<input type="time" class="form-control" id="task_due_time" name="due_time">
+						<div class="form-text">Leave blank if it's an all-day deadline.</div>
+					</div>
+
+					<div class="mb-3">
+						<label for="task_description" class="form-label">Description / instructions</label>
+						<textarea class="form-control" id="task_description" name="description" rows="3" placeholder="Brief overview or Canvas notes"></textarea>
+					</div>
 					<div class="mb-3">
 						<label for="task_status" class="form-label">Status</label>
 						<select class="form-select" id="task_status" name="status">
@@ -72,8 +81,42 @@
 							<option value="completed">Completed</option>
 						</select>
 					</div>
+
+					<div class="mb-3">
+						<label for="task_weight" class="form-label">Assessment weighting (%)</label>
+						<input type="number" step="0.5" min="0" max="100" class="form-control" id="task_weight" name="weight_percentage" placeholder="e.g., 20">
+						<div class="form-text">Used to prioritise tasks with the highest impact.</div>
+					</div>
 					
 					<button type="submit" class="btn btn-success w-100">Add Task</button>
+				</form>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="row g-4 mt-1">
+	<!-- Add Lecturer Form -->
+	<div class="col-md-6">
+		<div class="card">
+			<div class="card-header bg-dark text-white">
+				<h5 class="mb-0">🎓 Add Lecturer</h5>
+			</div>
+			<div class="card-body">
+				<form action="/add-lecturer" method="POST">
+					<div class="mb-3">
+						<label for="lecturer_name" class="form-label">Name <span class="text-danger">*</span></label>
+						<input type="text" class="form-control" id="lecturer_name" name="name" required placeholder="e.g., Dr. Smith">
+					</div>
+					<div class="mb-3">
+						<label for="lecturer_email" class="form-label">Email <span class="text-danger">*</span></label>
+						<input type="email" class="form-control" id="lecturer_email" name="email" required placeholder="e.g., smith@ucc.ie">
+					</div>
+					<div class="mb-3">
+						<label for="lecturer_module" class="form-label">Module Code (Optional)</label>
+						<input type="text" class="form-control" id="lecturer_module" name="module_code" placeholder="e.g., IS4416">
+					</div>
+					<button type="submit" class="btn btn-dark w-100">Add Lecturer</button>
 				</form>
 			</div>
 		</div>

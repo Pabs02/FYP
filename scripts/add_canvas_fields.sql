@@ -1,3 +1,10 @@
+-- Reference: ChatGPT (Open AI) - Canvas Integration Database Schema
+-- Date: 2025-10-20
+-- Prompt: "I need to add Canvas LMS integration fields to my tasks table in PostgreSQL. 
+-- I need columns for canvas_assignment_id and canvas_course_id, plus indexes for performance 
+-- and a unique constraint to prevent duplicate assignments per student. Can you give me 
+-- the SQL migration script?"
+-- ChatGPT provided the ALTER TABLE statements, indexes, and unique constraint pattern.
 
 -- Add Canvas Integration Fields to Tasks Table
 

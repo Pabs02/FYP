@@ -1,0 +1,266 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+	<h2>🤖 AI Course Bot</h2>
+	<a href="/" class="btn btn-outline-secondary">← Back to Dashboard</a>
+</div>
+
+<p class="text-muted mb-4">
+	Upload course packs or lecture notes, then ask questions with citations from your materials.
+</p>
+
+{% if success_message %}
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+	{{ success_message }}
+	<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+
+{% if error %}
+<div class="alert alert-danger">
+	<strong>Error:</strong> {{ error }}
+</div>
+{% endif %}
+
+<div class="card shadow-sm mb-4">
+	<div class="card-header bg-primary text-white">
+		<h5 class="mb-0">📚 Upload Course Materials</h5>
+	</div>
+	<div class="card-body">
+		<form method="POST" enctype="multipart/form-data">
+			<input type="hidden" name="action" value="upload_course_doc">
+			<div class="mb-3">
+				<label class="form-label fw-semibold">Upload course file (drag & drop)</label>
+				<div id="course-drop-zone" class="border border-2 border-dashed rounded p-4 text-center bg-light">
+					<p class="mb-1 fw-semibold">Drop your file here or click to browse</p>
+					<p class="text-muted small mb-0">Supported: .txt, .md, .docx, .pdf · Max 4 MB</p>
+				</div>
+				<input type="file" name="course_file" id="course_file" accept=".txt,.md,.markdown,.docx,.pdf" class="d-none">
+				<div id="course-file-name" class="form-text mt-2 text-truncate">No file selected.</div>
+			</div>
+			<button type="submit" class="btn btn-primary">Upload Material</button>
+		</form>
+	</div>
+</div>
+
+<div class="card shadow-sm mb-4">
+	<div class="card-header bg-secondary text-white">
+		<h5 class="mb-0">❓ Ask a Question</h5>
+	</div>
+	<div class="card-body">
+		<div class="mb-3">
+			<label class="form-label fw-semibold">Quick Prompts</label>
+			<div class="d-flex flex-wrap gap-2">
+				<button type="button" class="btn btn-sm btn-outline-dark preset-prompt" data-prompt="Create 20 MCQs with answers hidden.">MCQs (20)</button>
+				<button type="button" class="btn btn-sm btn-outline-dark preset-prompt" data-prompt="Summarise the key points in detail.">Detailed Summary</button>
+				<button type="button" class="btn btn-sm btn-outline-dark preset-prompt" data-prompt="Create 20 flashcards with term and definition.">Flashcards</button>
+				<button type="button" class="btn btn-sm btn-outline-dark preset-prompt" data-prompt="Create 10 true/false questions with brief explanations.">True/False</button>
+				<button type="button" class="btn btn-sm btn-outline-dark preset-prompt" data-prompt="Create 10 fill-in-the-blank questions.">Fill in the Blanks</button>
+				<button type="button" class="btn btn-sm btn-outline-dark preset-prompt" data-prompt="What are the main arguments and counter-arguments? Provide detail.">Arguments</button>
+				<button type="button" class="btn btn-sm btn-outline-dark preset-prompt" data-prompt="Create an essay outline with cited points.">Essay Outline</button>
+			</div>
+			<small class="text-muted">Click a prompt to auto-fill the question box.</small>
+		</div>
+		<form method="POST">
+			<input type="hidden" name="action" value="ask_course_question">
+			<div class="mb-3">
+				<label for="question" class="form-label fw-semibold">Your Question</label>
+				<textarea id="question" name="question" class="form-control" rows="3" placeholder="Ask about definitions, concepts, or details from your uploaded materials..."></textarea>
+			</div>
+			<button type="submit" class="btn btn-dark">Get Answer with Citations</button>
+		</form>
+	</div>
+</div>
+
+{% if docs %}
+<div class="card shadow-sm mb-4">
+	<div class="card-header">
+		<div class="d-flex justify-content-between align-items-center">
+			<h5 class="mb-0">📄 Uploaded Materials</h5>
+			<form method="POST" class="m-0">
+				<input type="hidden" name="action" value="clear_course_docs">
+				<button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Clear all uploaded materials?');">
+					Clear Materials
+				</button>
+			</form>
+		</div>
+	</div>
+	<div class="card-body">
+		<ul class="list-group">
+			{% for doc in docs %}
+			<li class="list-group-item d-flex justify-content-between align-items-center">
+				<span>📄 {{ doc.filename }}</span>
+				<small class="text-muted">Uploaded {{ doc.uploaded_at | irish_datetime }}</small>
+			</li>
+			{% endfor %}
+		</ul>
+	</div>
+</div>
+{% endif %}
+
+{% if history %}
+<div class="card shadow-sm">
+	<div class="card-header">
+		<div class="d-flex justify-content-between align-items-center">
+			<h5 class="mb-0">🧠 Q&amp;A History</h5>
+			<form method="POST" class="m-0">
+				<input type="hidden" name="action" value="clear_course_history">
+				<button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Clear all Q&A history?');">
+					Clear History
+				</button>
+			</form>
+		</div>
+	</div>
+	<div class="card-body">
+		{% for item in history %}
+		<div class="border rounded p-3 mb-3">
+			<div class="mb-2">
+				<strong>Question:</strong>
+				<div class="mt-1">{{ item.question }}</div>
+				<small class="text-muted">Asked {{ item.asked_at | irish_datetime }}</small>
+			</div>
+			<div class="mb-2">
+				<div class="d-flex justify-content-between align-items-center">
+					<strong>Answer:</strong>
+					<button type="button" class="btn btn-sm btn-outline-secondary toggle-answers" data-target="answers-{{ item.id }}">
+						Reveal Answers
+					</button>
+				</div>
+				<div id="answers-{{ item.id }}" class="mt-2 p-2 bg-light rounded" style="white-space: normal; line-height: 1.6;">
+					{% if item.qa_pairs and item.qa_pairs|length > 0 %}
+						<ol class="mb-0">
+							{% for qa in item.qa_pairs %}
+								<li class="mb-2">
+									<strong>{{ qa.question }}</strong><br>
+									<span class="answer-line">Answer: {{ qa.answer }}</span>
+									{% if qa.explanation %}
+										<br>
+										<span class="answer-line">Explanation: {{ qa.explanation }}</span>
+									{% endif %}
+								</li>
+							{% endfor %}
+						</ol>
+					{% else %}
+						{% set raw_lines = (item.answer or '').splitlines() %}
+						{% set lines = [] %}
+						{% for line in raw_lines %}
+							{% set cleaned = line | replace('**', '') | trim %}
+							{% if cleaned %}
+								{% set _ = lines.append(cleaned) %}
+							{% endif %}
+						{% endfor %}
+						{% set ns = namespace(bullets=[]) %}
+						{% for line in lines %}
+							{% if line.startswith('- ') or line.startswith('• ') %}
+								{% set _ = ns.bullets.append(line[2:]) %}
+							{% endif %}
+						{% endfor %}
+						{% if ns.bullets|length > 1 %}
+							<ol class="mb-0">
+								{% for bullet in ns.bullets %}
+									<li>{{ bullet }}</li>
+								{% endfor %}
+							</ol>
+						{% else %}
+							{% for line in lines %}
+								{% if line.startswith('Correct Answer:') or line.startswith('Answer:') or line.startswith('Explanation:') %}
+									<span class="answer-line">{{ line }}</span>
+								{% else %}
+									{{ line }}
+								{% endif %}
+								{% if not loop.last %}<br>{% endif %}
+							{% endfor %}
+						{% endif %}
+					{% endif %}
+				</div>
+			</div>
+			{% if item.citations_list %}
+			<div class="mb-2">
+				<strong>Citations:</strong>
+				<ul class="mt-2">
+					{% for citation in item.citations_list %}
+					<li>
+						<strong>{{ citation.source }}</strong>
+						{% if citation.quote %} — "{{ citation.quote }}"{% endif %}
+					</li>
+					{% endfor %}
+				</ul>
+			</div>
+			{% endif %}
+		</div>
+		{% endfor %}
+	</div>
+</div>
+{% endif %}
+
+<script>
+	// Reference: ChatGPT (OpenAI) - Course Bot Drag-and-Drop Upload UX
+	// Date: 2026-01-22
+	// Prompt: "I need a clean drag-and-drop UI for uploading course materials, with
+	// file name feedback and fallback to normal file input. Can you outline the pattern?"
+	// ChatGPT provided the drag-and-drop interaction pattern.
+	const courseDropZone = document.getElementById("course-drop-zone");
+	const courseFileInput = document.getElementById("course_file");
+	const courseFileName = document.getElementById("course-file-name");
+
+	if (courseDropZone && courseFileInput) {
+		courseDropZone.addEventListener("click", () => courseFileInput.click());
+		courseDropZone.addEventListener("dragover", (e) => {
+			e.preventDefault();
+			courseDropZone.classList.add("border-primary");
+		});
+		courseDropZone.addEventListener("dragleave", () => {
+			courseDropZone.classList.remove("border-primary");
+		});
+		courseDropZone.addEventListener("drop", (e) => {
+			e.preventDefault();
+			courseDropZone.classList.remove("border-primary");
+			if (e.dataTransfer.files.length > 0) {
+				courseFileInput.files = e.dataTransfer.files;
+				courseFileName.textContent = e.dataTransfer.files[0].name;
+			}
+		});
+		courseFileInput.addEventListener("change", (e) => {
+			if (e.target.files.length > 0) {
+				courseFileName.textContent = e.target.files[0].name;
+			} else {
+				courseFileName.textContent = "No file selected.";
+			}
+		});
+	}
+
+	document.querySelectorAll(".toggle-answers").forEach((button) => {
+		button.addEventListener("click", () => {
+			const targetId = button.getAttribute("data-target");
+			const container = document.getElementById(targetId);
+			if (!container) {
+				return;
+			}
+			const hidden = container.classList.toggle("show-answers");
+			button.textContent = hidden ? "Hide Answers" : "Reveal Answers";
+		});
+	});
+
+	const questionField = document.getElementById("question");
+	document.querySelectorAll(".preset-prompt").forEach((button) => {
+		button.addEventListener("click", () => {
+			if (!questionField) {
+				return;
+			}
+			questionField.value = button.getAttribute("data-prompt") || "";
+			questionField.focus();
+		});
+	});
+</script>
+
+<style>
+	.answer-line {
+		display: none;
+		font-weight: 600;
+	}
+	.show-answers .answer-line {
+		display: inline;
+	}
+</style>
+
+{% endblock %}

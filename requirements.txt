@@ -1,11 +1,13 @@
 Flask==3.0.3
 Flask-Login==0.6.3
 SQLAlchemy==2.0.35
-psycopg2-binary==2.9.9
+psycopg2==2.9.11
 pandas==2.2.2
 matplotlib==3.9.2
 python-dotenv==1.0.1
 python-docx==1.1.2
+pypdf==4.2.0
 canvasapi==3.3.0
 arrow==1.4.0
 requests==2.32.5
+openai>=1.40.0

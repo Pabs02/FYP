@@ -1,0 +1,271 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+	<div>
+		<h2>{{ task.title }}{% if task.module_code %} <span class="badge text-bg-secondary">{{ task.module_code }}</span>{% endif %}</h2>
+		<p class="text-muted mb-0">
+			Due: {{ task.due_at | irish_datetime if task.due_at else task.due_date | irish_date }}
+			<span class="ms-2">Status: <strong>{{ task.status }}</strong></span>
+		</p>
+	</div>
+	<a href="{{ url_for('tasks') }}" class="btn btn-outline-secondary">← Back to tasks</a>
+</div>
+
+<div class="card mb-4">
+	<div class="card-header d-flex justify-content-between align-items-center">
+		<span>Assignment Overview</span>
+		{% if task.canvas_assignment_id %}
+			<span class="badge bg-info" title="Synced from Canvas LMS">📚 Canvas Assignment</span>
+		{% endif %}
+	</div>
+	<div class="card-body">
+		<form method="POST" class="mb-4">
+			<input type="hidden" name="action" value="update_task">
+			<div class="mb-3">
+				<label class="form-label">Assignment Title</label>
+				<input type="text" name="task_title" class="form-control" value="{{ task.title }}" required>
+				{% if task.canvas_assignment_id %}
+					<small class="text-muted">You can personalize Canvas-imported assignments by editing this title.</small>
+				{% endif %}
+			</div>
+			<div class="row g-3 mb-3">
+				<div class="col-md-4">
+					<label class="form-label">Due Date</label>
+					<input type="date" name="due_date" class="form-control" 
+					       value="{{ task.due_date.isoformat() if task.due_date else '' }}">
+				</div>
+				<div class="col-md-4">
+					<label class="form-label">Due Date/Time (optional)</label>
+					{% if task.due_at %}
+						<input type="datetime-local" name="due_at" class="form-control" 
+						       value="{{ task.due_at.strftime('%Y-%m-%dT%H:%M') if task.due_at else '' }}">
+					{% else %}
+						<input type="datetime-local" name="due_at" class="form-control" value="">
+					{% endif %}
+					<small class="text-muted">Leave empty to use due date only</small>
+				</div>
+				<div class="col-md-4">
+					<label class="form-label">Weighting (%)</label>
+					<input type="number" step="0.5" min="0" max="100" name="weight_percentage" class="form-control" value="{{ task.weight_percentage or '' }}">
+				</div>
+			</div>
+			<div class="row g-3 mb-3">
+				<div class="col-md-8">
+					<label class="form-label">Latest result</label>
+					{% if task.canvas_score is not none %}
+						{% if task.canvas_possible is not none and task.canvas_possible != 0 %}
+							{% set percent = (task.canvas_score / task.canvas_possible * 100) %}
+							<p class="fw-semibold mb-0">{{ '%.1f'|format(task.canvas_score) }}/{{ '%.1f'|format(task.canvas_possible) }} ({{ percent|round|int }}%)</p>
+						{% else %}
+							<p class="fw-semibold mb-0">{{ '%.1f'|format(task.canvas_score) }}</p>
+						{% endif %}
+						{% if task.canvas_graded_at %}
+							<p class="small text-muted mb-0">Graded {{ task.canvas_graded_at | irish_datetime }}</p>
+						{% endif %}
+					{% else %}
+						<p class="fw-semibold mb-0">No grade yet</p>
+					{% endif %}
+				</div>
+				<div class="col-md-4 text-md-end">
+					<button type="submit" class="btn btn-primary mt-md-3">💾 Save changes</button>
+				</div>
+			</div>
+			<hr>
+			<div class="mb-3">
+				<label class="form-label">Notes / Assignment Brief</label>
+				<textarea name="task_description" class="form-control" rows="6" placeholder="Add personal notes, instructions, or paste assignment brief here...">{{ task.description or '' }}</textarea>
+				{% if task.canvas_assignment_id %}
+					<small class="text-muted">Add your own notes or edit the Canvas assignment brief here.</small>
+				{% endif %}
+			</div>
+		</form>
+		<h5>Assignment brief preview</h5>
+		{% if task.description %}
+			<div class="border rounded p-3 bg-light" style="max-height: 320px; overflow:auto;">
+				{{ task.description | safe }}
+			</div>
+		{% else %}
+			<p class="text-muted mb-0">No description available for this assignment.</p>
+		{% endif %}
+	</div>
+</div>
+{% if reviews %}
+<div class="card mb-4">
+	<div class="card-header">
+		<h5 class="mb-0">📝 Previous Reviews</h5>
+	</div>
+	<div class="card-body">
+		{% for review in reviews %}
+		<div class="border rounded p-3 mb-3">
+			<div class="d-flex justify-content-between align-items-start mb-2">
+				<div>
+					<h6 class="mb-1">
+						{% if review.filename %}
+							📄 {{ review.filename }}
+						{% else %}
+							📝 Text Review
+						{% endif %}
+					</h6>
+					<small class="text-muted">Reviewed {{ review.reviewed_at | irish_datetime }}</small>
+				</div>
+				{% if review.ai_score_estimate is not none %}
+					<div class="text-end">
+						{% if review.ai_possible_score and review.ai_possible_score > 0 %}
+							{% set percent = (review.ai_score_estimate / review.ai_possible_score * 100) %}
+							<div class="badge bg-secondary fs-6">
+								{{ '%.1f'|format(review.ai_score_estimate) }}/{{ '%.1f'|format(review.ai_possible_score) }} ({{ percent|round|int }}%)
+							</div>
+						{% else %}
+							<div class="badge bg-secondary fs-6">
+								{{ '%.1f'|format(review.ai_score_estimate) }}
+							</div>
+						{% endif %}
+					</div>
+				{% endif %}
+			</div>
+			{% if review.ai_feedback %}
+				<div class="mb-2">
+					<strong>Feedback:</strong>
+					<div class="mt-2 p-2 bg-light rounded" style="white-space: pre-wrap; line-height: 1.6;">{{ review.ai_feedback }}</div>
+				</div>
+			{% endif %}
+		</div>
+		{% endfor %}
+	</div>
+</div>
+{% endif %}
+
+<!-- Flash Messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+	{% if messages %}
+		{% for category, message in messages %}
+			<div class="alert alert-{{ 'success' if category=='success' else 'danger' }} alert-dismissible fade show" role="alert">
+				{{ message }}
+				<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+			</div>
+		{% endfor %}
+	{% endif %}
+{% endwith %}
+
+<div class="row">
+	<div class="col-lg-5">
+		<div class="card mb-4">
+			<div class="card-header">Add Micro-task</div>
+			<div class="card-body">
+				<form method="POST">
+					<div class="mb-3">
+						<label class="form-label" for="title">Title</label>
+						<input type="text" id="title" name="title" class="form-control" placeholder="Draft introduction section" required>
+					</div>
+					<div class="mb-3">
+						<label class="form-label" for="description">Description / rationale</label>
+						<textarea id="description" name="description" class="form-control" rows="3" placeholder="Summarise readings and outline main arguments"></textarea>
+					</div>
+					<div class="row">
+						<div class="col">
+							<label class="form-label" for="sequence">Sequence</label>
+							<input type="number" id="sequence" name="sequence" class="form-control" min="1" value="{{ (subtasks|length) + 1 }}">
+						</div>
+						<div class="col">
+							<label class="form-label" for="estimated_hours">Estimated hours</label>
+							<input type="number" step="0.25" id="estimated_hours" name="estimated_hours" class="form-control" min="0">
+						</div>
+					</div>
+					<div class="row mt-3">
+						<div class="col">
+							<label class="form-label" for="planned_week">Planned week #</label>
+							<input type="number" id="planned_week" name="planned_week" class="form-control" min="1">
+						</div>
+						<div class="col">
+							<label class="form-label" for="planned_start">Start</label>
+							<input type="date" id="planned_start" name="planned_start" class="form-control">
+						</div>
+						<div class="col">
+							<label class="form-label" for="planned_end">End</label>
+							<input type="date" id="planned_end" name="planned_end" class="form-control">
+						</div>
+					</div>
+					<div class="d-grid mt-4">
+						<button type="submit" class="btn btn-primary">Add micro-task</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+	<div class="col-lg-7">
+		<div class="card mb-4">
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<span>Planned micro-tasks</span>
+				{% if subtasks %}
+					<span class="badge text-bg-info">{{ subtasks|length }} items</span>
+				{% endif %}
+			</div>
+			<div class="card-body">
+				{% if subtasks %}
+					{% set completed_count = subtasks | selectattr('is_completed') | list | length %}
+					{% set total_count = subtasks|length %}
+					{% set progress_pct = (completed_count / total_count * 100) | round if total_count > 0 else 0 %}
+					<div class="progress mb-3" style="height: 25px;">
+						<div class="progress-bar {% if progress_pct == 100 %}bg-success{% else %}bg-primary{% endif %}" 
+						     role="progressbar" 
+						     style="width: {{ progress_pct }}%" 
+						     aria-valuenow="{{ progress_pct }}" 
+						     aria-valuemin="0" 
+						     aria-valuemax="100">
+							{{ completed_count }} / {{ total_count }} completed
+						</div>
+					</div>
+					<ol class="list-group list-group-numbered">
+					{% for sub in subtasks %}
+						<li class="list-group-item {% if sub.is_completed %}bg-light{% endif %}">
+							<div class="d-flex justify-content-between align-items-start">
+								<div class="flex-grow-1">
+									<div class="d-flex align-items-center gap-2 mb-2">
+										<form action="{{ url_for('toggle_subtask', task_id=task.id, subtask_id=sub.id) }}" method="POST" style="display: inline;">
+											<button type="submit" class="btn btn-sm {% if sub.is_completed %}btn-success{% else %}btn-outline-secondary{% endif %}" title="{% if sub.is_completed %}Mark as pending{% else %}Mark as completed{% endif %}">
+												{% if sub.is_completed %}✓{% else %}☐{% endif %}
+											</button>
+										</form>
+										<h6 class="mb-0 {% if sub.is_completed %}text-decoration-line-through text-muted{% endif %}">{{ sub.title }}</h6>
+									</div>
+									{% if sub.description %}
+										<p class="mb-2 {% if sub.is_completed %}text-decoration-line-through text-muted{% endif %}">{{ sub.description }}</p>
+									{% endif %}
+									<div class="text-muted small">
+										Sequence {{ sub.sequence }}
+										{% if sub.planned_week %}
+											· Week {{ sub.planned_week }}
+										{% endif %}
+										{% if sub.planned_start %}
+											· {{ sub.planned_start }}
+											{% if sub.planned_end %} → {{ sub.planned_end }}{% endif %}
+										{% endif %}
+										{% if sub.is_completed and sub.completed_at %}
+											· Completed {{ sub.completed_at | irish_datetime }}
+										{% endif %}
+									</div>
+								</div>
+								<div class="text-end ms-2">
+									{% if sub.estimated_hours %}
+										<span class="badge text-bg-warning text-dark">~{{ sub.estimated_hours }} hrs</span>
+									{% endif %}
+								</div>
+							</div>
+						</li>
+					{% endfor %}
+					</ol>
+					<div class="mt-3 text-muted small">
+						<strong>Progress:</strong> 
+						{{ completed_count }} of {{ total_count }} completed
+						({{ progress_pct }}%)
+					</div>
+				{% else %}
+					<p class="text-muted mb-0">No micro-tasks yet. Use the form to start planning.</p>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+</div>
+
+{% endblock %}
+

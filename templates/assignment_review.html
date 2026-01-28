@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+	<h2>🤖 AI Assignment Review & Grading</h2>
+	<a href="/" class="btn btn-outline-secondary">← Back to Dashboard</a>
+</div>
+
+<p class="text-muted mb-4">
+	Upload your assignment draft or paste your work to get AI-powered feedback and a grade estimate before submission.
+</p>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+	{% if messages %}
+		{% for category, message in messages %}
+			<div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+				{{ message }}
+				<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+			</div>
+		{% endfor %}
+	{% endif %}
+{% endwith %}
+
+{% if success_message %}
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+	{{ success_message }}
+	<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+
+{% if error %}
+<div class="alert alert-danger">
+	<strong>Error:</strong> {{ error }}
+</div>
+{% endif %}
+
+<div class="card shadow-sm mb-4">
+	<div class="card-header bg-primary text-white">
+		<h5 class="mb-0">✨ Review Assignment</h5>
+	</div>
+	<div class="card-body">
+		<form method="POST" enctype="multipart/form-data">
+			<div class="mb-3">
+				<label for="task_id" class="form-label">Link to Task (Optional)</label>
+				<select id="task_id" name="task_id" class="form-select">
+					<option value="">No task link</option>
+					{% for task in tasks %}
+					<option value="{{ task.id }}">
+						{{ task.title }}{% if task.module_code %} ({{ task.module_code }}){% endif %}
+					</option>
+					{% endfor %}
+				</select>
+				<small class="text-muted">Optionally link this review to a task for better organization.</small>
+			</div>
+			
+			<div class="mb-3">
+				<label for="assignment_brief" class="form-label fw-semibold">Assignment Brief / Rubric (Optional but Recommended)</label>
+				<textarea id="assignment_brief" name="assignment_brief" class="form-control" rows="6" placeholder="Paste the assignment brief, requirements, grading rubric, or instructions here. This helps the AI provide more accurate and detailed feedback..."></textarea>
+				<small class="text-muted">Providing the assignment brief or rubric helps the AI give more targeted and detailed feedback.</small>
+			</div>
+			
+			<div class="mb-3">
+				<label class="form-label fw-semibold">Upload assignment file (drag & drop)</label>
+				<div id="review-drop-zone" class="border border-2 border-dashed rounded p-4 text-center bg-light">
+					<p class="mb-1 fw-semibold">Drop your file here or click to browse</p>
+					<p class="text-muted small mb-0">Supported: .txt, .md, .docx, .pdf · Max 4 MB</p>
+				</div>
+				<input type="file" name="assignment_file" id="assignment_file" accept=".txt,.md,.markdown,.docx,.pdf" class="d-none">
+				<div id="review-file-name" class="form-text mt-2 text-truncate">No file selected.</div>
+			</div>
+			
+			<div class="mb-3">
+				<label for="assignment_text" class="form-label fw-semibold">Or paste assignment text</label>
+				<textarea id="assignment_text" name="assignment_text" class="form-control" rows="10" placeholder="Paste your assignment content here..."></textarea>
+			</div>
+			
+			<button type="submit" class="btn btn-primary btn-lg">✨ Get AI Review & Grade</button>
+		</form>
+	</div>
+</div>
+
+{% if reviews %}
+<div class="card shadow-sm">
+	<div class="card-header">
+		<h5 class="mb-0">📝 Previous Reviews</h5>
+	</div>
+	<div class="card-body">
+		{% for review in reviews %}
+		<div class="border rounded p-3 mb-3">
+			<div class="d-flex justify-content-between align-items-start mb-2">
+				<div>
+					<h6 class="mb-1">
+						{% if review.filename %}
+							📄 {{ review.filename }}
+						{% else %}
+							📝 Text Review
+						{% endif %}
+						{% if review.task_title %}
+							<small class="text-muted"> - {{ review.task_title }}{% if review.module_code %} ({{ review.module_code }}){% endif %}</small>
+						{% endif %}
+					</h6>
+					<small class="text-muted">Reviewed {{ review.reviewed_at | irish_datetime }}</small>
+				</div>
+				<div class="text-end">
+					<form method="POST" action="{{ url_for('delete_assignment_review', review_id=review.id) }}" class="mb-2">
+						<button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this review? This cannot be undone.');">
+							Delete
+						</button>
+					</form>
+					{% if review.ai_score_estimate is not none %}
+						{% if review.ai_possible_score and review.ai_possible_score > 0 %}
+							{% set percent = (review.ai_score_estimate / review.ai_possible_score * 100) %}
+							<div class="badge bg-secondary fs-6">
+								{{ percent|round|int }}%
+							</div>
+						{% else %}
+							<div class="badge bg-secondary fs-6">
+								{{ '%.1f'|format(review.ai_score_estimate) }}
+							</div>
+						{% endif %}
+					{% endif %}
+				</div>
+			</div>
+			{% if review.ai_feedback %}
+				<div class="mb-2">
+					<strong>Feedback:</strong>
+					<div class="mt-2 p-2 bg-light rounded" style="white-space: pre-wrap; line-height: 1.6;">{{ review.ai_feedback }}</div>
+				</div>
+			{% endif %}
+		</div>
+		{% endfor %}
+	</div>
+</div>
+{% endif %}
+
+<script>
+	// Reference: ChatGPT (OpenAI) - Assignment Review Drag-and-Drop Upload
+	// Date: 2026-01-22
+	// Prompt: "I need a drag-and-drop upload widget for assignment review, with
+	// visual feedback and file name display. Can you suggest a JS pattern?"
+	// ChatGPT provided the drag-and-drop upload interaction pattern.
+	const reviewDropZone = document.getElementById("review-drop-zone");
+	const reviewFileInput = document.getElementById("assignment_file");
+	const reviewFileName = document.getElementById("review-file-name");
+
+	if (reviewDropZone && reviewFileInput) {
+		reviewDropZone.addEventListener("click", () => reviewFileInput.click());
+		reviewDropZone.addEventListener("dragover", (e) => {
+			e.preventDefault();
+			reviewDropZone.classList.add("border-primary");
+		});
+		reviewDropZone.addEventListener("dragleave", () => {
+			reviewDropZone.classList.remove("border-primary");
+		});
+		reviewDropZone.addEventListener("drop", (e) => {
+			e.preventDefault();
+			reviewDropZone.classList.remove("border-primary");
+			if (e.dataTransfer.files.length > 0) {
+				reviewFileInput.files = e.dataTransfer.files;
+				reviewFileName.textContent = e.dataTransfer.files[0].name;
+			}
+		});
+		reviewFileInput.addEventListener("change", (e) => {
+			if (e.target.files.length > 0) {
+				reviewFileName.textContent = e.target.files[0].name;
+			} else {
+				reviewFileName.textContent = "No file selected.";
+			}
+		});
+	}
+</script>
+
+{% endblock %}

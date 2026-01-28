@@ -13,6 +13,9 @@ __pycache__/
 venv/
 ENV/
 env/
+venv_arm/
+venv_x86/
+venv_*/
 
 # IDE
 .idea/
@@ -30,19 +33,20 @@ env/
 ehthumbs.db
 Thumbs.db
 
-# Cursor
-.cursor/
+
 
 # Project specific
 static/charts/*.png
 static/charts/*.html
 static/charts/*.txt
 scripts/~*
+uploads/
 *.pyc
 *.log
 *.pid
+*.whl
 
-# Documentation output
-*.docx
+
+
 
 

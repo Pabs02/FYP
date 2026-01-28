@@ -1,6 +1,12 @@
+-- Reference: ChatGPT (OpenAI) - Authentication Fields Migration
+-- Date: 2025-10-10
+-- Prompt: "I need to add authentication fields to my students table in PostgreSQL. 
+-- I need email (unique), password_hash, canvas_api_token, created_at, and last_login 
+-- columns. Can you give me the migration SQL with proper indexes?"
+-- ChatGPT provided the ALTER TABLE statements for all authentication fields and 
+-- email index for login performance.
 
 -- Authentication Migration SQL
-
 
 -- Add authentication fields to students table
 ALTER TABLE students 

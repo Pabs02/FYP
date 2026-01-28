@@ -1,3 +1,12 @@
+-- Reference: ChatGPT (OpenAI) - Calendar Events Table Schema
+-- Date: 2025-10-25
+-- Prompt: "I need to create a PostgreSQL table for calendar events (lectures, meetings) 
+-- that syncs with Canvas. It should have start_at and end_at timestamps, location, 
+-- foreign keys to students and modules, and Canvas event IDs. Can you create the schema 
+-- with proper indexes and constraints?"
+-- ChatGPT provided the complete table schema with foreign keys, unique constraints, 
+-- and performance indexes.
+
 -- Create events table to store timed calendar items (e.g., lectures)
 CREATE TABLE IF NOT EXISTS events (
     id BIGSERIAL PRIMARY KEY,

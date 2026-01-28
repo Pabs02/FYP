@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+	<h2>AI Workspace</h2>
+	<a href="/tasks" class="btn btn-outline-secondary">← Back to Tasks</a>
+</div>
+<p class="text-muted">
+	Upload an assignment brief or paste the key requirements to generate micro-task suggestions.
+	ChatGPT will return a structured plan you can refine and schedule.
+</p>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+	{% if messages %}
+		{% for category, message in messages %}
+			<div class="alert alert-{{ category }}">{{ message }}</div>
+		{% endfor %}
+	{% endif %}
+{% endwith %}
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% elif breakdown %}
+<div class="alert alert-success">ChatGPT generated a micro-plan successfully.</div>
+{% endif %}
+
+<form method="POST" enctype="multipart/form-data" class="card shadow-sm mb-4">
+	<div class="card-body">
+		<div class="row g-3">
+			<div class="col-md-6">
+				<label for="assignment_title" class="form-label">Assignment title</label>
+				<input type="text" id="assignment_title" name="assignment_title" class="form-control" placeholder="e.g. IS4416 Research Project"
+					value="{{ form_data.get('assignment_title', '') }}" required>
+			</div>
+			<div class="col-md-3">
+				<label for="module_code" class="form-label">Module code (optional)</label>
+				<input type="text" id="module_code" name="module_code" class="form-control" placeholder="e.g. IS4416"
+					value="{{ form_data.get('module_code', '') }}">
+			</div>
+			<div class="col-md-3">
+				<label for="due_date" class="form-label">Due date (optional)</label>
+				<input type="date" id="due_date" name="due_date" class="form-control"
+					value="{{ form_data.get('due_date', '') }}">
+			</div>
+		</div>
+
+		<div class="row g-3 mt-0 mt-md-3">
+			<div class="col-md-4">
+				<label for="status" class="form-label">Current status</label>
+				<select id="status" name="status" class="form-select">
+					<option value="">Select status</option>
+					{% for option in ['pending', 'in_progress', 'completed'] %}
+						<option value="{{ option }}" {% if form_data.get('status') == option %}selected{% endif %}>
+							{{ option.replace('_', ' ').title() }}
+						</option>
+					{% endfor %}
+				</select>
+			</div>
+			<div class="col-md-8">
+				<label class="form-label">Upload assignment brief (drag &amp; drop)</label>
+				<div id="drop-zone" class="border border-2 border-secondary-subtle rounded p-4 text-center bg-light-subtle">
+					<p class="mb-1 fw-semibold">Drop your file here or click to browse</p>
+					<p class="text-muted small mb-0">Supported formats: .txt, .md, .docx, .pdf · Max size 4&nbsp;MB</p>
+				</div>
+				<input type="file" name="brief_file" id="brief_file" accept=".txt,.md,.markdown,.docx,.pdf" class="d-none">
+				<div id="file-name" class="form-text mt-2 text-truncate">
+					{% if uploaded_filename %}
+						Selected file: {{ uploaded_filename }}
+					{% else %}
+						No file selected.
+					{% endif %}
+				</div>
+			</div>
+		</div>
+
+		<div class="mt-3">
+			<label for="brief_text" class="form-label">Or paste assignment brief text</label>
+			<textarea id="brief_text" name="brief_text" class="form-control" rows="6" placeholder="Paste the key grading criteria or brief">{{ form_data.get('brief_text', '') }}</textarea>
+		</div>
+
+		<div class="mt-3">
+			<label for="additional_context" class="form-label">Additional context (optional)</label>
+			<textarea id="additional_context" name="additional_context" class="form-control" rows="3" placeholder="Add personal constraints, grading focus, or available study hours">{{ form_data.get('additional_context', '') }}</textarea>
+		</div>
+	</div>
+	<div class="card-footer d-flex justify-content-between align-items-center">
+		<small class="text-muted">Tip: keep briefs under 1,000 words for the best results.</small>
+		<button type="submit" class="btn btn-primary">Generate micro-plan</button>
+	</div>
+</form>
+
+{% if schedule_context_text %}
+<section class="mb-4">
+	<h4 class="h5">Current schedule snapshot</h4>
+	<pre class="bg-light border rounded p-3 small" style="white-space: pre-wrap;">{{ schedule_context_text }}</pre>
+</section>
+{% endif %}
+
+{% if breakdown %}
+<section class="mb-4">
+	<h3 class="h4">Suggested micro-tasks</h3>
+	{% if plan_payload %}
+	<form method="POST" action="{{ url_for('ai_workspace_save') }}" class="mb-3">
+		<input type="hidden" name="assignment_title" value="{{ form_data.get('assignment_title', '') }}">
+		<input type="hidden" name="module_code" value="{{ form_data.get('module_code', '') }}">
+		<input type="hidden" name="due_date" value="{{ form_data.get('due_date', '') }}">
+		<input type="hidden" name="plan_json" value='{{ plan_payload|tojson|safe }}'>
+		<button type="submit" class="btn btn-success">Add these subtasks to my calendar</button>
+	</form>
+	{% endif %}
+	<ol class="list-group list-group-numbered">
+		{% for item in breakdown.subtasks %}
+		<li class="list-group-item">
+			<div class="d-flex justify-content-between align-items-start">
+				<div>
+					<strong>{{ item.title }}</strong>
+					{% if item.description %}
+					<p class="mb-1">{{ item.description }}</p>
+					{% endif %}
+					{% if item.planned_start or item.planned_end %}
+					<div class="text-muted small">
+						Suggested window:
+						{% if item.planned_start %}{{ item.planned_start }}{% endif %}
+						{% if item.planned_end %}→ {{ item.planned_end }}{% endif %}
+					</div>
+					{% endif %}
+					{% if item.focus %}
+					<div class="small text-muted fst-italic">Focus tip: {{ item.focus }}</div>
+					{% endif %}
+				</div>
+				{% if item.estimated_hours %}
+				<span class="badge bg-info text-dark">~{{ "%.1f"|format(item.estimated_hours) }} hrs</span>
+				{% endif %}
+			</div>
+		</li>
+		{% endfor %}
+	</ol>
+	{% if breakdown.advice %}
+	<div class="alert alert-secondary mt-3 mb-0">{{ breakdown.advice }}</div>
+	{% endif %}
+	<details class="mt-3">
+		<summary class="text-muted">Show raw ChatGPT response</summary>
+		<pre class="bg-light border rounded p-3 small" style="white-space: pre-wrap;">{{ breakdown.raw_text }}</pre>
+	</details>
+</section>
+{% endif %}
+
+{% if source_text %}
+<section class="mb-4">
+	<h4 class="h5">Brief preview</h4>
+	<div class="bg-light border rounded p-3 small" style="white-space: pre-wrap;">
+		{{ source_text[:1200] }}{% if source_text|length > 1200 %}…{% endif %}
+	</div>
+</section>
+{% endif %}
+
+{% if sanitized_summary %}
+<details class="mb-4">
+	<summary class="text-muted">Sanitized summary sent to ChatGPT</summary>
+	<p class="small mb-0">{{ sanitized_summary }}</p>
+</details>
+{% endif %}
+
+<script>
+	const dropZone = document.getElementById("drop-zone");
+	const fileInput = document.getElementById("brief_file");
+	const fileName = document.getElementById("file-name");
+
+	function updateFileName(files) {
+		if (!files || !files.length) {
+			fileName.textContent = "No file selected.";
+			return;
+		}
+		if (files.length > 1) {
+			fileName.textContent = `${files.length} files selected (using the first one)`;
+		} else {
+			fileName.textContent = `Selected file: ${files[0].name}`;
+		}
+	}
+
+	function highlightDropZone(active) {
+		dropZone.classList.toggle("border-primary", active);
+		dropZone.classList.toggle("bg-body-tertiary", active);
+	}
+
+	function assignFiles(files) {
+		if (!files || !files.length) {
+			return;
+		}
+		if (window.DataTransfer) {
+			const dataTransfer = new DataTransfer();
+			for (let i = 0; i < files.length; i += 1) {
+				dataTransfer.items.add(files[i]);
+			}
+			fileInput.files = dataTransfer.files;
+			updateFileName(fileInput.files);
+			return;
+		}
+		try {
+			fileInput.files = files;
+		} catch {
+			console.warn("Drag-and-drop assignment not supported in this browser.");
+		}
+		updateFileName(fileInput.files);
+	}
+
+	dropZone.addEventListener("click", () => fileInput.click());
+	dropZone.addEventListener("dragenter", (event) => {
+		event.preventDefault();
+		highlightDropZone(true);
+	});
+	dropZone.addEventListener("dragover", (event) => {
+		event.preventDefault();
+		highlightDropZone(true);
+	});
+	dropZone.addEventListener("dragleave", () => highlightDropZone(false));
+	dropZone.addEventListener("drop", (event) => {
+		event.preventDefault();
+		highlightDropZone(false);
+		assignFiles(event.dataTransfer.files);
+	});
+	fileInput.addEventListener("change", (event) => assignFiles(event.target.files));
+</script>
+{% endblock %}
+

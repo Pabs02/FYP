@@ -34,6 +34,10 @@
 						<div class="col-sm-4 fw-bold">Email:</div>
 						<div class="col-sm-8">{{ current_user.email }}</div>
 					</div>
+					<div class="row mb-3">
+						<div class="col-sm-4 fw-bold">Student Number:</div>
+						<div class="col-sm-8">{{ current_user.student_number or "Not set" }}</div>
+					</div>
 					<div class="row">
 						<div class="col-sm-4 fw-bold">Student ID:</div>
 						<div class="col-sm-8">#{{ current_user.id }}</div>
@@ -48,6 +52,13 @@
 				</div>
 				<div class="card-body">
 					<form method="POST" action="{{ url_for('update_profile') }}">
+						<div class="mb-3">
+							<label for="student_number" class="form-label">Student Number</label>
+							<input type="text" class="form-control" id="student_number" name="student_number"
+								   value="{{ current_user.student_number or '' }}"
+								   placeholder="e.g., 122753729">
+							<div class="form-text">Used to sign off lecturer emails.</div>
+						</div>
 						<div class="mb-3">
 							<label for="canvas_api_token" class="form-label">Canvas API Token</label>
 							<input type="text" class="form-control" id="canvas_api_token" name="canvas_api_token" 
@@ -85,6 +96,45 @@
 							</a>
 						{% endif %}
 					</form>
+				</div>
+			</div>
+
+			<!-- Email Notifications -->
+			<!-- Reference: ChatGPT (OpenAI) - Email Preferences UI Copy
+			     Date: 2026-01-22
+			     Prompt: "I want clear checkbox labels for email notifications and a
+			     call-to-action for sending a daily summary. Can you suggest UI wording?"
+			     ChatGPT provided the UI copy guidance for this section. -->
+			<div class="card mb-4">
+				<div class="card-header">
+					<h5 class="mb-0">📬 Email Notifications</h5>
+				</div>
+				<div class="card-body">
+					<form method="POST" action="{{ url_for('update_email_preferences') }}">
+						<div class="form-check mb-2">
+							<input class="form-check-input" type="checkbox" id="email_notifications_enabled" name="email_notifications_enabled" value="1"
+								{% if current_user.email_notifications_enabled %}checked{% endif %}>
+							<label class="form-check-label" for="email_notifications_enabled">
+								Enable deadline reminder emails
+							</label>
+						</div>
+						<div class="form-check mb-3">
+							<input class="form-check-input" type="checkbox" id="email_daily_summary_enabled" name="email_daily_summary_enabled" value="1"
+								{% if current_user.email_daily_summary_enabled %}checked{% endif %}>
+							<label class="form-check-label" for="email_daily_summary_enabled">
+								Send daily study summary email
+							</label>
+						</div>
+						<button type="submit" class="btn btn-primary">Save Email Preferences</button>
+					</form>
+					<div class="mt-3 d-flex flex-wrap gap-2">
+						<form method="POST" action="{{ url_for('send_test_email') }}">
+							<button type="submit" class="btn btn-outline-secondary">Send Test Email</button>
+						</form>
+						<form method="POST" action="{{ url_for('send_daily_summary') }}">
+							<button type="submit" class="btn btn-outline-secondary">Send Daily Summary Now</button>
+						</form>
+					</div>
 				</div>
 			</div>
 			

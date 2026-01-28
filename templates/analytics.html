@@ -38,6 +38,61 @@
 	</div>
 </div>
 
+<!-- 7. Actionable Insights Section -->
+{% if analytics.focus_module or analytics.at_risk_assignments or analytics.overdue_by_module %}
+<div class="row g-4 mb-4">
+	<div class="col-md-12">
+		<div class="card border-warning">
+			<div class="card-header bg-warning bg-opacity-10">
+				<h5 class="mb-0">💡 Actionable Insights</h5>
+			</div>
+			<div class="card-body">
+				<div class="row">
+					{% if analytics.focus_module %}
+					<div class="col-md-4 mb-3">
+						<div class="p-3 border rounded bg-light">
+							<h6 class="text-primary">🎯 Focus Module</h6>
+							<p class="mb-1"><strong>{{ analytics.focus_module.module_code }}</strong></p>
+							<p class="mb-0 text-muted small">Completion Rate: {{ analytics.focus_module.completion_rate }}%</p>
+							<p class="text-muted small mb-0">Consider prioritizing tasks in this module.</p>
+						</div>
+					</div>
+					{% endif %}
+					
+					{% if analytics.at_risk_assignments %}
+					<div class="col-md-4 mb-3">
+						<div class="p-3 border rounded bg-light">
+							<h6 class="text-danger">⚠️ At-Risk Assignments</h6>
+							<p class="mb-1"><strong>{{ analytics.at_risk_assignments|length }} high-weight assignments</strong> due within 7 days</p>
+							<ul class="mb-0 small text-muted">
+								{% for task in analytics.at_risk_assignments[:3] %}
+								<li>{{ task.module_code }}: {{ task.title }} ({{ "%.0f"|format(task.days_remaining) }} days, {{ task.weight_percentage }}%)</li>
+								{% endfor %}
+							</ul>
+						</div>
+					</div>
+					{% endif %}
+					
+					{% if analytics.overdue_by_module %}
+					<div class="col-md-4 mb-3">
+						<div class="p-3 border rounded bg-light">
+							<h6 class="text-danger">📅 Overdue Tasks</h6>
+							<p class="mb-1"><strong>{{ analytics.overdue_by_module|sum(attribute='overdue_count') }} overdue</strong> across modules</p>
+							<ul class="mb-0 small text-muted">
+								{% for module in analytics.overdue_by_module[:3] %}
+								<li>{{ module.module_code }}: {{ module.overdue_count }} overdue</li>
+								{% endfor %}
+							</ul>
+						</div>
+					</div>
+					{% endif %}
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
+
 <!-- Charts Row -->
 <div class="row g-4">
 	<div class="col-md-6">
@@ -47,22 +102,45 @@
 			</div>
 			<div class="card-body">
 				{% if analytics.weekly_data %}
-					<div class="chart-container" style="height: 300px;">
-						{% for week in analytics.weekly_data %}
-						<div class="d-flex align-items-end mb-2">
-							<div class="me-2" style="width: 80px; font-size: 12px;">{{ week.week | irish_date }}</div>
-							<div class="flex-grow-1">
-								<div class="progress" style="height: 20px;">
-									<div class="progress-bar bg-primary" role="progressbar" 
-										 style="width: {{ (week.completions / analytics.max_weekly_completions * 100) }}%"
-										 aria-valuenow="{{ week.completions }}" aria-valuemin="0" aria-valuemax="{{ analytics.max_weekly_completions }}">
-										{{ week.completions }}
-									</div>
-								</div>
-							</div>
-						</div>
-						{% endfor %}
-					</div>
+					<!-- 4. Visual Improvement: Better chart visualization -->
+					<canvas id="weeklyChart" style="max-height: 300px;"></canvas>
+					<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+					<script>
+						const weeklyCtx = document.getElementById('weeklyChart');
+						if (weeklyCtx) {
+							const weeklyData = {{ analytics.weekly_data | tojson }};
+							new Chart(weeklyCtx, {
+								type: 'line',
+								data: {
+									labels: weeklyData.map(w => {
+										const date = new Date(w.week);
+										return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+									}),
+									datasets: [{
+										label: 'Tasks Completed',
+										data: weeklyData.map(w => w.completions),
+										borderColor: 'rgb(13, 110, 253)',
+										backgroundColor: 'rgba(13, 110, 253, 0.1)',
+										tension: 0.4,
+										fill: true
+									}]
+								},
+								options: {
+									responsive: true,
+									maintainAspectRatio: true,
+									plugins: {
+										legend: { display: false }
+									},
+									scales: {
+										y: {
+											beginAtZero: true,
+											ticks: { stepSize: 1 }
+										}
+									}
+								}
+							});
+						}
+					</script>
 				{% else %}
 					<p class="text-muted">No completion data available</p>
 				{% endif %}
@@ -77,39 +155,46 @@
 			</div>
 			<div class="card-body">
 				{% if analytics.completion_stats %}
-					<div class="text-center mb-3">
-						<h3>{{ analytics.completion_stats.total_completed }}</h3>
-						<p class="text-muted">Total Completed Tasks</p>
-					</div>
-					
-					<div class="row">
-						<div class="col-6 text-center">
-							<div class="p-3 border rounded">
-								<h4 class="text-success">{{ analytics.completion_stats.on_time }}</h4>
-								<p class="mb-0">On Time</p>
-								<small class="text-muted">{{ analytics.completion_stats.on_time_percentage }}%</small>
-							</div>
-						</div>
-						<div class="col-6 text-center">
-							<div class="p-3 border rounded">
-								<h4 class="text-danger">{{ analytics.completion_stats.late }}</h4>
-								<p class="mb-0">Late</p>
-								<small class="text-muted">{{ analytics.completion_stats.late_percentage }}%</small>
-							</div>
-						</div>
-					</div>
-					
-					<div class="mt-3">
-						<div class="progress" style="height: 25px;">
-							<div class="progress-bar bg-success" role="progressbar" 
-								 style="width: {{ analytics.completion_stats.on_time_percentage }}%">
-								On Time: {{ analytics.completion_stats.on_time_percentage }}%
-							</div>
-							<div class="progress-bar bg-danger" role="progressbar" 
-								 style="width: {{ analytics.completion_stats.late_percentage }}%">
-								Late: {{ analytics.completion_stats.late_percentage }}%
-							</div>
-						</div>
+					<!-- 4. Visual Improvement: Pie chart instead of progress bar -->
+					<canvas id="completionChart" style="max-height: 250px;"></canvas>
+					<script>
+						const completionCtx = document.getElementById('completionChart');
+						if (completionCtx) {
+							new Chart(completionCtx, {
+								type: 'doughnut',
+								data: {
+									labels: ['On Time', 'Late'],
+									datasets: [{
+										data: [
+											{{ analytics.completion_stats.on_time }},
+											{{ analytics.completion_stats.late }}
+										],
+										backgroundColor: ['rgb(22, 163, 74)', 'rgb(220, 38, 38)']
+									}]
+								},
+								options: {
+									responsive: true,
+									maintainAspectRatio: true,
+									plugins: {
+										legend: { position: 'bottom' },
+										tooltip: {
+											callbacks: {
+												label: function(context) {
+													const total = {{ analytics.completion_stats.total_completed }};
+													const value = context.parsed;
+													const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+													return context.label + ': ' + value + ' (' + percentage + '%)';
+												}
+											}
+										}
+									}
+								}
+							});
+						}
+					</script>
+					<div class="text-center mt-3">
+						<h5>{{ analytics.completion_stats.total_completed }}</h5>
+						<p class="text-muted mb-0">Total Completed Tasks</p>
 					</div>
 				{% else %}
 					<p class="text-muted">No completion data available</p>
@@ -118,6 +203,220 @@
 		</div>
 	</div>
 </div>
+
+<!-- 1. Grade Performance Analytics -->
+{% if analytics.grade_performance or analytics.overall_grade_stats %}
+<div class="row g-4 mt-4">
+	<div class="col-md-12">
+		<div class="card">
+			<div class="card-header">
+				<h5 class="mb-0">📊 Grade Performance</h5>
+			</div>
+			<div class="card-body">
+				{% if analytics.overall_grade_stats and analytics.overall_grade_stats.total_graded > 0 %}
+				<div class="row mb-4">
+					<div class="col-md-3 text-center">
+						<div class="p-3 border rounded">
+							<h4 class="text-primary">{{ "%.1f"|format(analytics.overall_grade_stats.overall_avg_percentage or 0) }}%</h4>
+							<p class="mb-0 text-muted small">Average Grade</p>
+						</div>
+					</div>
+					<div class="col-md-3 text-center">
+						<div class="p-3 border rounded">
+							<h4 class="text-success">{{ analytics.overall_grade_stats.total_graded }}</h4>
+							<p class="mb-0 text-muted small">Graded Assignments</p>
+						</div>
+					</div>
+					{% if analytics.predicted_grade_pct %}
+					<div class="col-md-3 text-center">
+						<div class="p-3 border rounded bg-info bg-opacity-10">
+							<h4 class="text-info">{{ analytics.predicted_grade_pct }}%</h4>
+							<p class="mb-0 text-muted small">Predicted Grade (Weighted)</p>
+						</div>
+					</div>
+					{% endif %}
+				</div>
+				{% endif %}
+				
+				{% if analytics.grade_performance %}
+				<div class="table-responsive">
+					<table class="table table-striped">
+						<thead>
+							<tr>
+								<th>Module</th>
+								<th>Graded Assignments</th>
+								<th>Average Score</th>
+								<th>Average Percentage</th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for module in analytics.grade_performance %}
+							<tr>
+								<td><strong>{{ module.module_code }}</strong></td>
+								<td>{{ module.graded_count }}</td>
+								<td>{{ "%.1f"|format(module.avg_score or 0) }} / {{ "%.1f"|format(module.avg_possible or 0) }}</td>
+								<td>
+									<span class="badge {% if module.avg_percentage is not none and module.avg_percentage >= 70 %}bg-success{% elif module.avg_percentage is not none and module.avg_percentage >= 50 %}bg-warning{% else %}bg-secondary{% endif %}">
+										{{ "%.1f"|format(module.avg_percentage or 0) }}%
+									</span>
+								</td>
+							</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+				{% else %}
+				<p class="text-muted">No grade data available. Sync Canvas assignments to see grades.</p>
+				{% endif %}
+				
+				<!-- Individual Assignment Scores -->
+				{% if analytics.individual_grades %}
+				<hr class="my-4">
+				<h6 class="mb-3">📝 Individual Assignment Scores</h6>
+				<div class="table-responsive">
+					<table class="table table-sm table-hover">
+						<thead>
+							<tr>
+								<th>Assignment</th>
+								<th>Module</th>
+								<th>Score</th>
+								<th>Percentage</th>
+								<th>Weight</th>
+								<th>Graded Date</th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for grade in analytics.individual_grades %}
+							<tr>
+								<td>
+									<small><strong>{{ grade.title }}</strong></small>
+								</td>
+								<td>
+									<small>{{ grade.module_code or 'N/A' }}</small>
+								</td>
+								<td>
+									<small>{{ "%.1f"|format(grade.canvas_score or 0) }} / {{ "%.1f"|format(grade.canvas_possible or 0) }}</small>
+								</td>
+								<td>
+									{% if grade.percentage is not none %}
+									<span class="badge {% if grade.percentage >= 70 %}bg-success{% elif grade.percentage >= 50 %}bg-warning{% else %}bg-danger{% endif %}">
+										{{ "%.1f"|format(grade.percentage) }}%
+									</span>
+									{% else %}
+									<span class="text-muted">-</span>
+									{% endif %}
+								</td>
+								<td>
+									{% if grade.weight_percentage %}
+									<small><span class="badge bg-secondary">{{ "%.0f"|format(grade.weight_percentage) }}%</span></small>
+									{% else %}
+									<small class="text-muted">-</small>
+									{% endif %}
+								</td>
+								<td>
+									<small class="text-muted">
+										{% if grade.canvas_graded_at %}
+										{{ grade.canvas_graded_at.strftime('%d/%m/%Y') }}
+										{% else %}
+										-
+										{% endif %}
+									</small>
+								</td>
+							</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
+
+<!-- 3. Priority & Weighting Analytics -->
+{% if analytics.high_priority_tasks or analytics.weight_stats %}
+<div class="row g-4 mt-4">
+	<div class="col-md-6">
+		<div class="card">
+			<div class="card-header">
+				<h5 class="mb-0">🔥 High Priority Tasks</h5>
+			</div>
+			<div class="card-body">
+				{% if analytics.high_priority_tasks %}
+				<div class="table-responsive">
+					<table class="table table-sm">
+						<thead>
+							<tr>
+								<th>Task</th>
+								<th>Weight</th>
+								<th>Priority</th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for task in analytics.high_priority_tasks[:5] %}
+							<tr>
+								<td>
+									<small><strong>{{ task.module_code }}</strong></small><br>
+									<small>{{ task.title }}</small>
+								</td>
+								<td>
+									{% if task.weight_percentage %}
+									<span class="badge bg-warning">{{ task.weight_percentage }}%</span>
+									{% else %}
+									<span class="text-muted">-</span>
+									{% endif %}
+								</td>
+								<td>
+									<span class="badge bg-danger">{{ "%.1f"|format(task.priority or 0) }}</span>
+								</td>
+							</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+				{% else %}
+				<p class="text-muted">No high priority tasks found</p>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+	
+	<div class="col-md-6">
+		<div class="card">
+			<div class="card-header">
+				<h5 class="mb-0">⚖️ Assignment Weighting</h5>
+			</div>
+			<div class="card-body">
+				{% if analytics.weight_stats and analytics.weight_stats.total_with_weight > 0 %}
+				<div class="row text-center">
+					<div class="col-4">
+						<div class="p-3 border rounded">
+							<h5>{{ analytics.weight_stats.total_with_weight }}</h5>
+							<p class="mb-0 text-muted small">With Weight</p>
+						</div>
+					</div>
+					<div class="col-4">
+						<div class="p-3 border rounded">
+							<h5>{{ "%.1f"|format(analytics.weight_stats.avg_weight or 0) }}%</h5>
+							<p class="mb-0 text-muted small">Avg Weight</p>
+						</div>
+					</div>
+					<div class="col-4">
+						<div class="p-3 border rounded">
+							<h5>{{ "%.1f"|format(analytics.weight_stats.max_weight or 0) }}%</h5>
+							<p class="mb-0 text-muted small">Max Weight</p>
+						</div>
+					</div>
+				</div>
+				{% else %}
+				<p class="text-muted">No weighting data available. Add weight percentages to assignments.</p>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
 
 <!-- Additional Analytics -->
 <div class="row g-4 mt-4">
