@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+	{% if invalid_link %}
+		<div class="card dashboard-card">
+			<div class="card-body">
+				<h4 class="mb-2">Invite Link Invalid</h4>
+				<p class="text-muted mb-0">This invite link is missing or no longer active. Contact your group owner for a new invite.</p>
+			</div>
+		</div>
+	{% else %}
+		<div class="card dashboard-card mb-3">
+			<div class="card-header">Group Project Member Portal</div>
+			<div class="card-body">
+				<h5 class="mb-1">{{ member.project_title }}</h5>
+				<p class="text-muted mb-2">
+					Member: <strong>{{ member.member_name }}</strong>{% if member.module_code %} · {{ member.module_code }}{% endif %}
+				</p>
+				{% if member.due_date %}
+					<p class="small text-muted mb-2">Project due: {{ member.due_date }}</p>
+				{% endif %}
+				{% with messages = get_flashed_messages(with_categories=true) %}
+					{% if messages %}
+						{% for category, message in messages %}
+							<div class="alert {% if category in ['success'] %}alert-success{% elif category in ['warning'] %}alert-warning{% else %}alert-danger{% endif %} py-2 mb-2">
+								{{ message }}
+							</div>
+						{% endfor %}
+					{% endif %}
+				{% endwith %}
+				{% if member.invite_status != 'accepted' %}
+					<form method="POST" action="{{ url_for('group_workspace_invite', invite_token=invite_token) }}">
+						<input type="hidden" name="action" value="accept_invite">
+						<button type="submit" class="btn btn-primary">Accept Invite</button>
+					</form>
+				{% else %}
+					<span class="badge text-bg-success">Invite accepted</span>
+				{% endif %}
+			</div>
+		</div>
+
+		<div class="card dashboard-card">
+			<div class="card-header">Your Assigned Tasks</div>
+			<div class="card-body p-0">
+				{% if tasks %}
+					<div class="table-responsive">
+						<table class="table align-middle mb-0">
+							<thead>
+								<tr>
+									<th>Task</th>
+									<th>Status</th>
+									<th>Progress</th>
+									<th>Due</th>
+									<th>Update</th>
+								</tr>
+							</thead>
+							<tbody>
+								{% for task in tasks %}
+									<tr>
+										<td>
+											<div class="fw-semibold">{{ task.title }}</div>
+											<div class="small text-muted">{{ task.description or "No description" }}</div>
+										</td>
+										<td>
+											<select class="form-select form-select-sm" name="status" form="member-task-{{ task.id }}">
+												<option value="todo" {% if task.status == "todo" %}selected{% endif %}>To do</option>
+												<option value="in_progress" {% if task.status == "in_progress" %}selected{% endif %}>In progress</option>
+												<option value="review" {% if task.status == "review" %}selected{% endif %}>Review</option>
+												<option value="done" {% if task.status == "done" %}selected{% endif %}>Done</option>
+											</select>
+										</td>
+										<td style="min-width: 120px;">
+											<input type="number" class="form-control form-control-sm" min="0" max="100" name="progress_percent" value="{{ task.progress_percent or 0 }}" form="member-task-{{ task.id }}">
+										</td>
+										<td>{{ task.due_date or "-" }}</td>
+										<td>
+											<form method="POST" action="{{ url_for('group_workspace_invite', invite_token=invite_token) }}" id="member-task-{{ task.id }}">
+												<input type="hidden" name="action" value="update_member_task">
+												<input type="hidden" name="task_id" value="{{ task.id }}">
+												<button type="submit" class="btn btn-sm btn-outline-primary">Save</button>
+											</form>
+										</td>
+									</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+				{% else %}
+					<div class="p-3">
+						<p class="text-muted mb-0">No tasks are currently assigned to you.</p>
+					</div>
+				{% endif %}
+			</div>
+		</div>
+	{% endif %}
+</div>
+{% endblock %}

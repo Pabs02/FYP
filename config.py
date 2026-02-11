@@ -40,6 +40,17 @@ class SmtpConfig:
 	use_tls: bool = True
 
 
+@dataclass(frozen=True)
+class ImapConfig:
+	"""IMAP configuration for receiving lecturer replies"""
+	host: str
+	port: int
+	username: str
+	password: str
+	use_ssl: bool = True
+	folder: str = "INBOX"
+
+
 def get_database_config() -> DatabaseConfig:
 	host = os.getenv("FYP_DB_HOST", "127.0.0.1")
 	port_str = os.getenv("FYP_DB_PORT", "3306")
@@ -111,4 +122,45 @@ def get_smtp_config() -> Optional[SmtpConfig]:
 		password=password,
 		from_email=from_email,
 		use_tls=use_tls,
+	)
+
+
+def get_imap_config() -> Optional[ImapConfig]:
+	"""
+	Get IMAP configuration for receiving emails.
+	
+	Environment variables:
+	- IMAP_HOST: IMAP server (e.g., imap.gmail.com)
+	- IMAP_PORT: IMAP port (default 993 for SSL)
+	- IMAP_USERNAME: Email address
+	- IMAP_PASSWORD: App password (for Gmail, generate at https://myaccount.google.com/apppasswords)
+	- IMAP_USE_SSL: Use SSL (default true)
+	- IMAP_FOLDER: Folder to check (default INBOX)
+	"""
+	host = os.getenv("IMAP_HOST", "").strip()
+	if not host:
+		return None
+	
+	port_str = os.getenv("IMAP_PORT", "993").strip()
+	try:
+		port = int(port_str)
+	except ValueError:
+		port = 993
+	
+	username = os.getenv("IMAP_USERNAME", "").strip()
+	password = os.getenv("IMAP_PASSWORD", "").strip()
+	
+	if not username or not password:
+		return None
+	
+	use_ssl = os.getenv("IMAP_USE_SSL", "1") in {"1", "true", "True"}
+	folder = os.getenv("IMAP_FOLDER", "INBOX").strip()
+	
+	return ImapConfig(
+		host=host,
+		port=port,
+		username=username,
+		password=password,
+		use_ssl=use_ssl,
+		folder=folder,
 	)

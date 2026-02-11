@@ -26,6 +26,101 @@
 		body {
 			font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 			padding-top: 90px;
+			background: #f4f7ff;
+			min-height: 100vh;
+			position: relative;
+		}
+
+		/* Reference: ChatGPT (OpenAI) - Dynamic Gradient Background
+		   Date: 2026-02-04
+		   Prompt: "I want a dynamic, modern background instead of plain white using
+		   layered radial gradients and a soft base tint. Can you provide CSS for that?"
+		   ChatGPT provided the layered radial gradient background with a soft base. */
+		body::before {
+			content: '';
+			position: fixed;
+			inset: 0;
+			background:
+				radial-gradient(circle at 15% 10%, rgba(99, 102, 241, 0.16), transparent 45%),
+				radial-gradient(circle at 85% 20%, rgba(16, 185, 129, 0.12), transparent 40%),
+				radial-gradient(circle at 25% 80%, rgba(245, 158, 11, 0.12), transparent 45%),
+				linear-gradient(180deg, #f7f9ff 0%, #eef2ff 100%);
+			z-index: -1;
+		}
+
+		/* Reference: ChatGPT (OpenAI) - Page Header Card Styling
+		   Date: 2026-02-04
+		   Prompt: "Make page headings centered inside their own card with a subtle
+		   animated gradient glow and standout title styling."
+		   ChatGPT provided the header card + animated glow pattern. */
+		.page-header-card {
+			background: rgba(255, 255, 255, 0.9);
+			border: 1px solid rgba(67, 97, 238, 0.12);
+			border-radius: 18px;
+			box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+			padding: 24px 28px;
+			position: relative;
+			overflow: hidden;
+			text-align: center;
+		}
+
+		.page-header-card::before {
+			content: '';
+			position: absolute;
+			inset: 0;
+			background: linear-gradient(120deg, rgba(129, 140, 248, 0.25), rgba(16, 185, 129, 0.2), rgba(245, 158, 11, 0.2));
+			background-size: 200% 200%;
+			opacity: 0.35;
+			animation: headerGlow 10s ease-in-out infinite;
+			pointer-events: none;
+		}
+
+		.page-header-card > * {
+			position: relative;
+			z-index: 1;
+		}
+
+		.page-header-card h1,
+		.page-header-card h2 {
+			margin-bottom: 0.5rem;
+			font-weight: 800 !important;
+			letter-spacing: 0.3px;
+			text-transform: none;
+			background: linear-gradient(120deg, #1f2a6d 0%, #4361ee 45%, #7c3aed 100%) !important;
+			-webkit-background-clip: text !important;
+			background-clip: text !important;
+			color: transparent !important;
+			-webkit-text-fill-color: transparent !important;
+			text-shadow: 0 12px 24px rgba(67, 97, 238, 0.18) !important;
+			position: relative;
+		}
+
+		.page-header-card h1::after,
+		.page-header-card h2::after {
+			content: '';
+			display: block;
+			width: 72px;
+			height: 4px;
+			margin: 10px auto 0;
+			border-radius: 999px;
+			background: linear-gradient(90deg, rgba(67, 97, 238, 0.9), rgba(16, 185, 129, 0.8));
+			box-shadow: 0 8px 18px rgba(67, 97, 238, 0.25);
+		}
+
+		.page-header-card p,
+		.page-header-card .subtitle {
+			font-weight: 500;
+			color: rgba(15, 23, 42, 0.72);
+		}
+
+		.page-header-actions {
+			text-align: right;
+		}
+
+		@keyframes headerGlow {
+			0% { background-position: 0% 50%; }
+			50% { background-position: 100% 50%; }
+			100% { background-position: 0% 50%; }
 		}
 
 		/* ═══════════════════════════════════════════
@@ -468,9 +563,7 @@
 			}
 		}
 
-		/* ═══════════════════════════════════════════
-		   EXISTING STYLES (preserved)
-		   ═══════════════════════════════════════════ */
+
 		.hero-card {
 			background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
 			border: 1px solid #e5e7eb;
@@ -626,6 +719,12 @@
 				</svg>
 				Analytics
 			</a>
+			<a href="/modules" class="island-link {% if request.path.startswith('/modules') %}active{% endif %}">
+				<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+				</svg>
+				Modules
+			</a>
 			<a href="/study-planner" class="island-link {% if request.path == '/study-planner' %}active{% endif %}">
 				<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
@@ -672,6 +771,12 @@
 						</svg>
 						Microtasks
 					</a>
+					<a href="/group-workspace" class="dropdown-link {% if request.path == '/group-workspace' %}active{% endif %}">
+						<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5V4H2v16h5m10 0v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4m10 0H7m5-11a3 3 0 110 6 3 3 0 010-6z"/>
+						</svg>
+						Group Workspace
+					</a>
 					<a href="/semester" class="dropdown-link {% if request.path == '/semester' %}active{% endif %}">
 						<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
@@ -682,7 +787,13 @@
 						<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
 						</svg>
-						Messages
+						Sent Messages
+					</a>
+					<a href="/lecturer-replies" class="dropdown-link {% if request.path == '/lecturer-replies' %}active{% endif %}">
+						<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+						</svg>
+						Inbox (Replies)
 					</a>
 				</div>
 				<div class="dropdown-section">
@@ -692,6 +803,12 @@
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
 						</svg>
 						Review History
+					</a>
+					<a href="/activity" class="dropdown-link {% if request.path == '/activity' %}active{% endif %}">
+						<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l4 2M4 6h2m12 0h2M4 18h2m12 0h2M6 6a9 9 0 1012 0"/>
+						</svg>
+						Activity History
 					</a>
 				</div>
 				<div class="dropdown-section">
@@ -790,7 +907,7 @@
 			}
 		});
 		
-		// Keyboard navigation (Escape to close)
+		// Keyboard navigation
 		document.addEventListener('keydown', function(e) {
 			if (e.key === 'Escape') {
 				document.getElementById('moreMenu').classList.remove('open');

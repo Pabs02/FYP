@@ -1,14 +1,14 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-	<div>
+<div class="page-header-card d-flex justify-content-between align-items-center mb-3">
+	<div class="flex-grow-1">
 		<h2>{{ task.title }}{% if task.module_code %} <span class="badge text-bg-secondary">{{ task.module_code }}</span>{% endif %}</h2>
 		<p class="text-muted mb-0">
 			Due: {{ task.due_at | irish_datetime if task.due_at else task.due_date | irish_date }}
 			<span class="ms-2">Status: <strong>{{ task.status }}</strong></span>
 		</p>
 	</div>
-	<a href="{{ url_for('tasks') }}" class="btn btn-outline-secondary">← Back to tasks</a>
+	<a href="{{ url_for('tasks') }}" class="btn btn-outline-secondary page-header-actions">← Back to tasks</a>
 </div>
 
 <div class="card mb-4">

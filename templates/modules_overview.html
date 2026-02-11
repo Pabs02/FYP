@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}Modules{% endblock %}
+{% block content %}
+<style>
+	.modules-page { max-width: 1200px; margin: 0 auto; }
+	.module-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+		gap: 1.25rem;
+		margin-top: 1.5rem;
+	}
+	.module-card {
+		background: #fff;
+		border: 1px solid #e2e8f0;
+		border-radius: 16px;
+		padding: 1.5rem;
+		transition: all 0.25s ease;
+		text-decoration: none;
+		color: inherit;
+		display: block;
+	}
+	.module-card:hover {
+		transform: translateY(-4px);
+		box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1);
+		border-color: #6366f1;
+		color: inherit;
+	}
+	.module-code {
+		font-size: 1.1rem;
+		font-weight: 700;
+		color: #1e293b;
+		margin-bottom: 1rem;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.module-code .icon {
+		width: 36px; height: 36px;
+		border-radius: 10px;
+		background: linear-gradient(135deg, #6366f1, #8b5cf6);
+		display: flex; align-items: center; justify-content: center;
+		font-size: 1rem; color: #fff; flex-shrink: 0;
+	}
+	.module-stats {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 0.75rem;
+		margin-bottom: 1rem;
+	}
+	.module-stat { text-align: center; }
+	.module-stat .val {
+		font-size: 1.25rem; font-weight: 700; color: #1e293b; line-height: 1;
+	}
+	.module-stat .lbl {
+		font-size: 0.65rem; color: #64748b; text-transform: uppercase;
+		letter-spacing: 0.05em; margin-top: 2px;
+	}
+	.module-progress {
+		height: 8px;
+		background: #e2e8f0;
+		border-radius: 99px;
+		overflow: hidden;
+	}
+	.module-progress-fill {
+		height: 100%;
+		background: linear-gradient(90deg, #6366f1, #8b5cf6);
+		border-radius: 99px;
+		transition: width 0.5s ease;
+	}
+	.module-grade {
+		display: inline-flex; align-items: center;
+		padding: 0.2rem 0.6rem; border-radius: 99px;
+		font-size: 0.75rem; font-weight: 600;
+	}
+	.module-grade.excellent { background: #dcfce7; color: #166534; }
+	.module-grade.good { background: #dbeafe; color: #1e40af; }
+	.module-grade.average { background: #fef3c7; color: #92400e; }
+	.module-grade.low { background: #fee2e2; color: #991b1b; }
+	.module-grade.none { background: #f1f5f9; color: #94a3b8; }
+</style>
+
+<div class="modules-page">
+	<div class="page-header-card">
+		<h1>📚 Module Dashboard</h1>
+		<p>Track your progress, grades, and remaining work across all modules.</p>
+	</div>
+
+	{% if modules %}
+	<div class="module-grid">
+		{% for m in modules %}
+		<a href="{{ url_for('module_detail', module_id=m.id) }}" class="module-card">
+			<div class="module-code">
+				<span class="icon">📖</span>
+				{{ m.code }}
+			</div>
+			<div class="module-stats">
+				<div class="module-stat">
+					<div class="val">{{ m.total_tasks }}</div>
+					<div class="lbl">Tasks</div>
+				</div>
+				<div class="module-stat">
+					<div class="val">{{ m.completed }}</div>
+					<div class="lbl">Done</div>
+				</div>
+				<div class="module-stat">
+					<div class="val">
+						{% if m.avg_grade is not none %}
+						<span class="module-grade {% if m.avg_grade >= 70 %}excellent{% elif m.avg_grade >= 50 %}average{% elif m.avg_grade > 0 %}low{% else %}none{% endif %}">
+							{{ "%.0f"|format(m.avg_grade) }}%
+						</span>
+						{% else %}
+						<span class="module-grade none">—</span>
+						{% endif %}
+					</div>
+					<div class="lbl">Avg Grade</div>
+				</div>
+			</div>
+			<div class="module-progress">
+				<div class="module-progress-fill" style="width: {{ m.completion_rate or 0 }}%"></div>
+			</div>
+			<div class="d-flex justify-content-between align-items-center mt-2">
+				<span style="font-size: 0.75rem; color: #64748b;">{{ m.completion_rate or 0 }}% complete</span>
+				<span style="font-size: 0.75rem; color: #6366f1; font-weight: 600;">View →</span>
+			</div>
+		</a>
+		{% endfor %}
+	</div>
+	{% else %}
+	<div class="text-center py-5" style="color: #94a3b8;">
+		<p>No modules found. Sync Canvas or add modules manually.</p>
+	</div>
+	{% endif %}
+</div>
+{% endblock %}

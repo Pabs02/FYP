@@ -1,61 +1,455 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-	<h2>📝 Review History</h2>
-	<a href="/" class="btn btn-outline-secondary">← Back to Dashboard</a>
+<style>
+    .reviews-page {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+    
+    /* Header */
+    .reviews-header {
+        text-align: center;
+        margin-bottom: 2.5rem;
+    }
+    
+    .reviews-header h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+    
+    .reviews-header .subtitle {
+        color: #6c757d;
+        font-size: 1rem;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #6c757d;
+        text-decoration: none;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+        transition: color 0.2s;
+    }
+    
+    .back-link:hover {
+        color: #4361ee;
+    }
+    
+    /* Stats */
+    .stats-row {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        justify-content: center;
+    }
+    
+    .stat-pill {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 20px;
+        padding: 0.5rem 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    .stat-pill .count {
+        font-weight: 700;
+        color: #1a1a2e;
+    }
+    
+    .stat-pill .label {
+        color: #6c757d;
+    }
+    
+    .stat-pill.purple {
+        background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
+        border-color: #c4b5fd;
+    }
+    
+    .stat-pill.purple .count {
+        color: #7c3aed;
+    }
+    
+    /* Card */
+    .reviews-card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        overflow: hidden;
+    }
+    
+    .reviews-card-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #f0f0f0;
+        background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .reviews-card-header h2 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1a1a2e;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    /* Review item */
+    .review-item {
+        padding: 1.5rem;
+        border-bottom: 1px solid #f0f0f0;
+        transition: background 0.2s;
+    }
+    
+    .review-item:last-child {
+        border-bottom: none;
+    }
+    
+    .review-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .review-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+        gap: 1rem;
+    }
+    
+    .review-info {
+        flex: 1;
+    }
+    
+    .review-title {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 600;
+        color: #1a1a2e;
+        font-size: 1rem;
+        margin-bottom: 0.25rem;
+    }
+    
+    .review-title .icon {
+        font-size: 1.1rem;
+    }
+    
+    .review-task {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+    
+    .module-tag {
+        background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+        color: #4338ca;
+        padding: 0.15rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .review-date {
+        font-size: 0.8rem;
+        color: #9ca3af;
+    }
+    
+    .grade-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 1rem;
+        flex-shrink: 0;
+    }
+    
+    .grade-badge.excellent {
+        background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+        color: #166534;
+    }
+    
+    .grade-badge.good {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        color: #1e40af;
+    }
+    
+    .grade-badge.average {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        color: #92400e;
+    }
+    
+    .grade-badge.needs-work {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        color: #991b1b;
+    }
+    
+    .feedback-section {
+        margin-top: 1rem;
+    }
+    
+    .feedback-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #6c757d;
+        margin-bottom: 0.5rem;
+    }
+    
+    .feedback-content {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border-radius: 10px;
+        padding: 1rem;
+        font-size: 0.9rem;
+        color: #374151;
+        line-height: 1.7;
+        white-space: pre-wrap;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    
+    /* Empty state */
+    .empty-state {
+        text-align: center;
+        padding: 4rem 1.5rem;
+        color: #6c757d;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.4;
+    }
+    
+    .empty-state-title {
+        font-weight: 600;
+        font-size: 1.25rem;
+        color: #1a1a2e;
+        margin-bottom: 0.5rem;
+    }
+    
+    .empty-state-text {
+        max-width: 400px;
+        margin: 0 auto 1.5rem;
+    }
+    
+    .btn-review {
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        border: none;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+    }
+    
+    .btn-review:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+        color: white;
+    }
+    
+    /* Pagination */
+    .pagination-wrapper {
+        padding: 1.25rem 1.5rem;
+        background: #f8f9fa;
+        border-top: 1px solid #f0f0f0;
+        display: flex;
+        justify-content: center;
+    }
+    
+    .pagination-custom {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .page-btn {
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.2s;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        color: #374151;
+    }
+    
+    .page-btn:hover:not(.disabled) {
+        background: #f3f4f6;
+        color: #1f2937;
+    }
+    
+    .page-btn.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+    
+    .page-info {
+        padding: 0.5rem 1rem;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .reviews-page {
+            padding: 1rem;
+        }
+        
+        .reviews-header h1 {
+            font-size: 1.5rem;
+        }
+        
+        .review-header {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .grade-badge {
+            align-self: flex-start;
+        }
+    }
+</style>
+
+<div class="reviews-page">
+    <a href="/" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Back to Dashboard
+    </a>
+    
+    <div class="reviews-header page-header-card">
+        <h1>
+            <span>✨</span>
+            Review History
+        </h1>
+        <p class="subtitle">
+            View all your AI-powered assignment reviews and feedback.
+        </p>
+    </div>
+    
+    {% if reviews %}
+    <div class="stats-row">
+        <div class="stat-pill">
+            <span class="count">{{ reviews|length }}</span>
+            <span class="label">Reviews on this page</span>
+        </div>
+        <div class="stat-pill purple">
+            <span class="count">{{ total_pages }}</span>
+            <span class="label">Total pages</span>
+        </div>
+    </div>
+    
+    <div class="reviews-card">
+        <div class="reviews-card-header">
+            <h2>📝 All Reviews</h2>
+            <span style="color: #6c757d; font-size: 0.85rem;">Page {{ page }} of {{ total_pages }}</span>
+        </div>
+        
+        {% for review in reviews %}
+        <div class="review-item" id="review-{{ review.id }}">
+            <div class="review-header">
+                <div class="review-info">
+                    <div class="review-title">
+                        {% if review.filename %}
+                            <span class="icon">📄</span>
+                            {{ review.filename }}
+                        {% else %}
+                            <span class="icon">📝</span>
+                            Text Review
+                        {% endif %}
+                    </div>
+                    {% if review.task_title %}
+                    <div class="review-task">
+                        🔗 {{ review.task_title }}
+                        {% if review.module_code %}
+                        <span class="module-tag">{{ review.module_code }}</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    <div class="review-date">
+                        Reviewed {{ review.reviewed_at | irish_datetime }}
+                    </div>
+                </div>
+                {% if review.ai_score_estimate is not none %}
+                    {% if review.ai_possible_score and review.ai_possible_score > 0 %}
+                        {% set percent = (review.ai_score_estimate / review.ai_possible_score * 100)|round|int %}
+                        <div class="grade-badge {% if percent >= 70 %}excellent{% elif percent >= 55 %}good{% elif percent >= 40 %}average{% else %}needs-work{% endif %}">
+                            🎯 {{ percent }}%
+                        </div>
+                    {% else %}
+                        <div class="grade-badge good">
+                            🎯 {{ '%.1f'|format(review.ai_score_estimate) }}
+                        </div>
+                    {% endif %}
+                {% endif %}
+            </div>
+            {% if review.ai_feedback %}
+            <div class="feedback-section">
+                <div class="feedback-label">AI Feedback</div>
+                <div class="feedback-content">{{ review.ai_feedback }}</div>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+        
+        {% if total_pages > 1 %}
+        <div class="pagination-wrapper">
+            <div class="pagination-custom">
+                <a href="?page={{ page - 1 }}" class="page-btn {% if page <= 1 %}disabled{% endif %}">
+                    ← Previous
+                </a>
+                <span class="page-info">Page {{ page }} of {{ total_pages }}</span>
+                <a href="?page={{ page + 1 }}" class="page-btn {% if page >= total_pages %}disabled{% endif %}">
+                    Next →
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    {% else %}
+    <div class="reviews-card">
+        <div class="empty-state">
+            <div class="empty-state-icon">📝</div>
+            <div class="empty-state-title">No reviews yet</div>
+            <p class="empty-state-text">
+                Submit an assignment for AI review to see your feedback history here.
+            </p>
+            <a href="/assignment-review" class="btn-review">
+                ✨ Get AI Review
+            </a>
+        </div>
+    </div>
+    {% endif %}
 </div>
-
-{% if reviews %}
-	{% for review in reviews %}
-	<div class="border rounded p-3 mb-3">
-		<div class="d-flex justify-content-between align-items-start mb-2">
-			<div>
-				<h6 class="mb-1">
-					{% if review.filename %}📄 {{ review.filename }}{% else %}📝 Text Review{% endif %}
-					{% if review.task_title %}
-						<small class="text-muted"> - {{ review.task_title }}{% if review.module_code %} ({{ review.module_code }}){% endif %}</small>
-					{% endif %}
-				</h6>
-				<small class="text-muted">Reviewed {{ review.reviewed_at | irish_datetime }}</small>
-			</div>
-			{% if review.ai_score_estimate is not none %}
-				<div class="text-end">
-					{% if review.ai_possible_score and review.ai_possible_score > 0 %}
-						{% set percent = (review.ai_score_estimate / review.ai_possible_score * 100) %}
-						<div class="badge bg-secondary fs-6">
-							{{ percent|round|int }}%
-						</div>
-					{% else %}
-						<div class="badge bg-secondary fs-6">
-							{{ '%.1f'|format(review.ai_score_estimate) }}
-						</div>
-					{% endif %}
-				</div>
-			{% endif %}
-		</div>
-		{% if review.ai_feedback %}
-			<div class="mb-2">
-				<strong>Feedback:</strong>
-				<div class="mt-2 p-2 bg-light rounded" style="white-space: pre-wrap; line-height: 1.6;">{{ review.ai_feedback }}</div>
-			</div>
-		{% endif %}
-	</div>
-	{% endfor %}
-
-	<nav class="mt-3">
-		<ul class="pagination">
-			<li class="page-item {% if page <= 1 %}disabled{% endif %}">
-				<a class="page-link" href="?page={{ page - 1 }}">Previous</a>
-			</li>
-			<li class="page-item disabled">
-				<span class="page-link">Page {{ page }} of {{ total_pages }}</span>
-			</li>
-			<li class="page-item {% if page >= total_pages %}disabled{% endif %}">
-				<a class="page-link" href="?page={{ page + 1 }}">Next</a>
-			</li>
-		</ul>
-	</nav>
-{% else %}
-	<p class="text-muted">No reviews found yet. Submit an assignment review to see it here.</p>
-{% endif %}
 {% endblock %}

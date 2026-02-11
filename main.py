@@ -1,6 +1,6 @@
 # Reference: Flask Documentation - Quickstart
 # https://flask.palletsprojects.com/en/3.0.x/quickstart/
-from flask import Flask, render_template, jsonify, request, redirect, url_for, flash, session
+from flask import Flask, render_template, jsonify, request, redirect, url_for, flash, session, g, send_file, abort
 
 # Reference: Flask-Login Documentation - Managing User Sessions
 # https://flask-login.readthedocs.io/en/latest/#flask_login.LoginManager
@@ -10,7 +10,10 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 # https://werkzeug.palletsprojects.com/en/3.0.x/utils/#werkzeug.security
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
+import time as time_module
 import json
+import re
+import secrets
 from io import BytesIO
 from email.message import EmailMessage
 import smtplib
@@ -24,6 +27,7 @@ from config import (
 	get_openai_api_key,
 	get_openai_model_name,
 	get_smtp_config,
+	get_imap_config,
 )
 from db_supabase import fetch_all as sb_fetch_all, fetch_one as sb_fetch_one, execute as sb_execute  # type: ignore
 from services.chatgpt_client import ChatGPTTaskBreakdownService, ChatGPTClientError, AssignmentReviewResponse
@@ -37,6 +41,8 @@ app = Flask(__name__, static_folder="static", template_folder="templates")
 app.secret_key = "your-secret-key-change-this-in-production"
 app.config["OPENAI_API_KEY"] = get_openai_api_key()
 app.config["OPENAI_MODEL_NAME"] = get_openai_model_name()
+# During local development  skip the manual login form to speed up testing.
+_SKIP_LOGIN_FOR_TESTING = True
 
 # Reference: Flask-Login Documentation - Initializing Extension
 # https://flask-login.readthedocs.io/en/latest/#flask_login.LoginManager.init_app
@@ -46,9 +52,164 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Please log in to access this page.'
 
+
+@app.before_request
+def _activity_log_start():
+	# Reference: ChatGPT (OpenAI) - Activity Logging Middleware
+	# Date: 2026-02-04
+	# Prompt: "I need to log all authenticated user actions with timestamps. It should
+	# capture method, path, endpoint, status code, duration, IP, and user agent, and
+	# store them in a database table. Can you provide a clean before_request/after_request
+	# pattern in Flask?"
+	# ChatGPT provided the before_request/after_request pattern to capture timing and
+	# persist request metadata for authenticated users.
+	"""Capture request start time for activity logging."""
+	g.activity_start = time_module.monotonic()
+
+
+@app.after_request
+def _activity_log_after(response):
+	# Reference: ChatGPT (OpenAI) - Activity Logging Middleware
+	# Date: 2026-02-04
+	# Prompt: "I need to log all authenticated user actions with timestamps. It should
+	# capture method, path, endpoint, status code, duration, IP, and user agent, and
+	# store them in a database table. Can you provide a clean before_request/after_request
+	# pattern in Flask?"
+	# ChatGPT provided the before_request/after_request pattern to capture timing and
+	# persist request metadata for authenticated users.
+	"""Log authenticated user activity with timestamps."""
+	try:
+		if current_user.is_authenticated:
+			endpoint = request.endpoint or ""
+			path = request.path or ""
+			if endpoint != "static" and not path.startswith("/static/") and path != "/favicon.ico":
+				start_time = getattr(g, "activity_start", None)
+				duration_ms = None
+				if start_time is not None:
+					duration_ms = int((time_module.monotonic() - start_time) * 1000)
+				ip_address = request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or request.remote_addr
+				sb_execute(
+					"""
+					INSERT INTO activity_logs (
+						student_id, action_type, method, path, endpoint,
+						status_code, duration_ms, ip_address, user_agent, referrer
+					) VALUES (
+						:student_id, :action_type, :method, :path, :endpoint,
+						:status_code, :duration_ms, :ip_address, :user_agent, :referrer
+					)
+					""",
+					{
+						"student_id": current_user.id,
+						"action_type": "http_request",
+						"method": request.method,
+						"path": path,
+						"endpoint": endpoint,
+						"status_code": response.status_code,
+						"duration_ms": duration_ms,
+						"ip_address": ip_address,
+						"user_agent": request.headers.get("User-Agent", "")[:500],
+						"referrer": request.referrer or "",
+					},
+				)
+	except Exception:
+		pass
+	return response
+
+
+def _format_activity_title(item: Dict[str, Any]) -> str:
+	# Reference: ChatGPT (OpenAI) - Activity Log Title Mapping
+	# Date: 2026-02-04
+	# Prompt: "I want activity logs to show friendly titles instead of raw paths.
+	# Can you map endpoints/paths to readable labels and add action verbs by method?"
+	# ChatGPT provided the mapping approach with method-based verbs.
+	endpoint = (item.get("endpoint") or "").strip()
+	path = (item.get("path") or "").strip()
+	method = (item.get("method") or "GET").upper()
+
+	endpoint_map = {
+		"index": "Dashboard",
+		"tasks": "Tasks",
+		"task_detail": "Task Detail",
+		"calendar_view": "Calendar",
+		"analytics": "Analytics",
+		"study_planner": "AI Study Planner",
+		"ai_workspace": "AI Workspace",
+		"course_bot": "AI Course Bot",
+		"assignment_review": "Assignment Review",
+		"reviews_history": "Review History",
+		"subtasks_history": "Microtasks",
+		"active_semester": "Semester Overview",
+		"lecturer_messages_history": "Sent Messages",
+		"lecturer_replies": "Inbox (Replies)",
+		"refresh_lecturer_replies": "Check Lecturer Replies",
+		"sync_canvas": "Canvas Sync",
+		"profile": "Profile",
+		"add_data_form": "Add Data",
+		"login": "Login",
+		"register": "Register",
+		"contact_lecturer": "Lecturer Message",
+		"voice_parse": "Voice Task Capture",
+		"group_workspace": "Group Workspace",
+		"group_workspace_invite": "Group Invite",
+		"group_workspace_download_file": "Group File Download",
+	}
+
+	base_title = endpoint_map.get(endpoint)
+	if not base_title and path.startswith("/tasks/") and path.endswith("/review"):
+		base_title = "Assignment Review"
+	if not base_title and path.startswith("/tasks/"):
+		base_title = "Task Detail"
+	if not base_title and path.startswith("/lecturer-replies/"):
+		base_title = "Lecturer Replies"
+
+	if not base_title:
+		base_title = path or "Unknown Action"
+
+	verb_map = {
+		"GET": "Viewed",
+		"POST": "Submitted",
+		"PUT": "Updated",
+		"PATCH": "Updated",
+		"DELETE": "Deleted",
+	}
+	verb = verb_map.get(method, method)
+	return f"{verb} {base_title}"
+
+
+@app.before_request
+def auto_login_for_testing() -> None:
+	"""Auto-login the first student to simplify local testing when enabled."""
+	if not _SKIP_LOGIN_FOR_TESTING or current_user.is_authenticated:
+		return
+	try:
+		user_data = sb_fetch_one(
+			"""
+			SELECT id, name, email, student_number, canvas_api_token,
+			       email_notifications_enabled, email_daily_summary_enabled, last_daily_summary_sent_at
+			FROM students
+			ORDER BY id
+			LIMIT 1
+			"""
+		)
+		if user_data:
+			login_user(User(
+				id=user_data['id'],
+				name=user_data['name'],
+				email=user_data['email'],
+				student_number=user_data.get('student_number'),
+				canvas_api_token=user_data.get('canvas_api_token'),
+				email_notifications_enabled=bool(user_data.get('email_notifications_enabled', True)),
+				email_daily_summary_enabled=bool(user_data.get('email_daily_summary_enabled', True)),
+				last_daily_summary_sent_at=user_data.get('last_daily_summary_sent_at'),
+			))
+	except Exception:
+		# If DB isn't available, fall back to normal auth flow.
+		return
+
 _chatgpt_service: Optional[ChatGPTTaskBreakdownService] = None
 _AI_ALLOWED_SUFFIXES = {".txt", ".md", ".markdown", ".docx", ".pdf"}
 _AI_MAX_UPLOAD_BYTES = 4 * 1024 * 1024
+_GROUP_MAX_UPLOAD_BYTES = 8 * 1024 * 1024
 
 
 def get_chatgpt_service() -> ChatGPTTaskBreakdownService:
@@ -808,6 +969,45 @@ def active_semester():
 		}
 	)
 
+	try:
+		activity_row = sb_fetch_one(
+			# Reference: ChatGPT (OpenAI) - Activity Log Query Pattern
+			# Date: 2026-02-04
+			# Prompt: "I need to show activity logs in a semester view. Provide SQL to count
+			# activity in a date range and fetch the latest entries for display."
+			# ChatGPT provided the COUNT query with date-range filtering.
+			"""
+			SELECT COUNT(*) as count
+			FROM activity_logs
+			WHERE student_id = :student_id
+			  AND created_at BETWEEN :start_dt AND :end_dt
+			""",
+			{"student_id": current_user.id, "start_dt": start_dt, "end_dt": end_dt}
+		)
+		total_activity = activity_row["count"] if activity_row else 0
+
+		activity_logs = sb_fetch_all(
+			# Reference: ChatGPT (OpenAI) - Activity Log Query Pattern
+			# Date: 2026-02-04
+			# Prompt: "I need to show activity logs in a semester view. Provide SQL to count
+			# activity in a date range and fetch the latest entries for display."
+			# ChatGPT provided the SELECT query with date-range filtering and ordering.
+			"""
+			SELECT id, action_type, method, path, endpoint, status_code, duration_ms, created_at
+			FROM activity_logs
+			WHERE student_id = :student_id
+			  AND created_at BETWEEN :start_dt AND :end_dt
+			ORDER BY created_at DESC
+			LIMIT 50
+			""",
+			{"student_id": current_user.id, "start_dt": start_dt, "end_dt": end_dt}
+		)
+		for item in activity_logs:
+			item["title"] = _format_activity_title(item)
+	except Exception:
+		total_activity = 0
+		activity_logs = []
+
 	status_counts = {"pending": 0, "in_progress": 0, "completed": 0}
 	for task in tasks:
 		status = (task.get("status") or "pending").lower()
@@ -831,6 +1031,8 @@ def active_semester():
 		total_reviews=len(reviews),
 		total_subtasks=len(subtasks),
 		completed_subtasks=completed_subtasks,
+		total_activity=total_activity,
+		activity_logs=activity_logs,
 	)
 
 
@@ -1407,6 +1609,174 @@ def _send_reminder_email(*, to_email: str, subject: str, body: str) -> Optional[
 		return None
 	except Exception as exc:
 		return str(exc)
+
+
+def _fetch_lecturer_replies(student_id: int) -> Dict[str, Any]:
+	"""
+	Fetch emails from known lecturer addresses via IMAP.
+	Returns dict with 'success', 'new_count', 'error' keys.
+	"""
+	import imaplib
+	import email
+	from email.header import decode_header
+	from email.utils import parsedate_to_datetime
+	
+	result = {"success": False, "new_count": 0, "error": None}
+	
+	imap_config = get_imap_config()
+	if not imap_config:
+		result["error"] = "IMAP is not configured. Add IMAP_HOST, IMAP_USERNAME, IMAP_PASSWORD to your environment."
+		return result
+	
+	# Get list of known lecturer emails for this student
+	try:
+		lecturers = sb_fetch_all(
+			"SELECT id, email, name FROM lecturers",
+			{}
+		)
+	except Exception as exc:
+		result["error"] = f"Failed to fetch lecturers: {exc}"
+		return result
+	
+	if not lecturers:
+		result["error"] = "No lecturers found in database."
+		return result
+	
+	lecturer_emails = {l["email"].lower(): l for l in lecturers if l.get("email")}
+	
+	if not lecturer_emails:
+		result["error"] = "No lecturer email addresses found."
+		return result
+	
+	try:
+		# Connect to IMAP server
+		if imap_config.use_ssl:
+			mail = imaplib.IMAP4_SSL(imap_config.host, imap_config.port)
+		else:
+			mail = imaplib.IMAP4(imap_config.host, imap_config.port)
+		
+		mail.login(imap_config.username, imap_config.password)
+		mail.select(imap_config.folder)
+		
+		new_count = 0
+		
+		# Search for emails from each lecturer
+		for lecturer_email, lecturer_info in lecturer_emails.items():
+			# Search for emails from this lecturer
+			status, messages = mail.search(None, f'FROM "{lecturer_email}"')
+			
+			if status != "OK":
+				continue
+			
+			email_ids = messages[0].split()
+			
+			# Process each email (limit to last 20 per lecturer)
+			for email_id in email_ids[-20:]:
+				status, msg_data = mail.fetch(email_id, "(RFC822)")
+				
+				if status != "OK":
+					continue
+				
+				for response_part in msg_data:
+					if isinstance(response_part, tuple):
+						msg = email.message_from_bytes(response_part[1])
+						
+						# Get Message-ID to check for duplicates
+						message_id = msg.get("Message-ID", "")
+						if not message_id:
+							message_id = f"{email_id.decode()}-{lecturer_email}"
+						
+						# Check if we already have this message
+						existing = sb_fetch_one(
+							"SELECT id FROM lecturer_replies WHERE message_id = :message_id",
+							{"message_id": message_id}
+						)
+						
+						if existing:
+							continue  # Skip duplicate
+						
+						# Decode subject
+						subject = msg.get("Subject", "")
+						if subject:
+							decoded_parts = decode_header(subject)
+							subject = ""
+							for part, encoding in decoded_parts:
+								if isinstance(part, bytes):
+									subject += part.decode(encoding or "utf-8", errors="replace")
+								else:
+									subject += part
+						
+						# Get sender name
+						from_header = msg.get("From", "")
+						from_name = lecturer_info.get("name", "")
+						
+						# Parse date
+						date_str = msg.get("Date", "")
+						received_at = None
+						if date_str:
+							try:
+								received_at = parsedate_to_datetime(date_str)
+							except Exception:
+								received_at = datetime.now()
+						
+						# Get body
+						body = ""
+						if msg.is_multipart():
+							for part in msg.walk():
+								content_type = part.get_content_type()
+								if content_type == "text/plain":
+									try:
+										payload = part.get_payload(decode=True)
+										charset = part.get_content_charset() or "utf-8"
+										body = payload.decode(charset, errors="replace")
+										break
+									except Exception:
+										pass
+						else:
+							try:
+								payload = msg.get_payload(decode=True)
+								charset = msg.get_content_charset() or "utf-8"
+								body = payload.decode(charset, errors="replace")
+							except Exception:
+								body = str(msg.get_payload())
+						
+						# Store in database
+						try:
+							sb_execute(
+								"""
+								INSERT INTO lecturer_replies (
+									student_id, lecturer_id, from_email, from_name,
+									subject, body, received_at, message_id, is_read
+								) VALUES (
+									:student_id, :lecturer_id, :from_email, :from_name,
+									:subject, :body, :received_at, :message_id, FALSE
+								)
+								""",
+								{
+									"student_id": student_id,
+									"lecturer_id": lecturer_info.get("id"),
+									"from_email": lecturer_email,
+									"from_name": from_name,
+									"subject": subject[:500] if subject else None,
+									"body": body,
+									"received_at": received_at,
+									"message_id": message_id,
+								}
+							)
+							new_count += 1
+						except Exception as db_err:
+							print(f"[imap] failed to store reply: {db_err}")
+		
+		mail.logout()
+		result["success"] = True
+		result["new_count"] = new_count
+		
+	except imaplib.IMAP4.error as imap_err:
+		result["error"] = f"IMAP error: {imap_err}"
+	except Exception as exc:
+		result["error"] = f"Failed to fetch emails: {exc}"
+	
+	return result
 
 
 def _build_daily_summary_email(student_id: int) -> Optional[str]:
@@ -2350,6 +2720,1128 @@ def _schedule_ai_subtasks(
 	return scheduled, unscheduled
 
 
+# Reference: ChatGPT (OpenAI) - Group Workspace Backend Flow
+# Date: 2026-02-11
+# Prompt: "I need a group project workspace in Flask where students can create
+# projects, add members, assign tasks manually or with AI, track progress, and
+# email members their assigned items. Can you provide a robust route/action
+# pattern with ownership checks, safe parsing, and summary metrics?"
+# ChatGPT provided the helper + route architecture below, adapted to this
+# codebase's Supabase helpers and existing AI/email services.
+def _parse_iso_date_value(value: Optional[str]) -> Optional[datetime.date]:
+	raw = (value or "").strip()
+	if not raw:
+		return None
+	for parser in (
+		lambda x: datetime.strptime(x, "%Y-%m-%d").date(),
+		lambda x: datetime.fromisoformat(x.replace("Z", "+00:00")).date(),
+	):
+		try:
+			return parser(raw)
+		except Exception:
+			continue
+	return None
+
+
+def _coerce_int(value: Any) -> Optional[int]:
+	try:
+		return int(value)
+	except Exception:
+		return None
+
+
+def _get_owned_group_project(project_id: int, student_id: int) -> Optional[Dict[str, Any]]:
+	return sb_fetch_one(
+		"""
+		SELECT id, owner_student_id, title, module_code, description, due_date, created_at
+		FROM group_projects
+		WHERE id = :project_id AND owner_student_id = :student_id
+		""",
+		{"project_id": project_id, "student_id": student_id},
+	)
+
+
+def _group_invite_url(invite_token: Optional[str]) -> Optional[str]:
+	if not invite_token:
+		return None
+	try:
+		return url_for("group_workspace_invite", invite_token=invite_token, _external=True)
+	except Exception:
+		return f"/group-workspace/invite/{invite_token}"
+
+
+@app.route("/group-workspace", methods=["GET", "POST"])
+@login_required
+def group_workspace():
+	selected_project_id = request.args.get("project_id")
+	if request.method == "POST":
+		action = (request.form.get("action") or "").strip()
+		selected_project_id = request.form.get("project_id") or selected_project_id
+
+		if action == "create_project":
+			title = (request.form.get("title") or "").strip()
+			module_code = (request.form.get("module_code") or "").strip().upper() or None
+			description = (request.form.get("description") or "").strip() or None
+			due_date = _parse_iso_date_value(request.form.get("due_date"))
+			if not title:
+				flash("Project title is required.", "error")
+				return redirect(url_for("group_workspace"))
+			try:
+				sb_execute(
+					"""
+					INSERT INTO group_projects (
+						owner_student_id, title, module_code, description, due_date, created_at, updated_at
+					) VALUES (
+						:owner_student_id, :title, :module_code, :description, :due_date, NOW(), NOW()
+					)
+					""",
+					{
+						"owner_student_id": current_user.id,
+						"title": title[:255],
+						"module_code": module_code,
+						"description": description,
+						"due_date": due_date,
+					},
+				)
+				project = sb_fetch_one(
+					"""
+					SELECT id
+					FROM group_projects
+					WHERE owner_student_id = :student_id AND title = :title
+					ORDER BY created_at DESC, id DESC
+					LIMIT 1
+					""",
+					{"student_id": current_user.id, "title": title[:255]},
+				)
+				new_id = project.get("id") if project else None
+				flash("Group project created.", "success")
+				if new_id:
+					return redirect(url_for("group_workspace", project_id=new_id))
+			except Exception as exc:
+				print(f"[group-workspace] create project failed user={current_user.id} err={exc}")
+				flash("Failed to create project.", "error")
+			return redirect(url_for("group_workspace"))
+
+		project_id = _coerce_int(selected_project_id)
+		if not project_id:
+			flash("Please select a project first.", "warning")
+			return redirect(url_for("group_workspace"))
+		project = _get_owned_group_project(project_id, current_user.id)
+		if not project:
+			flash("Project not found or permission denied.", "error")
+			return redirect(url_for("group_workspace"))
+
+		if action == "add_member":
+			member_name = (request.form.get("member_name") or "").strip()
+			member_email = (request.form.get("member_email") or "").strip()
+			member_role = (request.form.get("member_role") or "").strip() or None
+			if not member_name or not member_email:
+				flash("Member name and email are required.", "error")
+			else:
+				try:
+					invite_token = secrets.token_urlsafe(24)
+					sb_execute(
+						"""
+						INSERT INTO group_project_members (
+							project_id, member_name, member_email, member_role, notes,
+							invite_token, invite_status, created_at
+						) VALUES (
+							:project_id, :member_name, :member_email, :member_role, :notes,
+							:invite_token, :invite_status, NOW()
+						)
+						""",
+						{
+							"project_id": project_id,
+							"member_name": member_name[:255],
+							"member_email": member_email[:255],
+							"member_role": member_role,
+							"notes": None,
+							"invite_token": invite_token,
+							"invite_status": "pending",
+						},
+					)
+					flash(f"Added {member_name} to the project.", "success")
+				except Exception as exc:
+					print(f"[group-workspace] add member failed user={current_user.id} project={project_id} err={exc}")
+					flash("Failed to add member.", "error")
+
+		elif action == "add_task":
+			title = (request.form.get("task_title") or "").strip()
+			description = (request.form.get("task_description") or "").strip() or None
+			status = (request.form.get("task_status") or "todo").strip()
+			priority = (request.form.get("task_priority") or "medium").strip()
+			due_date = _parse_iso_date_value(request.form.get("task_due_date"))
+			estimated_hours_raw = (request.form.get("task_estimated_hours") or "").strip()
+			assigned_member_id = _coerce_int(request.form.get("assigned_member_id"))
+			estimated_hours = None
+			if estimated_hours_raw:
+				try:
+					estimated_hours = float(estimated_hours_raw)
+				except ValueError:
+					estimated_hours = None
+			if status not in {"todo", "in_progress", "review", "done"}:
+				status = "todo"
+			if priority not in {"low", "medium", "high"}:
+				priority = "medium"
+			if assigned_member_id:
+				member_exists = sb_fetch_one(
+					"SELECT id FROM group_project_members WHERE id = :id AND project_id = :project_id",
+					{"id": assigned_member_id, "project_id": project_id},
+				)
+				if not member_exists:
+					assigned_member_id = None
+			if not title:
+				flash("Task title is required.", "error")
+			else:
+				try:
+					sb_execute(
+						"""
+						INSERT INTO group_project_tasks (
+							project_id, title, description, assigned_member_id, status, priority,
+							due_date, estimated_hours, progress_percent, ai_generated,
+							created_by_student_id, created_at, updated_at
+						) VALUES (
+							:project_id, :title, :description, :assigned_member_id, :status, :priority,
+							:due_date, :estimated_hours, :progress_percent, :ai_generated,
+							:created_by_student_id, NOW(), NOW()
+						)
+						""",
+						{
+							"project_id": project_id,
+							"title": title[:255],
+							"description": description,
+							"assigned_member_id": assigned_member_id,
+							"status": status,
+							"priority": priority,
+							"due_date": due_date,
+							"estimated_hours": estimated_hours,
+							"progress_percent": 100 if status == "done" else 0,
+							"ai_generated": False,
+							"created_by_student_id": current_user.id,
+						},
+					)
+					flash("Task added to group project.", "success")
+				except Exception as exc:
+					print(f"[group-workspace] add task failed user={current_user.id} project={project_id} err={exc}")
+					flash("Failed to add task.", "error")
+
+		elif action == "generate_ai_tasks":
+			brief = (request.form.get("ai_brief") or "").strip()
+			task_count = _coerce_int(request.form.get("ai_task_count")) or 6
+			task_count = max(3, min(15, task_count))
+			replace_ai = request.form.get("replace_ai_tasks") == "on"
+			if not brief:
+				flash("Provide a project brief for AI breakdown.", "error")
+			else:
+				try:
+					members = sb_fetch_all(
+						"""
+						SELECT id, member_name
+						FROM group_project_members
+						WHERE project_id = :project_id
+						ORDER BY member_name ASC
+						""",
+						{"project_id": project_id},
+					)
+					member_labels = ", ".join(m.get("member_name") for m in members if m.get("member_name")) or "No members yet"
+					service = get_chatgpt_service()
+					breakdown = service.breakdown_task(
+						task_title=f"{project.get('title')} (Group Project)",
+						module_code=project.get("module_code"),
+						due_date=project.get("due_date").isoformat() if getattr(project.get("due_date"), "isoformat", None) else None,
+						due_at=None,
+						status="in_progress",
+						description=brief,
+						additional_context=(
+							f"Group members: {member_labels}. "
+							f"Return {task_count} concrete tasks suitable for assignment."
+						),
+						schedule_context=None,
+					)
+					if replace_ai:
+						sb_execute(
+							"DELETE FROM group_project_tasks WHERE project_id = :project_id AND ai_generated = TRUE",
+							{"project_id": project_id},
+						)
+
+					created = 0
+					for idx, item in enumerate(breakdown.subtasks[:task_count], start=1):
+						assigned_member_id = None
+						if members:
+							assigned_member_id = members[(idx - 1) % len(members)].get("id")
+						due_hint = _parse_iso_date_value(item.planned_end) or _parse_iso_date_value(item.planned_start)
+						if not due_hint and project.get("due_date"):
+							due_hint = project.get("due_date")
+						sb_execute(
+							"""
+							INSERT INTO group_project_tasks (
+								project_id, title, description, assigned_member_id, status, priority,
+								due_date, estimated_hours, progress_percent, ai_generated,
+								created_by_student_id, created_at, updated_at
+							) VALUES (
+								:project_id, :title, :description, :assigned_member_id, :status, :priority,
+								:due_date, :estimated_hours, :progress_percent, :ai_generated,
+								:created_by_student_id, NOW(), NOW()
+							)
+							""",
+							{
+								"project_id": project_id,
+								"title": (item.title or f"Task {idx}")[:255],
+								"description": item.description or None,
+								"assigned_member_id": assigned_member_id,
+								"status": "todo",
+								"priority": "medium",
+								"due_date": due_hint,
+								"estimated_hours": item.estimated_hours,
+								"progress_percent": 0,
+								"ai_generated": True,
+								"created_by_student_id": current_user.id,
+							},
+						)
+						created += 1
+					flash(f"AI generated {created} project tasks.", "success")
+				except ChatGPTClientError as exc:
+					flash(f"AI breakdown failed: {exc}", "error")
+				except Exception as exc:
+					print(f"[group-workspace] ai breakdown failed user={current_user.id} project={project_id} err={exc}")
+					flash("Failed to generate AI tasks.", "error")
+
+		elif action == "update_task":
+			task_id = _coerce_int(request.form.get("task_id"))
+			if not task_id:
+				flash("Invalid task.", "error")
+			else:
+				task = sb_fetch_one(
+					"SELECT id FROM group_project_tasks WHERE id = :task_id AND project_id = :project_id",
+					{"task_id": task_id, "project_id": project_id},
+				)
+				if not task:
+					flash("Task not found.", "error")
+				else:
+					status = (request.form.get("status") or "todo").strip()
+					if status not in {"todo", "in_progress", "review", "done"}:
+						status = "todo"
+					progress_raw = _coerce_int(request.form.get("progress_percent"))
+					progress_percent = max(0, min(100, progress_raw if progress_raw is not None else 0))
+					if status == "done":
+						progress_percent = 100
+					assigned_member_id = _coerce_int(request.form.get("assigned_member_id"))
+					if assigned_member_id:
+						member_exists = sb_fetch_one(
+							"SELECT id FROM group_project_members WHERE id = :id AND project_id = :project_id",
+							{"id": assigned_member_id, "project_id": project_id},
+						)
+						if not member_exists:
+							assigned_member_id = None
+					due_date = _parse_iso_date_value(request.form.get("due_date"))
+					try:
+						sb_execute(
+							"""
+							UPDATE group_project_tasks
+							SET assigned_member_id = :assigned_member_id,
+							    status = :status,
+							    progress_percent = :progress_percent,
+							    due_date = :due_date,
+							    updated_at = NOW()
+							WHERE id = :task_id AND project_id = :project_id
+							""",
+							{
+								"assigned_member_id": assigned_member_id,
+								"status": status,
+								"progress_percent": progress_percent,
+								"due_date": due_date,
+								"task_id": task_id,
+								"project_id": project_id,
+							},
+						)
+						flash("Task updated.", "success")
+					except Exception as exc:
+						print(f"[group-workspace] update task failed user={current_user.id} task={task_id} err={exc}")
+						flash("Failed to update task.", "error")
+
+		elif action == "delete_task":
+			task_id = _coerce_int(request.form.get("task_id"))
+			if task_id:
+				try:
+					sb_execute(
+						"DELETE FROM group_project_tasks WHERE id = :task_id AND project_id = :project_id",
+						{"task_id": task_id, "project_id": project_id},
+					)
+					flash("Task deleted.", "success")
+				except Exception as exc:
+					print(f"[group-workspace] delete task failed user={current_user.id} task={task_id} err={exc}")
+					flash("Failed to delete task.", "error")
+
+		elif action == "email_task":
+			task_id = _coerce_int(request.form.get("task_id"))
+			task = None
+			if task_id:
+				task = sb_fetch_one(
+					"""
+					SELECT t.id, t.title, t.description, t.status, t.progress_percent, t.due_date,
+					       m.member_name, m.member_email
+					FROM group_project_tasks t
+					LEFT JOIN group_project_members m ON m.id = t.assigned_member_id
+					WHERE t.id = :task_id AND t.project_id = :project_id
+					""",
+					{"task_id": task_id, "project_id": project_id},
+				)
+			if not task:
+				flash("Task not found.", "error")
+			elif not task.get("member_email"):
+				flash("Assign this task to a member with an email first.", "warning")
+			else:
+				subject = f"[Group Project] {project.get('title')} - Your assigned task"
+				due_label = task.get("due_date").isoformat() if getattr(task.get("due_date"), "isoformat", None) else "No due date set"
+				body = (
+					f"Hi {task.get('member_name') or 'team member'},\n\n"
+					f"You have been assigned a task in '{project.get('title')}'.\n\n"
+					f"Task: {task.get('title')}\n"
+					f"Status: {task.get('status')}\n"
+					f"Progress: {task.get('progress_percent') or 0}%\n"
+					f"Due date: {due_label}\n\n"
+					f"Details:\n{task.get('description') or 'No additional notes.'}\n\n"
+					f"Sent by: {current_user.name} ({current_user.email})"
+				)
+				error = _send_reminder_email(
+					to_email=task.get("member_email"),
+					subject=subject,
+					body=body,
+				)
+				if error:
+					flash(f"Failed to email {task.get('member_name')}: {error}", "error")
+				else:
+					flash(f"Email sent to {task.get('member_name')}.", "success")
+
+		elif action == "email_all_assignments":
+			rows = sb_fetch_all(
+				"""
+				SELECT m.id AS member_id, m.member_name, m.member_email,
+				       t.title, t.status, t.progress_percent, t.due_date
+				FROM group_project_members m
+				LEFT JOIN group_project_tasks t
+				       ON t.assigned_member_id = m.id
+				      AND t.project_id = m.project_id
+				      AND t.status != 'done'
+				WHERE m.project_id = :project_id
+				ORDER BY m.member_name ASC, t.due_date ASC NULLS LAST, t.id ASC
+				""",
+				{"project_id": project_id},
+			)
+			messages_sent = 0
+			errors = 0
+			by_member: Dict[int, Dict[str, Any]] = {}
+			for row in rows:
+				member_id = row.get("member_id")
+				if not member_id:
+					continue
+				bucket = by_member.setdefault(member_id, {
+					"name": row.get("member_name"),
+					"email": row.get("member_email"),
+					"tasks": [],
+				})
+				if row.get("title"):
+					bucket["tasks"].append(row)
+			for member in by_member.values():
+				email = member.get("email")
+				tasks_for_member = member.get("tasks") or []
+				if not email or not tasks_for_member:
+					continue
+				lines = [
+					f"Hi {member.get('name') or 'team member'},",
+					"",
+					f"Here are your current assigned items for '{project.get('title')}':",
+					"",
+				]
+				for item in tasks_for_member:
+					due_label = item.get("due_date").isoformat() if getattr(item.get("due_date"), "isoformat", None) else "No date"
+					lines.append(
+						f"- {item.get('title')} (status: {item.get('status')}, "
+						f"progress: {item.get('progress_percent') or 0}%, due: {due_label})"
+					)
+				lines.extend([
+					"",
+					f"Sent by: {current_user.name} ({current_user.email})",
+				])
+				err = _send_reminder_email(
+					to_email=email,
+					subject=f"[Group Project] {project.get('title')} - Assigned Tasks Digest",
+					body="\n".join(lines),
+				)
+				if err:
+					errors += 1
+				else:
+					messages_sent += 1
+			if messages_sent:
+				flash(f"Sent assignment digests to {messages_sent} member(s).", "success")
+			if errors:
+				flash(f"{errors} email(s) failed to send.", "warning")
+
+		# Reference: ChatGPT (OpenAI) - Group Workspace Collaboration Extensions
+		# Date: 2026-02-11
+		# Prompt: "Extend the group workspace with member invite resend emails, project
+		# milestones, and per-task file attachments (upload/delete) while keeping action
+		# handling in a single Flask route. Can you provide a clean branching pattern?"
+		# ChatGPT provided the extension pattern adapted below.
+		elif action == "resend_invite":
+			member_id = _coerce_int(request.form.get("member_id"))
+			member = None
+			if member_id:
+				member = sb_fetch_one(
+					"""
+					SELECT id, member_name, member_email, invite_token
+					FROM group_project_members
+					WHERE id = :member_id AND project_id = :project_id
+					""",
+					{"member_id": member_id, "project_id": project_id},
+				)
+			if not member:
+				flash("Member not found.", "error")
+			elif not member.get("member_email"):
+				flash("Member does not have an email address.", "warning")
+			else:
+				invite_token = member.get("invite_token") or secrets.token_urlsafe(24)
+				if not member.get("invite_token"):
+					try:
+						sb_execute(
+							"""
+							UPDATE group_project_members
+							SET invite_token = :invite_token, invite_status = 'pending'
+							WHERE id = :member_id AND project_id = :project_id
+							""",
+							{
+								"invite_token": invite_token,
+								"member_id": member_id,
+								"project_id": project_id,
+							},
+						)
+					except Exception:
+						pass
+				invite_url = _group_invite_url(invite_token)
+				subject = f"[Group Project] Invitation to {project.get('title')}"
+				body = (
+					f"Hi {member.get('member_name')},\n\n"
+					f"You have been added to the group project '{project.get('title')}'.\n"
+					f"Use this link to open your task portal and update progress:\n\n"
+					f"{invite_url}\n\n"
+					"After accepting, you can mark your assigned tasks as in progress/done.\n\n"
+					f"Invited by: {current_user.name} ({current_user.email})"
+				)
+				error = _send_reminder_email(
+					to_email=member.get("member_email"),
+					subject=subject,
+					body=body,
+				)
+				if error:
+					flash(f"Failed to send invite: {error}", "error")
+				else:
+					flash(f"Invite email sent to {member.get('member_name')}.", "success")
+
+		elif action == "add_milestone":
+			title = (request.form.get("milestone_title") or "").strip()
+			target_date = _parse_iso_date_value(request.form.get("milestone_target_date"))
+			notes = (request.form.get("milestone_notes") or "").strip() or None
+			if not title:
+				flash("Milestone title is required.", "error")
+			elif not target_date:
+				flash("Milestone target date is required.", "error")
+			else:
+				try:
+					sb_execute(
+						"""
+						INSERT INTO group_project_milestones (
+							project_id, title, target_date, notes, is_completed, completed_at, created_at
+						) VALUES (
+							:project_id, :title, :target_date, :notes, FALSE, NULL, NOW()
+						)
+						""",
+						{
+							"project_id": project_id,
+							"title": title[:255],
+							"target_date": target_date,
+							"notes": notes,
+						},
+					)
+					flash("Milestone added.", "success")
+				except Exception as exc:
+					print(f"[group-workspace] add milestone failed user={current_user.id} project={project_id} err={exc}")
+					flash("Failed to add milestone.", "error")
+
+		elif action == "toggle_milestone":
+			milestone_id = _coerce_int(request.form.get("milestone_id"))
+			if milestone_id:
+				try:
+					milestone = sb_fetch_one(
+						"""
+						SELECT id, is_completed
+						FROM group_project_milestones
+						WHERE id = :milestone_id AND project_id = :project_id
+						""",
+						{"milestone_id": milestone_id, "project_id": project_id},
+					)
+					if milestone:
+						is_completed = bool(milestone.get("is_completed"))
+						sb_execute(
+							"""
+							UPDATE group_project_milestones
+							SET is_completed = :is_completed,
+							    completed_at = CASE WHEN :is_completed THEN NOW() ELSE NULL END
+							WHERE id = :milestone_id AND project_id = :project_id
+							""",
+							{
+								"is_completed": not is_completed,
+								"milestone_id": milestone_id,
+								"project_id": project_id,
+							},
+						)
+						flash("Milestone updated.", "success")
+				except Exception as exc:
+					print(f"[group-workspace] toggle milestone failed user={current_user.id} milestone={milestone_id} err={exc}")
+					flash("Failed to update milestone.", "error")
+
+		elif action == "upload_task_file":
+			task_id = _coerce_int(request.form.get("task_id"))
+			file_storage = request.files.get("task_file")
+			task_row = None
+			if task_id:
+				task_row = sb_fetch_one(
+					"SELECT id, title FROM group_project_tasks WHERE id = :task_id AND project_id = :project_id",
+					{"task_id": task_id, "project_id": project_id},
+				)
+			if not task_row:
+				flash("Task not found.", "error")
+			elif not file_storage or not file_storage.filename:
+				flash("Please choose a file to upload.", "warning")
+			else:
+				try:
+					filename = os.path.basename((file_storage.filename or "").strip())
+					if not filename:
+						raise ValueError("Invalid filename.")
+					payload = file_storage.read()
+					if not payload:
+						raise ValueError("The uploaded file was empty.")
+					if len(payload) > _GROUP_MAX_UPLOAD_BYTES:
+						raise ValueError("File is larger than 8 MB.")
+					uploads_dir = os.path.join(app.root_path, "uploads", "group_tasks")
+					os.makedirs(uploads_dir, exist_ok=True)
+					timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+					stored_name = f"{project_id}_{task_id}_{timestamp}_{filename}"
+					filepath = os.path.join(uploads_dir, stored_name)
+					with open(filepath, "wb") as f:
+						f.write(payload)
+					sb_execute(
+						"""
+						INSERT INTO group_project_task_files (
+							task_id, project_id, uploaded_by_student_id, filename, filepath, file_size_bytes, uploaded_at
+						) VALUES (
+							:task_id, :project_id, :uploaded_by_student_id, :filename, :filepath, :file_size_bytes, NOW()
+						)
+						""",
+						{
+							"task_id": task_id,
+							"project_id": project_id,
+							"uploaded_by_student_id": current_user.id,
+							"filename": filename[:255],
+							"filepath": filepath,
+							"file_size_bytes": len(payload),
+						},
+					)
+					flash("Task attachment uploaded.", "success")
+				except ValueError as exc:
+					flash(str(exc), "error")
+				except Exception as exc:
+					print(f"[group-workspace] upload attachment failed user={current_user.id} task={task_id} err={exc}")
+					flash("Failed to upload attachment.", "error")
+
+		elif action == "delete_task_file":
+			file_id = _coerce_int(request.form.get("file_id"))
+			if file_id:
+				try:
+					row = sb_fetch_one(
+						"""
+						SELECT id, filepath
+						FROM group_project_task_files
+						WHERE id = :file_id AND project_id = :project_id
+						""",
+						{"file_id": file_id, "project_id": project_id},
+					)
+					if row:
+						sb_execute(
+							"DELETE FROM group_project_task_files WHERE id = :file_id AND project_id = :project_id",
+							{"file_id": file_id, "project_id": project_id},
+						)
+						filepath = row.get("filepath")
+						if filepath and os.path.exists(filepath):
+							try:
+								os.remove(filepath)
+							except Exception:
+								pass
+						flash("Attachment deleted.", "success")
+				except Exception as exc:
+					print(f"[group-workspace] delete attachment failed user={current_user.id} file={file_id} err={exc}")
+					flash("Failed to delete attachment.", "error")
+
+		elif action == "upload_project_file":
+			file_storage = request.files.get("project_file")
+			if not file_storage or not file_storage.filename:
+				flash("Please choose a project file to upload.", "warning")
+			else:
+				try:
+					filename = os.path.basename((file_storage.filename or "").strip())
+					if not filename:
+						raise ValueError("Invalid filename.")
+					payload = file_storage.read()
+					if not payload:
+						raise ValueError("The uploaded file was empty.")
+					if len(payload) > _GROUP_MAX_UPLOAD_BYTES:
+						raise ValueError("Project file is larger than 8 MB.")
+					uploads_dir = os.path.join(app.root_path, "uploads", "group_projects")
+					os.makedirs(uploads_dir, exist_ok=True)
+					timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+					stored_name = f"{project_id}_{timestamp}_{filename}"
+					filepath = os.path.join(uploads_dir, stored_name)
+					with open(filepath, "wb") as f:
+						f.write(payload)
+					sb_execute(
+						"""
+						INSERT INTO group_project_files (
+							project_id, uploaded_by_student_id, filename, filepath, file_size_bytes, uploaded_at
+						) VALUES (
+							:project_id, :uploaded_by_student_id, :filename, :filepath, :file_size_bytes, NOW()
+						)
+						""",
+						{
+							"project_id": project_id,
+							"uploaded_by_student_id": current_user.id,
+							"filename": filename[:255],
+							"filepath": filepath,
+							"file_size_bytes": len(payload),
+						},
+					)
+					flash("Project file uploaded.", "success")
+				except ValueError as exc:
+					flash(str(exc), "error")
+				except Exception as exc:
+					print(f"[group-workspace] upload project file failed user={current_user.id} project={project_id} err={exc}")
+					flash("Failed to upload project file.", "error")
+
+		elif action == "delete_project_file":
+			file_id = _coerce_int(request.form.get("file_id"))
+			if file_id:
+				try:
+					row = sb_fetch_one(
+						"""
+						SELECT id, filepath
+						FROM group_project_files
+						WHERE id = :file_id AND project_id = :project_id
+						""",
+						{"file_id": file_id, "project_id": project_id},
+					)
+					if row:
+						sb_execute(
+							"DELETE FROM group_project_files WHERE id = :file_id AND project_id = :project_id",
+							{"file_id": file_id, "project_id": project_id},
+						)
+						filepath = row.get("filepath")
+						if filepath and os.path.exists(filepath):
+							try:
+								os.remove(filepath)
+							except Exception:
+								pass
+						flash("Project file deleted.", "success")
+				except Exception as exc:
+					print(f"[group-workspace] delete project file failed user={current_user.id} file={file_id} err={exc}")
+					flash("Failed to delete project file.", "error")
+
+		# Reference: ChatGPT (OpenAI) - Project Team Messaging Thread Flow
+		# Date: 2026-02-11
+		# Prompt: "I need a project-level team thread in Flask where the project owner
+		# can post updates/comments and render messages newest-last in the workspace.
+		# Can you provide a simple insert + fetch pattern with validation?"
+		# ChatGPT provided the insertion/ordering pattern adapted below.
+		elif action == "post_message":
+			message_text = (request.form.get("message_text") or "").strip()
+			if not message_text:
+				flash("Message cannot be empty.", "warning")
+			else:
+				try:
+					sb_execute(
+						"""
+						INSERT INTO group_project_messages (
+							project_id, sender_student_id, sender_name, message, created_at
+						) VALUES (
+							:project_id, :sender_student_id, :sender_name, :message, NOW()
+						)
+						""",
+						{
+							"project_id": project_id,
+							"sender_student_id": current_user.id,
+							"sender_name": current_user.name or "Project Owner",
+							"message": message_text[:2000],
+						},
+					)
+					flash("Message posted.", "success")
+				except Exception as exc:
+					print(f"[group-workspace] post message failed user={current_user.id} project={project_id} err={exc}")
+					flash("Failed to post message.", "error")
+
+		return redirect(url_for("group_workspace", project_id=project_id))
+
+	try:
+		projects = sb_fetch_all(
+			"""
+			SELECT id, title, module_code, due_date, created_at
+			FROM group_projects
+			WHERE owner_student_id = :student_id
+			ORDER BY created_at DESC, id DESC
+			""",
+			{"student_id": current_user.id},
+		)
+	except Exception as exc:
+		print(f"[group-workspace] project list failed user={current_user.id} err={exc}")
+		projects = []
+
+	selected_project = None
+	if selected_project_id:
+		pid = _coerce_int(selected_project_id)
+		if pid:
+			selected_project = _get_owned_group_project(pid, current_user.id)
+	if not selected_project and projects:
+		selected_project = _get_owned_group_project(projects[0].get("id"), current_user.id)
+
+	members: List[Dict[str, Any]] = []
+	tasks: List[Dict[str, Any]] = []
+	member_stats: List[Dict[str, Any]] = []
+	milestones: List[Dict[str, Any]] = []
+	task_files_map: Dict[int, List[Dict[str, Any]]] = {}
+	project_files: List[Dict[str, Any]] = []
+	project_messages: List[Dict[str, Any]] = []
+	progress = {
+		"total": 0,
+		"todo": 0,
+		"in_progress": 0,
+		"review": 0,
+		"done": 0,
+		"overdue": 0,
+		"completion_percent": 0,
+	}
+	if selected_project:
+		project_id = selected_project.get("id")
+		try:
+			members = sb_fetch_all(
+				"""
+				SELECT id, member_name, member_email, member_role, invite_token, invite_status, accepted_at, created_at
+				FROM group_project_members
+				WHERE project_id = :project_id
+				ORDER BY member_name ASC
+				""",
+				{"project_id": project_id},
+			)
+		except Exception:
+			members = []
+		try:
+			tasks = sb_fetch_all(
+				"""
+				SELECT t.id, t.title, t.description, t.assigned_member_id, t.status, t.priority,
+				       t.due_date, t.estimated_hours, t.progress_percent, t.ai_generated,
+				       m.member_name, m.member_email
+				FROM group_project_tasks t
+				LEFT JOIN group_project_members m ON m.id = t.assigned_member_id
+				WHERE t.project_id = :project_id
+				ORDER BY
+					CASE t.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+					t.due_date ASC NULLS LAST,
+					t.id ASC
+				""",
+				{"project_id": project_id},
+			)
+		except Exception:
+			tasks = []
+		try:
+			milestones = sb_fetch_all(
+				"""
+				SELECT id, title, target_date, notes, is_completed, completed_at, created_at
+				FROM group_project_milestones
+				WHERE project_id = :project_id
+				ORDER BY target_date ASC, id ASC
+				""",
+				{"project_id": project_id},
+			)
+		except Exception:
+			milestones = []
+		try:
+			file_rows = sb_fetch_all(
+				"""
+				SELECT id, task_id, filename, file_size_bytes, uploaded_at
+				FROM group_project_task_files
+				WHERE project_id = :project_id
+				ORDER BY uploaded_at DESC, id DESC
+				""",
+				{"project_id": project_id},
+			)
+		except Exception:
+			file_rows = []
+		for row in file_rows:
+			task_key = row.get("task_id")
+			if not task_key:
+				continue
+			task_files_map.setdefault(task_key, []).append(row)
+		try:
+			project_files = sb_fetch_all(
+				"""
+				SELECT id, filename, file_size_bytes, uploaded_at
+				FROM group_project_files
+				WHERE project_id = :project_id
+				ORDER BY uploaded_at DESC, id DESC
+				""",
+				{"project_id": project_id},
+			)
+		except Exception:
+			project_files = []
+		try:
+			project_messages = sb_fetch_all(
+				"""
+				SELECT id, sender_name, message, created_at
+				FROM group_project_messages
+				WHERE project_id = :project_id
+				ORDER BY created_at ASC, id ASC
+				LIMIT 300
+				""",
+				{"project_id": project_id},
+			)
+		except Exception:
+			project_messages = []
+
+		progress["total"] = len(tasks)
+		today = datetime.now().date()
+		for task in tasks:
+			status = (task.get("status") or "todo").strip()
+			if status == "in_progress":
+				progress["in_progress"] += 1
+			elif status == "review":
+				progress["review"] += 1
+			elif status == "done":
+				progress["done"] += 1
+			else:
+				progress["todo"] += 1
+			due_date = task.get("due_date")
+			if status != "done" and due_date and getattr(due_date, "__lt__", None) and due_date < today:
+				progress["overdue"] += 1
+		if progress["total"] > 0:
+			progress["completion_percent"] = round((progress["done"] / progress["total"]) * 100)
+
+		member_map: Dict[int, Dict[str, Any]] = {
+			m.get("id"): {
+				"id": m.get("id"),
+				"name": m.get("member_name"),
+				"email": m.get("member_email"),
+				"assigned": 0,
+				"done": 0,
+				"in_progress": 0,
+			}
+			for m in members
+		}
+		for task in tasks:
+			member_id = task.get("assigned_member_id")
+			if not member_id or member_id not in member_map:
+				continue
+			member_map[member_id]["assigned"] += 1
+			if task.get("status") == "done":
+				member_map[member_id]["done"] += 1
+			elif task.get("status") == "in_progress":
+				member_map[member_id]["in_progress"] += 1
+		member_stats = list(member_map.values())
+		for item in member_stats:
+			total = item.get("assigned") or 0
+			item["completion_percent"] = round(((item.get("done") or 0) / total) * 100) if total else 0
+		member_stats.sort(key=lambda x: (-(x.get("assigned") or 0), x.get("name") or ""))
+
+	return render_template(
+		"group_workspace.html",
+		projects=projects,
+		selected_project=selected_project,
+		members=members,
+		tasks=tasks,
+		milestones=milestones,
+		task_files_map=task_files_map,
+		project_files=project_files,
+		project_messages=project_messages,
+		member_stats=member_stats,
+		progress=progress,
+		invite_base_url=request.host_url.rstrip("/"),
+	)
+
+
+# Reference: ChatGPT (OpenAI) - Invite Token Member Portal Pattern
+# Date: 2026-02-11
+# Prompt: "I need invited group members to open a secure token link, accept the
+# invite, and update only tasks assigned to them without full account login.
+# Can you provide a safe Flask route flow?"
+# ChatGPT provided the token validation + restricted update flow adapted below.
+@app.route("/group-workspace/invite/<invite_token>", methods=["GET", "POST"])
+def group_workspace_invite(invite_token: str):
+	member = sb_fetch_one(
+		"""
+		SELECT m.id, m.project_id, m.member_name, m.member_email, m.invite_status, m.accepted_at,
+		       p.title AS project_title, p.module_code, p.due_date
+		FROM group_project_members m
+		JOIN group_projects p ON p.id = m.project_id
+		WHERE m.invite_token = :invite_token
+		LIMIT 1
+		""",
+		{"invite_token": invite_token},
+	)
+	if not member:
+		return render_template("group_workspace_invite.html", invalid_link=True, invite_token=invite_token), 404
+
+	if request.method == "POST":
+		action = (request.form.get("action") or "").strip()
+		if action == "accept_invite":
+			try:
+				sb_execute(
+					"""
+					UPDATE group_project_members
+					SET invite_status = 'accepted',
+					    accepted_at = COALESCE(accepted_at, NOW())
+					WHERE id = :member_id
+					""",
+					{"member_id": member.get("id")},
+				)
+				member["invite_status"] = "accepted"
+				flash("Invite accepted. You can now update your tasks.", "success")
+			except Exception as exc:
+				print(f"[group-workspace] accept invite failed member={member.get('id')} err={exc}")
+				flash("Failed to accept invite.", "error")
+		elif action == "update_member_task":
+			task_id = _coerce_int(request.form.get("task_id"))
+			status = (request.form.get("status") or "").strip()
+			progress_percent = _coerce_int(request.form.get("progress_percent"))
+			if status not in {"todo", "in_progress", "review", "done"}:
+				status = "todo"
+			progress_value = max(0, min(100, progress_percent if progress_percent is not None else 0))
+			if status == "done":
+				progress_value = 100
+			if not task_id:
+				flash("Invalid task.", "error")
+			else:
+				task = sb_fetch_one(
+					"""
+					SELECT id
+					FROM group_project_tasks
+					WHERE id = :task_id
+					  AND project_id = :project_id
+					  AND assigned_member_id = :member_id
+					""",
+					{
+						"task_id": task_id,
+						"project_id": member.get("project_id"),
+						"member_id": member.get("id"),
+					},
+				)
+				if not task:
+					flash("Task not found.", "error")
+				else:
+					try:
+						sb_execute(
+							"""
+							UPDATE group_project_tasks
+							SET status = :status,
+							    progress_percent = :progress_percent,
+							    updated_at = NOW()
+							WHERE id = :task_id
+							  AND project_id = :project_id
+							  AND assigned_member_id = :member_id
+							""",
+							{
+								"status": status,
+								"progress_percent": progress_value,
+								"task_id": task_id,
+								"project_id": member.get("project_id"),
+								"member_id": member.get("id"),
+							},
+						)
+						flash("Task updated.", "success")
+					except Exception as exc:
+						print(f"[group-workspace] member task update failed member={member.get('id')} task={task_id} err={exc}")
+						flash("Failed to update task.", "error")
+		return redirect(url_for("group_workspace_invite", invite_token=invite_token))
+
+	tasks = sb_fetch_all(
+		"""
+		SELECT id, title, description, status, priority, due_date, progress_percent
+		FROM group_project_tasks
+		WHERE project_id = :project_id
+		  AND assigned_member_id = :member_id
+		ORDER BY due_date ASC NULLS LAST, id ASC
+		""",
+		{
+			"project_id": member.get("project_id"),
+			"member_id": member.get("id"),
+		},
+	)
+	return render_template(
+		"group_workspace_invite.html",
+		invalid_link=False,
+		invite_token=invite_token,
+		member=member,
+		tasks=tasks,
+	)
+
+
+# Reference: ChatGPT (OpenAI) - Secure Owner-Only File Download Route
+# Date: 2026-02-11
+# Prompt: "I need a Flask download endpoint for group-task attachments where only
+# the project owner can download files. Can you provide a secure pattern with
+# ownership checks and safe send_file handling?"
+# ChatGPT provided the ownership-check + send_file route pattern adapted below.
+@app.route("/group-workspace/files/<int:file_id>/download")
+@login_required
+def group_workspace_download_file(file_id: int):
+	row = sb_fetch_one(
+		"""
+		SELECT f.id, f.filename, f.filepath
+		FROM group_project_task_files f
+		JOIN group_projects p ON p.id = f.project_id
+		WHERE f.id = :file_id
+		  AND p.owner_student_id = :student_id
+		""",
+		{"file_id": file_id, "student_id": current_user.id},
+	)
+	if not row:
+		abort(404)
+	filepath = row.get("filepath")
+	if not filepath or not os.path.exists(filepath):
+		abort(404)
+	return send_file(filepath, as_attachment=True, download_name=row.get("filename") or "attachment")
+
+
+@app.route("/group-workspace/project-files/<int:file_id>/download")
+@login_required
+def group_workspace_download_project_file(file_id: int):
+	# Reference: ChatGPT (OpenAI) - Secure Project File Download Guard
+	# Date: 2026-02-11
+	# Prompt: "I need a secure Flask download route for project-level files where
+	# only the project owner can access downloads. Can you provide a safe ownership
+	# check and send_file pattern?"
+	# ChatGPT provided the owner-check + safe send_file pattern adapted here.
+	row = sb_fetch_one(
+		"""
+		SELECT f.id, f.filename, f.filepath
+		FROM group_project_files f
+		JOIN group_projects p ON p.id = f.project_id
+		WHERE f.id = :file_id
+		  AND p.owner_student_id = :student_id
+		""",
+		{"file_id": file_id, "student_id": current_user.id},
+	)
+	if not row:
+		abort(404)
+	filepath = row.get("filepath")
+	if not filepath or not os.path.exists(filepath):
+		abort(404)
+	return send_file(filepath, as_attachment=True, download_name=row.get("filename") or "project_file")
+
+
 @app.route("/ai-workspace", methods=["GET", "POST"])
 @login_required
 def ai_workspace():
@@ -2672,7 +4164,17 @@ def calendar_view():
 		else:
 			due_date = r.get("due_date")
 			start_iso = due_date.strftime("%Y-%m-%d") if hasattr(due_date, "strftime") else str(due_date)
-			end_iso = start_iso
+			# Reference: ChatGPT (OpenAI) - FullCalendar All-Day End Date (Exclusive)
+			# Date: 2026-02-11
+			# Prompt: "FullCalendar treats all-day event end dates as exclusive. If I set
+			# end == start for an all-day event, it can render oddly. How should I set
+			# the end date for an all-day deadline so it displays on the correct day?"
+			# ChatGPT recommended using end = start + 1 day for all-day events.
+			try:
+				end_date = due_date + timedelta(days=1)
+				end_iso = end_date.strftime("%Y-%m-%d")
+			except Exception:
+				end_iso = start_iso
 
 		status = r.get("status", "pending")
 		if status == "completed":
@@ -2764,18 +4266,91 @@ def calendar_view():
 	try:
 		user_events = sb_fetch_all(
 			"""
-			SELECT id, title, start_at, end_at
+			SELECT id, title, start_at, end_at, is_recurring
 			FROM events
 			WHERE student_id = :student_id
 			ORDER BY start_at ASC
-			LIMIT 50
+			LIMIT 200
 			""",
 			{"student_id": current_user.id}
 		)
 	except Exception:
 		user_events = []
 
-	return render_template("calendar.html", events=events, user_events=user_events)
+	# Detect recurring patterns by grouping events with same title + day + time
+	# This works for both explicitly marked recurring events AND Canvas lectures
+	pattern_groups = {}
+	
+	for event in user_events:
+		start_at = event.get('start_at')
+		end_at = event.get('end_at')
+		title = event.get('title', '')
+		
+		# Parse start datetime
+		if isinstance(start_at, str):
+			try:
+				start_dt = datetime.fromisoformat(start_at.replace('Z', '+00:00'))
+			except:
+				start_dt = datetime.now()
+		elif start_at:
+			start_dt = start_at
+		else:
+			continue  # Skip events without start time
+		
+		# Parse end datetime
+		if isinstance(end_at, str):
+			try:
+				end_dt = datetime.fromisoformat(end_at.replace('Z', '+00:00'))
+			except:
+				end_dt = start_dt
+		elif end_at:
+			end_dt = end_at
+		else:
+			end_dt = start_dt
+		
+		day_of_week = start_dt.strftime('%A')  # e.g., "Monday"
+		start_time = start_dt.strftime('%H:%M')  # e.g., "09:00"
+		end_time = end_dt.strftime('%H:%M')  # e.g., "17:00"
+		
+		# Create a unique key for this pattern (title + day + time)
+		pattern_key = f"{title}|{day_of_week}|{start_time}|{end_time}"
+		
+		if pattern_key not in pattern_groups:
+			pattern_groups[pattern_key] = {
+				'id': event['id'],
+				'title': title,
+				'day_of_week': day_of_week,
+				'start_time': start_time,
+				'end_time': end_time,
+				'count': 1,
+				'events': [event],
+				'is_recurring': event.get('is_recurring', False)
+			}
+		else:
+			pattern_groups[pattern_key]['count'] += 1
+			pattern_groups[pattern_key]['events'].append(event)
+	
+	# Separate into recurring (2+ occurrences) and single events
+	recurring_events = []
+	single_events = []
+	
+	for pattern_key, group in pattern_groups.items():
+		if group['count'] >= 2:
+			# This is a recurring pattern (same title, day, time - 2 or more times)
+			recurring_events.append({
+				'id': group['id'],
+				'title': group['title'],
+				'day_of_week': group['day_of_week'],
+				'start_time': group['start_time'],
+				'end_time': group['end_time'],
+				'count': group['count'],
+				'is_recurring': True
+			})
+		else:
+			# Single occurrence - show as one-time event
+			single_events.extend(group['events'])
+
+	return render_template("calendar.html", events=events, user_events=single_events, recurring_events=recurring_events)
 
 
 @app.route("/calendar/add", methods=["POST"])
@@ -2914,6 +4489,103 @@ def delete_event(event_id: int):
 	except Exception as exc:
 		print(f"[events] delete failed user={current_user.id} event={event_id} err={exc}")
 		flash("Failed to delete the event. Please try again.", "danger")
+	return redirect(url_for("calendar_view"))
+
+
+@app.route("/events/<int:event_id>/delete-recurring", methods=["POST"])
+@login_required
+def delete_recurring_event(event_id: int):
+	"""Delete all occurrences of a recurring event by matching title and time pattern"""
+	try:
+		# First get the event details
+		event = sb_fetch_one(
+			"SELECT title, start_at, end_at FROM events WHERE id = :id AND student_id = :student_id",
+			{"id": event_id, "student_id": current_user.id}
+		)
+		if not event:
+			flash("Event not found.", "warning")
+			return redirect(url_for("calendar_view"))
+		
+		title = event.get('title')
+		start_at = event.get('start_at')
+		end_at = event.get('end_at')
+		
+		# Parse to get time
+		if isinstance(start_at, str):
+			try:
+				start_dt = datetime.fromisoformat(start_at.replace('Z', '+00:00'))
+			except:
+				start_dt = None
+		else:
+			start_dt = start_at
+		
+		# Parse end datetime (used for tighter pattern matching)
+		if isinstance(end_at, str):
+			try:
+				end_dt = datetime.fromisoformat(end_at.replace('Z', '+00:00'))
+			except Exception:
+				end_dt = None
+		else:
+			end_dt = end_at
+		
+		if start_dt:
+			# Extract time components for matching
+			# IMPORTANT: PostgreSQL EXTRACT(DOW) uses 0=Sunday..6=Saturday,
+			# while Python weekday() uses 0=Monday..6=Sunday.
+			# Convert to Postgres-compatible DOW to avoid off-by-one mismatches.
+			postgres_dow = (start_dt.weekday() + 1) % 7
+			start_time = start_dt.strftime('%H:%M')
+			end_time = end_dt.strftime('%H:%M') if end_dt else None
+			
+			# Delete all events with same title that occur on the same day/time pattern.
+			if end_time:
+				result = sb_execute(
+					"""
+					DELETE FROM events 
+					WHERE title = :title 
+					AND student_id = :student_id
+					AND EXTRACT(DOW FROM start_at) = :day_of_week
+					AND TO_CHAR(start_at, 'HH24:MI') = :start_time
+					AND TO_CHAR(end_at, 'HH24:MI') = :end_time
+					""",
+					{
+						"title": title,
+						"student_id": current_user.id,
+						"day_of_week": postgres_dow,
+						"start_time": start_time,
+						"end_time": end_time,
+					}
+				)
+			else:
+				result = sb_execute(
+					"""
+					DELETE FROM events 
+					WHERE title = :title 
+					AND student_id = :student_id
+					AND EXTRACT(DOW FROM start_at) = :day_of_week
+					AND TO_CHAR(start_at, 'HH24:MI') = :start_time
+					""",
+					{
+						"title": title,
+						"student_id": current_user.id,
+						"day_of_week": postgres_dow,
+						"start_time": start_time,
+					}
+				)
+		else:
+			# Fallback: just delete by title
+			result = sb_execute(
+				"DELETE FROM events WHERE title = :title AND student_id = :student_id",
+				{"title": title, "student_id": current_user.id}
+			)
+		
+		if result == 0:
+			flash("No recurring events found to delete.", "warning")
+		else:
+			flash(f"Deleted {result} occurrences of '{title}' from your calendar.", "success")
+	except Exception as exc:
+		print(f"[events] delete recurring failed user={current_user.id} event={event_id} err={exc}")
+		flash("Failed to delete the recurring events. Please try again.", "danger")
 	return redirect(url_for("calendar_view"))
 
 
@@ -3066,6 +4738,7 @@ def analytics():
 		""", {"student_id": current_user.id, "cutoff_date": cutoff_date})
 		
 		# 1. Grade Performance Analytics (using Canvas scores)
+		# Note: If canvas_possible is 0 or NULL, treat canvas_score as the percentage directly
 
 		grade_performance = sb_fetch_all("""
 			SELECT 
@@ -3074,10 +4747,10 @@ def analytics():
 				AVG(CASE 
 					WHEN t.canvas_possible > 0 
 					THEN (t.canvas_score::numeric / t.canvas_possible::numeric) * 100 
-					ELSE NULL 
+					ELSE t.canvas_score::numeric
 				END) as avg_percentage,
 				AVG(t.canvas_score) as avg_score,
-				AVG(t.canvas_possible) as avg_possible
+				AVG(CASE WHEN t.canvas_possible > 0 THEN t.canvas_possible ELSE 100 END) as avg_possible
 			FROM modules m
 			LEFT JOIN tasks t ON m.id = t.module_id 
 				AND t.student_id = :student_id
@@ -3088,13 +4761,14 @@ def analytics():
 		""", {"student_id": current_user.id})
 		
 		# Overall grade stats
+		# Note: If canvas_possible is 0 or NULL, treat canvas_score as the percentage directly
 		overall_grade_stats = sb_fetch_one("""
 			SELECT 
 				COUNT(*) as total_graded,
 				AVG(CASE 
 					WHEN canvas_possible > 0 
 					THEN (canvas_score::numeric / canvas_possible::numeric) * 100 
-					ELSE NULL 
+					ELSE canvas_score::numeric
 				END) as overall_avg_percentage
 			FROM tasks 
 			WHERE student_id = :student_id 
@@ -3106,12 +4780,18 @@ def analytics():
 		predicted_grade = sb_fetch_one("""
 			SELECT 
 				SUM(CASE 
-					WHEN canvas_possible > 0 AND weight_percentage IS NOT NULL
-					THEN ((canvas_score::numeric / canvas_possible::numeric) * 100) * (weight_percentage::numeric / 100)
+					WHEN weight_percentage IS NOT NULL AND weight_percentage > 0 AND canvas_score IS NOT NULL
+					THEN (
+						CASE 
+							WHEN canvas_possible > 0 
+							THEN (canvas_score::numeric / canvas_possible::numeric) * 100
+							ELSE canvas_score::numeric
+						END
+					) * weight_percentage::numeric
 					ELSE NULL
 				END) as weighted_grade_sum,
 				SUM(CASE 
-					WHEN weight_percentage IS NOT NULL AND canvas_score IS NOT NULL
+					WHEN weight_percentage IS NOT NULL AND weight_percentage > 0 AND canvas_score IS NOT NULL
 					THEN weight_percentage
 					ELSE NULL
 				END) as total_weight
@@ -3119,20 +4799,22 @@ def analytics():
 			WHERE student_id = :student_id 
 			  AND canvas_score IS NOT NULL
 			  AND weight_percentage IS NOT NULL
+			  AND weight_percentage > 0
 		""", {"student_id": current_user.id})
 		
 		# Individual graded assignments with scores
+		# Note: If canvas_possible is 0 or NULL, treat canvas_score as the percentage directly
 		individual_grades = sb_fetch_all("""
 			SELECT 
 				t.id,
 				t.title,
 				m.code as module_code,
 				t.canvas_score,
-				t.canvas_possible,
+				CASE WHEN t.canvas_possible > 0 THEN t.canvas_possible ELSE 100 END as canvas_possible,
 				CASE 
 					WHEN t.canvas_possible > 0 
 					THEN ROUND((t.canvas_score::numeric / t.canvas_possible::numeric) * 100, 1)
-					ELSE NULL 
+					ELSE ROUND(t.canvas_score::numeric, 1)
 				END as percentage,
 				t.canvas_graded_at,
 				t.weight_percentage,
@@ -3250,7 +4932,70 @@ def analytics():
 		if predicted_grade and predicted_grade.get('weighted_grade_sum') and predicted_grade.get('total_weight'):
 			if predicted_grade['total_weight'] > 0:
 				predicted_grade_pct = round((predicted_grade['weighted_grade_sum'] / predicted_grade['total_weight']), 1)
-		
+
+		# ── Additional Visualisation Data (Iteration 5 – US 18) ──────────
+		# Reference: ChatGPT (OpenAI) - Analytics Visualisation Queries
+		# Date: 2026-02-10
+		# Prompt: "I need extra analytics queries for new Chart.js visuals:
+		# 1) daily task due counts for the next 30 days (workload heatmap),
+		# 2) cumulative completed tasks over time (progress line),
+		# 3) per-module completion percentages for a radar chart.
+		# Can you provide compact PostgreSQL queries?"
+		# ChatGPT provided the queries below.
+
+		# Daily task density (next 30 days)
+		daily_task_density_rows = sb_fetch_all("""
+			SELECT due_date::date AS day, COUNT(*) AS task_count
+			FROM tasks
+			WHERE student_id = :student_id
+			  AND due_date >= :cutoff_date
+			  AND due_date <= :cutoff_date + INTERVAL '30 days'
+			GROUP BY due_date::date
+			ORDER BY day
+		""", {"student_id": current_user.id, "cutoff_date": cutoff_date})
+
+		# Cumulative completed tasks over time
+		cumulative_rows = sb_fetch_all("""
+			SELECT completed_at::date AS day,
+			       COUNT(*) AS daily_completed,
+			       SUM(COUNT(*)) OVER (ORDER BY completed_at::date) AS cumulative
+			FROM tasks
+			WHERE student_id = :student_id
+			  AND status = 'completed'
+			  AND completed_at IS NOT NULL
+			GROUP BY completed_at::date
+			ORDER BY day
+		""", {"student_id": current_user.id})
+
+		# Reference: ChatGPT (OpenAI) - Dense Time-Series Chart Preparation
+		# Date: 2026-02-10
+		# Prompt: "My workload chart only shows dates that have tasks. I want to
+		# render a stable 30-day timeline including zero-value days so the chart
+		# is easier to read. Can you show a Python pattern to densify SQL rows?"
+		# ChatGPT provided the dictionary-lookup + fixed-range expansion pattern.
+		density_map = {}
+		for row in daily_task_density_rows:
+			day_value = row.get("day")
+			day_key = day_value.isoformat() if hasattr(day_value, "isoformat") else str(day_value)
+			density_map[day_key] = int(row.get("task_count") or 0)
+		daily_task_density = []
+		for offset in range(31):
+			day = cutoff_date + timedelta(days=offset)
+			day_key = day.isoformat()
+			daily_task_density.append({
+				"day": day_key,
+				"task_count": density_map.get(day_key, 0),
+			})
+
+		cumulative_completions = []
+		for row in cumulative_rows:
+			day_value = row.get("day")
+			cumulative_completions.append({
+				"day": day_value.isoformat() if hasattr(day_value, "isoformat") else str(day_value),
+				"daily_completed": int(row.get("daily_completed") or 0),
+				"cumulative": int(row.get("cumulative") or 0),
+			})
+
 		analytics_data = {
 			'total_tasks': total_tasks,
 			'completed_tasks': completed_tasks,
@@ -3271,7 +5016,10 @@ def analytics():
 			# Actionable Insights
 			'focus_module': focus_module,
 			'at_risk_assignments': at_risk_assignments,
-			'overdue_by_module': overdue_by_module
+			'overdue_by_module': overdue_by_module,
+			# Extra Visuals (US 18)
+			'daily_task_density': daily_task_density,
+			'cumulative_completions': cumulative_completions,
 		}
 		
 	except Exception as e:
@@ -3295,10 +5043,112 @@ def analytics():
 			'weight_stats': None,
 			'focus_module': None,
 			'at_risk_assignments': [],
-			'overdue_by_module': []
+			'overdue_by_module': [],
+			'daily_task_density': [],
+			'cumulative_completions': [],
 		}
 
 	return render_template("analytics.html", analytics=analytics_data)
+
+
+# ── Per-Module Dashboard (Iteration 5 – US 17) ─────────────────────
+# Reference: ChatGPT (OpenAI) - Per-Module Dashboard Routes
+# Date: 2026-02-10
+# Prompt: "I need a modules overview page showing all modules with task count,
+# completion %, and average grade, plus a detail page for a single module
+# showing all tasks, grade breakdown, and progress chart. Can you provide
+# the Flask routes and SQL queries?"
+# ChatGPT provided the route structure and SQL queries below.
+@app.route("/modules")
+@login_required
+def modules_overview():
+	"""List all modules with summary stats."""
+	try:
+		modules = sb_fetch_all("""
+			SELECT m.id, m.code,
+			       COUNT(t.id) AS total_tasks,
+			       SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) AS completed,
+			       ROUND(
+			           SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) * 100.0
+			           / NULLIF(COUNT(t.id), 0), 1
+			       ) AS completion_rate,
+			       ROUND(AVG(
+			           CASE
+			               WHEN t.canvas_score IS NOT NULL AND t.canvas_possible > 0
+			               THEN (t.canvas_score / t.canvas_possible) * 100
+			               WHEN t.canvas_score IS NOT NULL AND (t.canvas_possible IS NULL OR t.canvas_possible = 0)
+			               THEN t.canvas_score
+			           END
+			       ), 1) AS avg_grade
+			FROM modules m
+			LEFT JOIN tasks t ON t.module_id = m.id AND t.student_id = :sid
+			GROUP BY m.id, m.code
+			ORDER BY m.code
+		""", {"sid": current_user.id})
+	except Exception as exc:
+		print(f"[modules] overview error: {exc}")
+		modules = []
+	return render_template("modules_overview.html", modules=modules)
+
+
+@app.route("/modules/<int:module_id>")
+@login_required
+def module_detail(module_id):
+	"""Detailed view for a single module."""
+	try:
+		module = sb_fetch_one("SELECT id, code FROM modules WHERE id = :mid", {"mid": module_id})
+	except Exception:
+		module = None
+	if not module:
+		flash("Module not found.", "error")
+		return redirect(url_for("modules_overview"))
+
+	try:
+		tasks = sb_fetch_all("""
+			SELECT id, title, status, due_date, due_at, weight_percentage,
+			       canvas_score, canvas_possible, canvas_graded_at
+			FROM tasks
+			WHERE student_id = :sid AND module_id = :mid
+			ORDER BY due_date ASC NULLS LAST
+		""", {"sid": current_user.id, "mid": module_id})
+	except Exception:
+		tasks = []
+
+	total = len(tasks)
+	completed = sum(1 for t in tasks if t.get("status") == "completed")
+	in_progress = sum(1 for t in tasks if t.get("status") == "in_progress")
+	pending = sum(1 for t in tasks if t.get("status") == "pending")
+	completion_rate = round(completed * 100.0 / total, 1) if total else 0
+
+	# Grade stats
+	graded = [t for t in tasks if t.get("canvas_score") is not None]
+	avg_grade = None
+	if graded:
+		pcts = []
+		for t in graded:
+			cp = t.get("canvas_possible") or 0
+			cs = t.get("canvas_score") or 0
+			pcts.append((cs / cp * 100) if cp > 0 else cs)
+		avg_grade = round(sum(pcts) / len(pcts), 1) if pcts else None
+
+	# Weekly completions for this module
+	try:
+		weekly = sb_fetch_all("""
+			SELECT DATE_TRUNC('week', completed_at) AS week, COUNT(*) AS completions
+			FROM tasks
+			WHERE student_id = :sid AND module_id = :mid
+			  AND status = 'completed' AND completed_at IS NOT NULL
+			GROUP BY DATE_TRUNC('week', completed_at)
+			ORDER BY week
+		""", {"sid": current_user.id, "mid": module_id})
+	except Exception:
+		weekly = []
+
+	return render_template("module_detail.html",
+		module=module, tasks=tasks,
+		total=total, completed=completed, in_progress=in_progress, pending=pending,
+		completion_rate=completion_rate, graded_count=len(graded),
+		avg_grade=avg_grade, weekly=weekly)
 
 
 @app.route("/study-planner", methods=["GET", "POST"])
@@ -3872,6 +5722,56 @@ def reviews_history():
 	)
 
 
+@app.route("/activity")
+@login_required
+def activity_history():
+	"""Activity history view with pagination."""
+	# Reference: ChatGPT (OpenAI) - Activity History Pagination
+	# Date: 2026-02-04
+	# Prompt: "I need a paginated activity log page. It should count total rows,
+	# fetch a page of recent activity, and display friendly titles."
+	# ChatGPT provided the pagination and title-mapping pattern.
+	page_str = request.args.get("page", "1").strip()
+	try:
+		page = max(1, int(page_str))
+	except ValueError:
+		page = 1
+	per_page = 25
+	offset = (page - 1) * per_page
+
+	try:
+		count_row = sb_fetch_one(
+			"SELECT COUNT(*) as count FROM activity_logs WHERE student_id = :student_id",
+			{"student_id": current_user.id}
+		)
+		total = count_row["count"] if count_row else 0
+		total_pages = max(1, (total + per_page - 1) // per_page)
+
+		activity_logs = sb_fetch_all(
+			"""
+			SELECT id, action_type, method, path, endpoint, status_code, duration_ms, created_at
+			FROM activity_logs
+			WHERE student_id = :student_id
+			ORDER BY created_at DESC
+			LIMIT :limit OFFSET :offset
+			""",
+			{"student_id": current_user.id, "limit": per_page, "offset": offset}
+		)
+		for item in activity_logs:
+			item["title"] = _format_activity_title(item)
+	except Exception:
+		total = 0
+		total_pages = 1
+		activity_logs = []
+
+	return render_template(
+		"activity_history.html",
+		activity_logs=activity_logs,
+		page=page,
+		total_pages=total_pages
+	)
+
+
 @app.route("/subtasks")
 @login_required
 def subtasks_history():
@@ -3959,6 +5859,111 @@ def lecturer_messages_history():
 		page=page,
 		total_pages=total_pages
 	)
+
+
+@app.route("/lecturer-replies")
+@login_required
+def lecturer_replies():
+	"""View lecturer replies received via email"""
+	page_str = request.args.get("page", "1").strip()
+	try:
+		page = max(1, int(page_str))
+	except ValueError:
+		page = 1
+	per_page = 20
+	offset = (page - 1) * per_page
+	
+	# Count total replies
+	count_row = sb_fetch_one(
+		"SELECT COUNT(*) as count FROM lecturer_replies WHERE student_id = :student_id",
+		{"student_id": current_user.id}
+	)
+	total = count_row["count"] if count_row else 0
+	total_pages = max(1, (total + per_page - 1) // per_page)
+	
+	# Count unread
+	unread_row = sb_fetch_one(
+		"SELECT COUNT(*) as count FROM lecturer_replies WHERE student_id = :student_id AND is_read = FALSE",
+		{"student_id": current_user.id}
+	)
+	unread_count = unread_row["count"] if unread_row else 0
+	
+	# Get replies
+	replies = sb_fetch_all(
+		"""
+		SELECT lr.id, lr.from_email, lr.from_name, lr.subject, lr.body,
+		       lr.received_at, lr.is_read, lr.lecturer_id,
+		       l.name AS lecturer_name
+		FROM lecturer_replies lr
+		LEFT JOIN lecturers l ON l.id = lr.lecturer_id
+		WHERE lr.student_id = :student_id
+		ORDER BY lr.received_at DESC
+		LIMIT :limit OFFSET :offset
+		""",
+		{"student_id": current_user.id, "limit": per_page, "offset": offset}
+	)
+	
+	# Check if IMAP is configured
+	imap_configured = get_imap_config() is not None
+	
+	return render_template(
+		"lecturer_replies.html",
+		replies=replies,
+		page=page,
+		total_pages=total_pages,
+		total=total,
+		unread_count=unread_count,
+		imap_configured=imap_configured
+	)
+
+
+@app.route("/lecturer-replies/refresh", methods=["POST"])
+@login_required
+def refresh_lecturer_replies():
+	"""Manually check for new lecturer replies via IMAP"""
+	result = _fetch_lecturer_replies(current_user.id)
+	
+	if result["success"]:
+		if result["new_count"] > 0:
+			flash(f"Found {result['new_count']} new reply(ies) from lecturers!", "success")
+		else:
+			flash("No new replies found.", "info")
+	else:
+		flash(f"Failed to check for replies: {result['error']}", "error")
+	
+	return redirect(url_for("lecturer_replies"))
+
+
+@app.route("/lecturer-replies/<int:reply_id>/read", methods=["POST"])
+@login_required
+def mark_reply_read(reply_id: int):
+	"""Mark a lecturer reply as read"""
+	try:
+		sb_execute(
+			"UPDATE lecturer_replies SET is_read = TRUE WHERE id = :id AND student_id = :student_id",
+			{"id": reply_id, "student_id": current_user.id}
+		)
+	except Exception as exc:
+		print(f"[replies] mark read failed: {exc}")
+	
+	return redirect(url_for("lecturer_replies"))
+
+
+@app.route("/lecturer-replies/mark-all-read", methods=["POST"])
+@login_required
+def mark_all_replies_read():
+	"""Mark all lecturer replies as read"""
+	try:
+		sb_execute(
+			"UPDATE lecturer_replies SET is_read = TRUE WHERE student_id = :student_id",
+			{"student_id": current_user.id}
+		)
+		flash("All replies marked as read.", "success")
+	except Exception as exc:
+		print(f"[replies] mark all read failed: {exc}")
+		flash("Failed to mark replies as read.", "error")
+	
+	return redirect(url_for("lecturer_replies"))
 
 
 @app.route("/assignment-review/<int:review_id>/delete", methods=["POST"])
@@ -4163,10 +6168,10 @@ def sync_canvas():
 				
 				thread = threading.Thread(target=sync_worker, daemon=True)
 				thread.start()
-				thread.join(timeout=15)  # 15 second timeout
+				thread.join(timeout=45)  # 45 second timeout (increased for large calendars)
 				
 				if thread.is_alive():
-					print(f"[sync] Calendar events sync timed out after 15 seconds")
+					print(f"[sync] Calendar events sync timed out after 45 seconds")
 					cal_stats = {"events_new": 0, "events_updated": 0, "errors": 1}
 					flash("Calendar events sync timed out (skipped)", "warning")
 				else:
@@ -4234,6 +6239,503 @@ def add_data_form():
 	"""Display forms for adding modules and tasks"""
 	modules = sb_fetch_all("SELECT id, code FROM modules ORDER BY code")
 	return render_template("add_data.html", modules=modules)
+
+
+# Reference: ChatGPT (OpenAI) - Voice Transcript Parsing for Task Forms
+# Date: 2026-02-10
+# Prompt: "I need a Flask endpoint to parse spoken task text into structured fields
+# (title, module code, due date, due time, weight, status) for auto-filling a form.
+# Can you provide a robust parsing pattern with fallback defaults?"
+# ChatGPT provided the helper + endpoint structure below, including date/time parsing
+# and module matching fallbacks for imperfect transcripts.
+_VOICE_WEEKDAY_MAP = {
+	"monday": 0,
+	"tuesday": 1,
+	"wednesday": 2,
+	"thursday": 3,
+	"friday": 4,
+	"saturday": 5,
+	"sunday": 6,
+}
+
+
+def _voice_parse_due_date(transcript: str, base_date) -> Optional[str]:
+	text = transcript.lower()
+	iso_match = re.search(r"\b(\d{4})-(\d{2})-(\d{2})\b", text)
+	if iso_match:
+		try:
+			return datetime(int(iso_match.group(1)), int(iso_match.group(2)), int(iso_match.group(3))).date().isoformat()
+		except ValueError:
+			pass
+
+	slash_match = re.search(r"\b(\d{1,2})/(\d{1,2})/(\d{2,4})\b", text)
+	if slash_match:
+		day = int(slash_match.group(1))
+		month = int(slash_match.group(2))
+		year = int(slash_match.group(3))
+		if year < 100:
+			year += 2000
+		try:
+			return datetime(year, month, day).date().isoformat()
+		except ValueError:
+			pass
+
+	if "today" in text:
+		return base_date.isoformat()
+	if "tomorrow" in text:
+		return (base_date + timedelta(days=1)).isoformat()
+
+	for weekday_name, weekday_idx in _VOICE_WEEKDAY_MAP.items():
+		if f"next {weekday_name}" in text or f"on {weekday_name}" in text or f"{weekday_name}" in text:
+			delta = (weekday_idx - base_date.weekday()) % 7
+			if delta == 0 or f"next {weekday_name}" in text:
+				delta += 7
+			return (base_date + timedelta(days=delta)).isoformat()
+	return None
+
+
+def _voice_parse_due_time(transcript: str) -> Optional[str]:
+	text = transcript.lower()
+	hhmm_match = re.search(r"\b(?:at\s*)?([01]?\d|2[0-3]):([0-5]\d)\b", text)
+	if hhmm_match:
+		hour = int(hhmm_match.group(1))
+		minute = int(hhmm_match.group(2))
+		return f"{hour:02d}:{minute:02d}"
+
+	ampm_match = re.search(r"\b(?:at\s*)?(\d{1,2})(?::([0-5]\d))?\s*(am|pm)\b", text)
+	if ampm_match:
+		hour = int(ampm_match.group(1))
+		minute = int(ampm_match.group(2) or "0")
+		period = ampm_match.group(3)
+		if period == "pm" and hour < 12:
+			hour += 12
+		if period == "am" and hour == 12:
+			hour = 0
+		if 0 <= hour <= 23:
+			return f"{hour:02d}:{minute:02d}"
+	return None
+
+
+# Reference: ChatGPT (OpenAI) - Voice Command Intent Router + Action Handlers
+# Date: 2026-02-11
+# Prompt: "I already have voice-to-task autofill. I now need one endpoint that detects
+# voice intents for (1) dashboard query ('what is due this week/any overdue'),
+# (2) recurring calendar event creation, and (3) microtask generation from a spoken
+# command. Can you provide a safe Flask pattern with helper functions, regex parsing,
+# DB inserts, and structured JSON responses?"
+# ChatGPT provided the intent-router + helper structure below, including command
+# detection, recurring event parsing, microtask creation flow, and response payload
+# patterns adapted to this codebase.
+def _voice_parse_time_token(value: str) -> Optional[str]:
+	"""Parse a single time token (e.g., 6pm, 18:30) into HH:MM."""
+	text = (value or "").strip().lower()
+	if not text:
+		return None
+	hhmm_match = re.fullmatch(r"([01]?\d|2[0-3]):([0-5]\d)", text)
+	if hhmm_match:
+		return f"{int(hhmm_match.group(1)):02d}:{int(hhmm_match.group(2)):02d}"
+	ampm_match = re.fullmatch(r"(\d{1,2})(?::([0-5]\d))?\s*(am|pm)", text)
+	if ampm_match:
+		hour = int(ampm_match.group(1))
+		minute = int(ampm_match.group(2) or "0")
+		period = ampm_match.group(3)
+		if period == "pm" and hour < 12:
+			hour += 12
+		if period == "am" and hour == 12:
+			hour = 0
+		if 0 <= hour <= 23:
+			return f"{hour:02d}:{minute:02d}"
+	return None
+
+
+def _voice_detect_intent(transcript: str) -> str:
+	text = transcript.lower()
+	if any(phrase in text for phrase in ["what is due this week", "what's due this week", "any overdue", "overdue tasks", "due this week"]):
+		return "dashboard_query"
+	if "break" in text and "into" in text and any(word in text for word in ["steps", "microtasks", "subtasks"]):
+		return "create_microtasks"
+	if any(word in text for word in ["add", "create", "schedule"]) and "every" in text:
+		return "create_recurring_event"
+	return "unknown"
+
+
+def _voice_match_module(modules: List[Dict[str, Any]], transcript: str) -> Tuple[Optional[int], Optional[str]]:
+	upper_text = transcript.upper()
+	for module in modules:
+		code = (module.get("code") or "").upper().strip()
+		if code and re.search(rf"\b{re.escape(code)}\b", upper_text):
+			return module.get("id"), code
+	return None, None
+
+
+def _voice_dashboard_query(student_id: int) -> Dict[str, Any]:
+	today = datetime.now().date()
+	week_end = today + timedelta(days=7)
+	due_this_week = []
+	overdue = []
+	try:
+		due_this_week = sb_fetch_all(
+			"""
+			SELECT t.id, t.title, t.status, t.due_date, t.due_at, m.code AS module_code
+			FROM tasks t
+			LEFT JOIN modules m ON m.id = t.module_id
+			WHERE t.student_id = :student_id
+			  AND t.status != 'completed'
+			  AND COALESCE(t.due_at::date, t.due_date) >= :today
+			  AND COALESCE(t.due_at::date, t.due_date) <= :week_end
+			ORDER BY COALESCE(t.due_at, t.due_date::timestamp) ASC
+			LIMIT 10
+			""",
+			{"student_id": student_id, "today": today, "week_end": week_end},
+		)
+	except Exception:
+		due_this_week = []
+	try:
+		overdue = sb_fetch_all(
+			"""
+			SELECT t.id, t.title, t.status, t.due_date, t.due_at, m.code AS module_code
+			FROM tasks t
+			LEFT JOIN modules m ON m.id = t.module_id
+			WHERE t.student_id = :student_id
+			  AND t.status != 'completed'
+			  AND COALESCE(t.due_at::date, t.due_date) < :today
+			ORDER BY COALESCE(t.due_at, t.due_date::timestamp) ASC
+			LIMIT 10
+			""",
+			{"student_id": student_id, "today": today},
+		)
+	except Exception:
+		overdue = []
+	return {
+		"due_this_week_count": len(due_this_week),
+		"overdue_count": len(overdue),
+		"due_this_week": due_this_week,
+		"overdue": overdue,
+	}
+
+
+def _voice_parse_until_date(transcript: str, base_date) -> Optional[datetime.date]:
+	text = transcript.lower()
+	# Try explicit date first (YYYY-MM-DD / DD/MM/YYYY / weekday phrases)
+	parsed = _voice_parse_due_date(transcript, base_date)
+	if parsed:
+		try:
+			return datetime.strptime(parsed, "%Y-%m-%d").date()
+		except ValueError:
+			pass
+	month_match = re.search(r"\buntil\s+([a-z]+)(?:\s+(\d{4}))?\b", text)
+	if not month_match:
+		return None
+	month_name = month_match.group(1).strip().title()
+	year = int(month_match.group(2)) if month_match.group(2) else base_date.year
+	try:
+		month_num = datetime.strptime(month_name, "%B").month
+	except ValueError:
+		try:
+			month_num = datetime.strptime(month_name[:3], "%b").month
+		except ValueError:
+			return None
+	# If month already passed this year and no year was provided, roll to next year.
+	if not month_match.group(2) and month_num < base_date.month:
+		year += 1
+	# End date = last day of month
+	if month_num == 12:
+		next_month = datetime(year + 1, 1, 1).date()
+	else:
+		next_month = datetime(year, month_num + 1, 1).date()
+	return next_month - timedelta(days=1)
+
+
+def _voice_create_recurring_event(transcript: str, student_id: int) -> Dict[str, Any]:
+	text = transcript.lower()
+	weekday_name = None
+	weekday_idx = None
+	for name, idx in _VOICE_WEEKDAY_MAP.items():
+		if re.search(rf"\bevery\s+{name}\b", text):
+			weekday_name = name.title()
+			weekday_idx = idx
+			break
+	if weekday_idx is None:
+		raise ValueError("Please include a weekday, e.g. 'every Tuesday'.")
+
+	time_range_match = re.search(
+		r"\b(\d{1,2}(?::\d{2})?\s*(?:am|pm)?|\d{1,2}:\d{2})\s*(?:to|-|until)\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?|\d{1,2}:\d{2})\b",
+		text,
+	)
+	if not time_range_match:
+		raise ValueError("Please include a time range, e.g. '6pm to 8pm'.")
+	start_time_text = time_range_match.group(1)
+	end_time_text = time_range_match.group(2)
+	start_time_hhmm = _voice_parse_time_token(start_time_text)
+	end_time_hhmm = _voice_parse_time_token(end_time_text)
+	if not start_time_hhmm or not end_time_hhmm:
+		raise ValueError("Could not parse event start/end time.")
+
+	title_match = re.search(r"\b(?:add|create|schedule)\s+(.+?)\s+every\b", text)
+	event_title = title_match.group(1).strip(" ,.-").title() if title_match else "Voice Event"
+	if not event_title:
+		event_title = "Voice Event"
+
+	today = datetime.now().date()
+	recur_until = _voice_parse_until_date(transcript, today) or (today + timedelta(days=56))
+	delta = (weekday_idx - today.weekday()) % 7
+	first_date = today + timedelta(days=delta)
+	start_hour, start_minute = [int(x) for x in start_time_hhmm.split(":")]
+	end_hour, end_minute = [int(x) for x in end_time_hhmm.split(":")]
+
+	created = 0
+	current_date = first_date
+	while current_date <= recur_until:
+		start_dt = datetime.combine(current_date, time(start_hour, start_minute))
+		end_dt = datetime.combine(current_date, time(end_hour, end_minute))
+		if end_dt <= start_dt:
+			end_dt = end_dt + timedelta(days=1)
+		sb_execute(
+			"""
+			INSERT INTO events (student_id, title, start_at, end_at, location, is_recurring, recurrence_end_date)
+			VALUES (:student_id, :title, :start_at, :end_at, :location, :is_recurring, :recurrence_end_date)
+			""",
+			{
+				"student_id": student_id,
+				"title": event_title[:255],
+				"start_at": start_dt,
+				"end_at": end_dt,
+				"location": None,
+				"is_recurring": True,
+				"recurrence_end_date": recur_until,
+			},
+		)
+		created += 1
+		current_date = current_date + timedelta(days=7)
+
+	return {
+		"title": event_title,
+		"weekday": weekday_name,
+		"start_time": start_time_hhmm,
+		"end_time": end_time_hhmm,
+		"until": recur_until.isoformat(),
+		"created_count": created,
+	}
+
+
+def _voice_create_microtasks(transcript: str, student_id: int) -> Dict[str, Any]:
+	text = transcript.lower()
+	modules = sb_fetch_all("SELECT id, code FROM modules ORDER BY code")
+	module_id, module_code = _voice_match_module(modules, transcript)
+
+	step_match = re.search(r"\binto\s+(\d{1,2})\s+(?:steps|microtasks|subtasks)\b", text)
+	if not step_match:
+		raise ValueError("Please include number of steps, e.g. 'into 5 steps'.")
+	step_count = max(2, min(12, int(step_match.group(1))))
+
+	title_match = re.search(
+		r"\bbreak(?:\s+down)?\s+(.+?)\s+into\s+\d{1,2}\s+(?:steps|microtasks|subtasks)\b",
+		transcript,
+		flags=re.IGNORECASE,
+	)
+	assignment_title = (title_match.group(1).strip(" ,.-") if title_match else "").strip()
+	if not assignment_title:
+		raise ValueError("Please include assignment name, e.g. 'Break IS4416 database report into 5 steps'.")
+	if module_code:
+		assignment_title = re.sub(rf"\b{re.escape(module_code)}\b", "", assignment_title, flags=re.IGNORECASE).strip(" -")
+
+	due_date_str = _voice_parse_due_date(transcript, datetime.now().date())
+	task_id = _lookup_or_create_task(
+		assignment_title=assignment_title[:255],
+		module_id=module_id,
+		module_code=module_code,
+		student_id=student_id,
+		due_date_str=due_date_str,
+	)
+	if not task_id:
+		raise ValueError("Could not create or find a task for this assignment.")
+
+	row = sb_fetch_one("SELECT COALESCE(MAX(sequence), 0) AS max_seq FROM subtasks WHERE task_id = :task_id", {"task_id": task_id})
+	base_sequence = int(row.get("max_seq") or 0) if row else 0
+
+	template_titles = [
+		"Clarify assignment brief",
+		"Research and collect sources",
+		"Build outline / structure",
+		"Draft main content",
+		"Add references and polish",
+		"Final proofread and submit",
+	]
+	due_date_obj = None
+	if due_date_str:
+		try:
+			due_date_obj = datetime.strptime(due_date_str, "%Y-%m-%d").date()
+		except ValueError:
+			due_date_obj = None
+	start_date = datetime.now().date()
+	span_days = max((due_date_obj - start_date).days, 0) if due_date_obj else 0
+
+	created_titles = []
+	for i in range(step_count):
+		if i < len(template_titles):
+			subtask_title = template_titles[i]
+		else:
+			subtask_title = f"Step {i + 1}"
+		planned_day = None
+		if due_date_obj:
+			offset = int((span_days * (i / max(step_count - 1, 1)))) if step_count > 1 else 0
+			planned_day = start_date + timedelta(days=offset)
+		sb_execute(
+			"""
+			INSERT INTO subtasks (
+				task_id, title, description, sequence, estimated_hours,
+				planned_start, planned_end
+			) VALUES (
+				:task_id, :title, :description, :sequence, :estimated_hours,
+				:planned_start, :planned_end
+			)
+			""",
+			{
+				"task_id": task_id,
+				"title": subtask_title[:255],
+				"description": None,
+				"sequence": base_sequence + i + 1,
+				"estimated_hours": None,
+				"planned_start": planned_day,
+				"planned_end": planned_day,
+			},
+		)
+		created_titles.append(subtask_title)
+
+	return {
+		"task_id": task_id,
+		"task_title": assignment_title,
+		"module_code": module_code,
+		"due_date": due_date_str,
+		"created_count": step_count,
+		"subtasks": created_titles,
+	}
+
+
+@app.route("/voice-parse", methods=["POST"])
+@login_required
+def voice_parse():
+	payload = request.get_json(silent=True) or {}
+	transcript = (payload.get("transcript") or "").strip()
+	if not transcript:
+		return jsonify({"ok": False, "error": "Transcript is required."}), 400
+
+	try:
+		modules = sb_fetch_all("SELECT id, code FROM modules ORDER BY code")
+	except Exception:
+		modules = []
+
+	now_date = datetime.now().date()
+	upper_text = transcript.upper()
+	module_id = None
+	module_code = None
+	for module in modules:
+		code = (module.get("code") or "").upper().strip()
+		if code and re.search(rf"\b{re.escape(code)}\b", upper_text):
+			module_id = module.get("id")
+			module_code = code
+			break
+
+	weight_percentage = None
+	weight_match = re.search(r"\b(\d{1,3}(?:\.\d+)?)\s*(?:%|percent)\b", transcript.lower())
+	if weight_match:
+		try:
+			weight_percentage = max(0.0, min(100.0, float(weight_match.group(1))))
+		except ValueError:
+			weight_percentage = None
+
+	status = "pending"
+	lt = transcript.lower()
+	if "in progress" in lt or "ongoing" in lt:
+		status = "in_progress"
+	elif "completed" in lt or "done" in lt or "finished" in lt:
+		status = "completed"
+
+	clean_title = re.sub(
+		r"^\s*(add|create|new)\s+(a\s+)?(task|assignment)\s*(called|named)?\s*",
+		"",
+		transcript,
+		flags=re.IGNORECASE,
+	).strip()
+	clean_title = re.split(r"\b(?:due|by|on|at)\b", clean_title, maxsplit=1, flags=re.IGNORECASE)[0].strip(" ,.-")
+	title = clean_title or transcript[:120]
+
+	due_date = _voice_parse_due_date(transcript, now_date)
+	due_time = _voice_parse_due_time(transcript)
+
+	warnings = []
+	if module_id is None:
+		warnings.append("No module code detected in voice note. Please choose one manually.")
+	if due_date is None:
+		warnings.append("No due date detected. Please set a due date.")
+
+	return jsonify({
+		"ok": True,
+		"parsed": {
+			"title": title,
+			"module_id": module_id,
+			"module_code": module_code,
+			"due_date": due_date,
+			"due_time": due_time,
+			"weight_percentage": weight_percentage,
+			"status": status,
+		},
+		"warnings": warnings,
+	}), 200
+
+
+# Reference: ChatGPT (OpenAI) - Voice Command API Response Contract
+# Date: 2026-02-11
+# Prompt: "For multiple voice actions, I need a single Flask endpoint that returns
+# consistent JSON (`ok`, `intent`, `message`, `data`) and gracefully handles unknown
+# intents and user-facing validation errors. Can you provide a clean route pattern?"
+# ChatGPT provided the standardized endpoint response contract and intent dispatch
+# pattern used in this route.
+@app.route("/voice-command", methods=["POST"])
+@login_required
+def voice_command():
+	payload = request.get_json(silent=True) or {}
+	transcript = (payload.get("transcript") or "").strip()
+	if not transcript:
+		return jsonify({"ok": False, "error": "Transcript is required."}), 400
+
+	intent = _voice_detect_intent(transcript)
+	try:
+		if intent == "dashboard_query":
+			data = _voice_dashboard_query(current_user.id)
+			return jsonify({
+				"ok": True,
+				"intent": intent,
+				"message": f"You have {data['overdue_count']} overdue and {data['due_this_week_count']} due in the next 7 days.",
+				"data": data,
+			}), 200
+
+		if intent == "create_recurring_event":
+			data = _voice_create_recurring_event(transcript, current_user.id)
+			return jsonify({
+				"ok": True,
+				"intent": intent,
+				"message": f"Created {data['created_count']} recurring calendar events for '{data['title']}'.",
+				"data": data,
+			}), 200
+
+		if intent == "create_microtasks":
+			data = _voice_create_microtasks(transcript, current_user.id)
+			return jsonify({
+				"ok": True,
+				"intent": intent,
+				"message": f"Created {data['created_count']} microtasks for '{data['task_title']}'.",
+				"data": data,
+			}), 200
+
+		return jsonify({
+			"ok": False,
+			"intent": "unknown",
+			"error": "I could not detect a supported command. Try: 'What is due this week?', 'Add revision every Tuesday 6pm to 8pm until May', or 'Break IS4416 database report into 5 steps due next Thursday'.",
+		}), 400
+	except Exception as exc:
+		print(f"[voice-command] failed user={current_user.id} intent={intent} err={exc}")
+		return jsonify({"ok": False, "intent": intent, "error": str(exc)}), 400
 
 
 @app.route("/add-module", methods=["POST"])
@@ -4379,6 +6881,132 @@ def update_task_status(task_id):
 		flash(f"Error updating task: {str(e)}", "error")
 	
 	return redirect(url_for("tasks"))
+
+
+# ── ICS Calendar Export ──────────────────────────────────────────────
+# Reference: ChatGPT (OpenAI) - ICS Calendar Export with icalendar Library
+# Date: 2026-02-10
+# Prompt: "I need a Flask route that generates an ICS feed from my tasks
+# (due dates) and calendar events tables so students can subscribe in
+# Google Calendar or Outlook. Can you show me how to build VEVENT entries
+# with the icalendar library and return the file as a download?"
+# ChatGPT provided the route pattern, VEVENT construction, and Content-Type headers.
+@app.route("/export/calendar.ics")
+@login_required
+def export_ics():
+	"""Generate an ICS file for the student's tasks and events."""
+	from icalendar import Calendar as ICalendar, Event as IEvent, vText
+	import pytz
+
+	include_tasks = request.args.get("include_tasks", "true") == "true"
+	include_events = request.args.get("include_events", "true") == "true"
+
+	cal = ICalendar()
+	cal.add("prodid", "-//SmartStudentPlanner//EN")
+	cal.add("version", "2.0")
+	cal.add("calscale", "GREGORIAN")
+	cal.add("x-wr-calname", f"{current_user.name} – Academic Schedule")
+
+	utc = pytz.UTC
+
+	# ── Tasks (assignment deadlines) ──
+	if include_tasks:
+		try:
+			tasks = sb_fetch_all(
+				"""
+				SELECT t.id, t.title, t.due_date, t.due_at, t.status,
+				       t.description, m.code AS module_code
+				FROM tasks t
+				LEFT JOIN modules m ON m.id = t.module_id
+				WHERE t.student_id = :sid AND t.due_date IS NOT NULL
+				ORDER BY t.due_date
+				""",
+				{"sid": current_user.id},
+			)
+		except Exception:
+			tasks = []
+
+		for t in tasks:
+			ev = IEvent()
+			title = t.get("title", "Task")
+			mod = t.get("module_code")
+			ev.add("summary", f"📋 {title} [{mod}]" if mod else f"📋 {title}")
+			ev.add("uid", f"task-{t['id']}@smartstudentplanner")
+
+			due_at = t.get("due_at")
+			due_date = t.get("due_date")
+			if due_at:
+				try:
+					dt = due_at if hasattr(due_at, "hour") else datetime.fromisoformat(str(due_at))
+					if dt.tzinfo is None:
+						dt = utc.localize(dt)
+					ev.add("dtstart", dt)
+					ev.add("dtend", dt + timedelta(minutes=30))
+				except Exception:
+					ev.add("dtstart", due_date)
+			else:
+				ev.add("dtstart", due_date)
+
+			desc_parts = []
+			if t.get("status"):
+				desc_parts.append(f"Status: {t['status']}")
+			if t.get("description"):
+				desc_parts.append(t["description"])
+			if desc_parts:
+				ev.add("description", "\n".join(desc_parts))
+
+			cal.add_component(ev)
+
+	# ── Calendar events (lectures, manual blocks) ──
+	if include_events:
+		try:
+			events = sb_fetch_all(
+				"""
+				SELECT e.id, e.title, e.start_at, e.end_at, e.location,
+				       m.code AS module_code, e.canvas_course_id
+				FROM events e
+				LEFT JOIN modules m ON m.id = e.module_id
+				WHERE e.student_id = :sid
+				ORDER BY e.start_at
+				""",
+				{"sid": current_user.id},
+			)
+		except Exception:
+			events = []
+
+		for e in events:
+			ev = IEvent()
+			title = e.get("title", "Event")
+			mod = e.get("module_code")
+			prefix = "📚 " if e.get("canvas_course_id") else "📅 "
+			ev.add("summary", f"{prefix}{title} [{mod}]" if mod else f"{prefix}{title}")
+			ev.add("uid", f"event-{e['id']}@smartstudentplanner")
+
+			start_at = e.get("start_at")
+			end_at = e.get("end_at")
+			try:
+				st = start_at if hasattr(start_at, "hour") else datetime.fromisoformat(str(start_at))
+				en = end_at if hasattr(end_at, "hour") else datetime.fromisoformat(str(end_at))
+				if st.tzinfo is None:
+					st = utc.localize(st)
+				if en.tzinfo is None:
+					en = utc.localize(en)
+				ev.add("dtstart", st)
+				ev.add("dtend", en)
+			except Exception:
+				continue
+
+			if e.get("location"):
+				ev.add("location", vText(e["location"]))
+
+			cal.add_component(ev)
+
+	response = app.response_class(
+		cal.to_ical(),
+		mimetype="text/calendar",
+		headers={"Content-Disposition": "attachment; filename=timetable.ics"},
+	)
+	return response
 
 
 if __name__ == "__main__":

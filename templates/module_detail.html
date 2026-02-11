@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}{{ module.code }}{% endblock %}
+{% block content %}
+<style>
+	.mod-page { max-width: 1200px; margin: 0 auto; }
+	.back-link { font-size: 0.85rem; color: #6366f1; text-decoration: none; font-weight: 500; }
+	.back-link:hover { text-decoration: underline; }
+	.stat-row {
+		display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; margin: 1.5rem 0;
+	}
+	@media (max-width: 768px) { .stat-row { grid-template-columns: repeat(2, 1fr); } }
+	.scard {
+		background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+		padding: 1.25rem; text-align: center;
+	}
+	.scard .val { font-size: 1.5rem; font-weight: 700; color: #1e293b; }
+	.scard .lbl { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+	.scard.purple .val { color: #6366f1; }
+	.scard.green .val { color: #10b981; }
+	.scard.amber .val { color: #f59e0b; }
+	.scard.blue .val { color: #3b82f6; }
+	.scard.teal .val { color: #0d9488; }
+	.mod-card {
+		background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; margin-bottom: 1.5rem;
+	}
+	.mod-card-header {
+		padding: 1rem 1.25rem; border-bottom: 1px solid #e2e8f0; background: #f8fafc;
+		font-size: 0.95rem; font-weight: 600; color: #1e293b;
+		display: flex; align-items: center; gap: 0.5rem;
+	}
+	.mod-card-body { padding: 1.25rem; }
+	.task-table { width: 100%; border-collapse: collapse; }
+	.task-table th {
+		font-size: 0.7rem; font-weight: 600; color: #64748b; text-transform: uppercase;
+		letter-spacing: 0.05em; padding: 0.75rem 1rem; border-bottom: 2px solid #e2e8f0; background: #f8fafc;
+	}
+	.task-table td { font-size: 0.85rem; padding: 0.875rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; }
+	.task-table tr:hover td { background: #f8fafc; }
+	.status-badge {
+		display: inline-flex; padding: 0.2rem 0.6rem; border-radius: 99px;
+		font-size: 0.7rem; font-weight: 600; text-transform: capitalize;
+	}
+	.status-badge.completed { background: #dcfce7; color: #166534; }
+	.status-badge.in_progress { background: #fef3c7; color: #92400e; }
+	.status-badge.pending { background: #e0e7ff; color: #3730a3; }
+	.grade-badge {
+		display: inline-flex; padding: 0.2rem 0.5rem; border-radius: 99px;
+		font-size: 0.72rem; font-weight: 600;
+	}
+	.grade-badge.excellent { background: #dcfce7; color: #166534; }
+	.grade-badge.average { background: #fef3c7; color: #92400e; }
+	.grade-badge.low { background: #fee2e2; color: #991b1b; }
+	.chart-box { position: relative; height: 260px; }
+	.progress-bar-lg {
+		height: 12px; background: #e2e8f0; border-radius: 99px; overflow: hidden; margin-top: 1rem;
+	}
+	.progress-bar-lg-fill {
+		height: 100%; background: linear-gradient(90deg, #6366f1, #8b5cf6); border-radius: 99px;
+		transition: width 0.5s ease;
+	}
+</style>
+
+<div class="mod-page">
+	<a href="{{ url_for('modules_overview') }}" class="back-link">← Back to Modules</a>
+
+	<div class="page-header-card mt-3">
+		<h1>📖 {{ module.code }}</h1>
+		<p>Detailed progress, tasks, and grades for this module.</p>
+	</div>
+
+	<!-- Stats Row -->
+	<div class="stat-row">
+		<div class="scard purple">
+			<div class="val">{{ total }}</div>
+			<div class="lbl">Total Tasks</div>
+		</div>
+		<div class="scard green">
+			<div class="val">{{ completed }}</div>
+			<div class="lbl">Completed</div>
+		</div>
+		<div class="scard amber">
+			<div class="val">{{ in_progress }}</div>
+			<div class="lbl">In Progress</div>
+		</div>
+		<div class="scard blue">
+			<div class="val">{{ pending }}</div>
+			<div class="lbl">Pending</div>
+		</div>
+		<div class="scard teal">
+			<div class="val">{% if avg_grade is not none %}{{ avg_grade }}%{% else %}—{% endif %}</div>
+			<div class="lbl">Avg Grade</div>
+		</div>
+	</div>
+
+	<!-- Progress bar -->
+	<div class="mod-card">
+		<div class="mod-card-header">📊 Overall Progress</div>
+		<div class="mod-card-body">
+			<div class="d-flex justify-content-between align-items-center">
+				<span style="font-size: 0.85rem; color: #334155; font-weight: 500;">{{ completed }} / {{ total }} tasks completed</span>
+				<span style="font-size: 1.1rem; font-weight: 700; color: #6366f1;">{{ completion_rate }}%</span>
+			</div>
+			<div class="progress-bar-lg">
+				<div class="progress-bar-lg-fill" style="width: {{ completion_rate }}%"></div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Charts Row -->
+	<div class="row g-4 mb-4">
+		<div class="col-12">
+			<div class="mod-card">
+				<div class="mod-card-header">📈 Weekly Completions</div>
+				<div class="mod-card-body">
+					{% if weekly %}
+					<div class="chart-box">
+						<canvas id="moduleWeeklyChart"></canvas>
+					</div>
+					{% else %}
+					<p class="text-center text-muted py-3">No completion data yet.</p>
+					{% endif %}
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Tasks Table -->
+	<div class="mod-card">
+		<div class="mod-card-header">📋 All Tasks ({{ total }})</div>
+		<div class="mod-card-body p-0">
+			{% if tasks %}
+			<div class="table-responsive">
+				<table class="task-table">
+					<thead>
+						<tr>
+							<th>Title</th>
+							<th>Status</th>
+							<th>Due Date</th>
+							<th>Weight</th>
+							<th>Grade</th>
+						</tr>
+					</thead>
+					<tbody>
+						{% for t in tasks %}
+						<tr>
+							<td>
+								<a href="{{ url_for('task_detail', task_id=t.id) }}" style="color: #1e293b; text-decoration: none; font-weight: 500;">
+									{{ t.title[:50] }}{% if t.title|length > 50 %}…{% endif %}
+								</a>
+							</td>
+							<td><span class="status-badge {{ t.status }}">{{ t.status|replace('_', ' ') }}</span></td>
+							<td style="font-size: 0.82rem; color: #64748b;">
+								{% if t.due_date %}{{ t.due_date | irish_date }}{% else %}—{% endif %}
+							</td>
+							<td>
+								{% if t.weight_percentage %}
+								<span style="font-size: 0.82rem;">{{ "%.0f"|format(t.weight_percentage) }}%</span>
+								{% else %}<span class="text-muted">—</span>{% endif %}
+							</td>
+							<td>
+								{% if t.canvas_score is not none %}
+									{% set pct = (t.canvas_score / t.canvas_possible * 100) if t.canvas_possible and t.canvas_possible > 0 else t.canvas_score %}
+									<span class="grade-badge {% if pct >= 70 %}excellent{% elif pct >= 50 %}average{% else %}low{% endif %}">
+										{{ "%.0f"|format(pct) }}%
+									</span>
+								{% else %}<span class="text-muted">—</span>{% endif %}
+							</td>
+						</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+			</div>
+			{% else %}
+			<p class="text-center text-muted py-4">No tasks in this module.</p>
+			{% endif %}
+		</div>
+	</div>
+</div>
+
+{% if weekly %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+	const ctx = document.getElementById('moduleWeeklyChart');
+	if (ctx) {
+		const data = {{ weekly | tojson }};
+		new Chart(ctx, {
+			type: 'bar',
+			data: {
+				labels: data.map(w => {
+					const d = new Date(w.week);
+					return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+				}),
+				datasets: [{
+					label: 'Completed',
+					data: data.map(w => w.completions),
+					backgroundColor: '#6366f1',
+					borderRadius: 8,
+					maxBarThickness: 32
+				}]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: { legend: { display: false } },
+				scales: {
+					y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(0,0,0,0.05)' } },
+					x: { grid: { display: false } }
+				}
+			}
+		});
+	}
+});
+</script>
+{% endif %}
+{% endblock %}

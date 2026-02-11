@@ -1,138 +1,528 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="container">
-	<div class="row justify-content-center">
-		<div class="col-md-8">
-			<h2 class="mb-4">🎓 Canvas LMS Sync</h2>
-			
-			<!-- Flash Messages -->
-			{% with messages = get_flashed_messages(with_categories=true) %}
-				{% if messages %}
-					{% for category, message in messages %}
-						<div class="alert alert-{{ 'success' if category=='success' else ('warning' if category=='warning' else 'danger') }} alert-dismissible fade show" role="alert">
-							{{ message }}
-							<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-						</div>
-					{% endfor %}
-				{% endif %}
-			{% endwith %}
-			
-			<!-- Canvas Token Status -->
-			<div class="card mb-4">
-				<div class="card-header {{ 'bg-success' if has_token else 'bg-warning' }} text-white">
-					<h5 class="mb-0">
-						{% if has_token %}
-							✅ Canvas API Token Configured
-						{% else %}
-							⚠️ Canvas API Token Not Set
-						{% endif %}
-					</h5>
-				</div>
-				<div class="card-body">
-					{% if has_token %}
-						<p class="mb-0">
-							<strong>Status:</strong> Ready to sync assignments from Canvas<br>
-							<strong>Canvas Instance:</strong> UCC Canvas (ucc.instructure.com)
-						</p>
-					{% else %}
-						<div class="alert alert-warning mb-3">
-							<strong>⚠️ Setup Required</strong><br>
-							You need to add your Canvas API token before you can sync assignments.
-						</div>
-						
-						<h6>How to Get Your Canvas API Token:</h6>
-						<ol>
-							<li>Go to <a href="https://ucc.instructure.com" target="_blank">UCC Canvas</a></li>
-							<li>Click <strong>Account</strong> → <strong>Settings</strong></li>
-							<li>Scroll to <strong>Approved Integrations</strong></li>
-							<li>Click <strong>+ New Access Token</strong></li>
-							<li>Give it a name (e.g., "Student Planner")</li>
-							<li>Copy the token</li>
-						</ol>
-						
-						<h6>Add Your Token to Database:</h6>
-						<p>Run this in Supabase SQL Editor:</p>
-						<pre class="bg-light p-3 rounded"><code>UPDATE students 
-SET canvas_api_token = 'YOUR_TOKEN_HERE'
-WHERE id = {{ current_user.id }};</code></pre>
-						
-						<p class="text-muted mt-3">
-							<small>⚠️ Note: Store your token securely. Never share it or commit it to version control.</small>
-						</p>
-					{% endif %}
-				</div>
-			</div>
-			
-			<!-- Sync Statistics -->
-			<div class="card mb-4">
-				<div class="card-header bg-info text-white">
-					<h5 class="mb-0">📊 Sync Statistics</h5>
-				</div>
-				<div class="card-body">
-					<div class="row text-center">
-						<div class="col-md-6">
-							<h2 class="text-primary">{{ canvas_tasks }}</h2>
-							<p class="text-muted">Canvas Assignments Synced</p>
-						</div>
-						<div class="col-md-6">
-							<h2 class="text-success">{{ total_tasks }}</h2>
-							<p class="text-muted">Total Tasks</p>
-						</div>
-					</div>
-					
-					{% if canvas_tasks > 0 %}
-						<div class="alert alert-info mt-3">
-							<strong>ℹ️ Last Sync:</strong> You have {{ canvas_tasks }} assignment(s) imported from Canvas.
-							Click "Sync Now" to update with any new assignments or changes.
-						</div>
-					{% endif %}
-				</div>
-			</div>
-			
-			<!-- Sync Button -->
-			{% if has_token %}
-				<div class="card">
-					<div class="card-body text-center">
-						<h5 class="mb-3">Ready to Sync Your Assignments?</h5>
-						<p class="text-muted mb-4">
-							This will import all your upcoming assignments from Canvas LMS,<br>
-							including due dates, course codes, and assignment titles.
-						</p>
-						
-						<form method="POST" action="{{ url_for('sync_canvas') }}">
-							<button type="submit" class="btn btn-primary btn-lg">
-								<i class="bi bi-cloud-download"></i> 🔄 Sync Canvas Assignments
-							</button>
-						</form>
-						
-						<p class="text-muted mt-3">
-							<small>
-								This will:
-								<ul class="list-unstyled">
-									<li>✅ Fetch all active courses</li>
-									<li>✅ Import upcoming assignments</li>
-									<li>✅ Create modules for each course</li>
-									<li>✅ Update existing assignments</li>
-									<li>✅ Skip assignments without due dates</li>
-								</ul>
-							</small>
-						</p>
-					</div>
-				</div>
-			{% else %}
-				<div class="alert alert-warning text-center">
-					<h5>⚠️ Cannot Sync Without Canvas Token</h5>
-					<p>Please follow the instructions above to add your Canvas API token.</p>
-				</div>
-			{% endif %}
-			
-			<!-- Back to Dashboard -->
-			<div class="text-center mt-4">
-				<a href="{{ url_for('index') }}" class="btn btn-outline-secondary">← Back to Dashboard</a>
-				<a href="{{ url_for('tasks') }}" class="btn btn-outline-primary">View Tasks →</a>
-			</div>
-		</div>
-	</div>
+<style>
+    .sync-page {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+    
+    /* Header */
+    .sync-header {
+        text-align: center;
+        margin-bottom: 2.5rem;
+    }
+    
+    .sync-header h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+    
+    .sync-header .subtitle {
+        color: #6c757d;
+        font-size: 1rem;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #6c757d;
+        text-decoration: none;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+        transition: color 0.2s;
+    }
+    
+    .back-link:hover {
+        color: #4361ee;
+    }
+    
+    /* Alert */
+    .alert-custom {
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .alert-success-custom {
+        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+        border: 1px solid #a7f3d0;
+        color: #065f46;
+    }
+    
+    .alert-warning-custom {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border: 1px solid #fcd34d;
+        color: #92400e;
+    }
+    
+    .alert-error-custom {
+        background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+        border: 1px solid #fecaca;
+        color: #991b1b;
+    }
+    
+    /* Status card */
+    .status-card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+    
+    .status-header {
+        padding: 1.25rem 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .status-header.connected {
+        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+        border-bottom: 1px solid #a7f3d0;
+    }
+    
+    .status-header.disconnected {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border-bottom: 1px solid #fcd34d;
+    }
+    
+    .status-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+    
+    .status-header.connected .status-icon {
+        background: rgba(16, 185, 129, 0.15);
+    }
+    
+    .status-header.disconnected .status-icon {
+        background: rgba(245, 158, 11, 0.15);
+    }
+    
+    .status-info h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 0 0 0.15rem 0;
+    }
+    
+    .status-header.connected .status-info h3 {
+        color: #065f46;
+    }
+    
+    .status-header.disconnected .status-info h3 {
+        color: #92400e;
+    }
+    
+    .status-info p {
+        font-size: 0.85rem;
+        margin: 0;
+    }
+    
+    .status-header.connected .status-info p {
+        color: #047857;
+    }
+    
+    .status-header.disconnected .status-info p {
+        color: #a16207;
+    }
+    
+    .status-body {
+        padding: 1.5rem;
+    }
+    
+    /* Stats grid */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .stat-box {
+        background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 1.25rem;
+        text-align: center;
+    }
+    
+    .stat-box.primary {
+        border-color: #c7d2fe;
+        background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+    }
+    
+    .stat-box.success {
+        border-color: #a7f3d0;
+        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: 0.25rem;
+    }
+    
+    .stat-box.primary .stat-value {
+        color: #4338ca;
+    }
+    
+    .stat-box.success .stat-value {
+        color: #059669;
+    }
+    
+    .stat-label {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    /* Setup instructions */
+    .setup-card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+    
+    .setup-card-header {
+        padding: 1.25rem 1.5rem;
+        background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .setup-card-header h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1a1a2e;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .setup-card-body {
+        padding: 1.5rem;
+    }
+    
+    .steps-list {
+        counter-reset: step;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .steps-list li {
+        position: relative;
+        padding-left: 3rem;
+        margin-bottom: 1rem;
+        line-height: 1.6;
+    }
+    
+    .steps-list li:last-child {
+        margin-bottom: 0;
+    }
+    
+    .steps-list li::before {
+        counter-increment: step;
+        content: counter(step);
+        position: absolute;
+        left: 0;
+        width: 28px;
+        height: 28px;
+        background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    
+    .code-block {
+        background: #1e293b;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-top: 1rem;
+        overflow-x: auto;
+    }
+    
+    .code-block code {
+        color: #e2e8f0;
+        font-size: 0.85rem;
+        line-height: 1.5;
+    }
+    
+    /* Sync action */
+    .sync-action-card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        overflow: hidden;
+        text-align: center;
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .sync-action-card h3 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #1a1a2e;
+        margin-bottom: 0.5rem;
+    }
+    
+    .sync-action-card p {
+        color: #6c757d;
+        margin-bottom: 1.5rem;
+        font-size: 0.95rem;
+    }
+    
+    .btn-sync {
+        background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);
+        border: none;
+        color: white;
+        padding: 1rem 2.5rem;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 1.1rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
+    }
+    
+    .btn-sync:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
+        color: white;
+    }
+    
+    .sync-features {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+    }
+    
+    .sync-feature {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.85rem;
+        color: #6c757d;
+        background: #f8f9fa;
+        padding: 0.4rem 0.75rem;
+        border-radius: 20px;
+    }
+    
+    .sync-feature .check {
+        color: #10b981;
+    }
+    
+    /* Footer actions */
+    .footer-actions {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+    
+    .btn-secondary {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        color: #495057;
+        padding: 0.65rem 1.25rem;
+        border-radius: 10px;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+    
+    .btn-secondary:hover {
+        background: #f8f9fa;
+        border-color: #d0d0d0;
+        color: #1a1a2e;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .sync-page {
+            padding: 1rem;
+        }
+        
+        .sync-header h1 {
+            font-size: 1.5rem;
+        }
+        
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .footer-actions {
+            flex-direction: column;
+        }
+    }
+</style>
+
+<div class="sync-page">
+    <a href="/" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Back to Dashboard
+    </a>
+    
+    <div class="sync-header page-header-card">
+        <h1>
+            <span>🎓</span>
+            Canvas LMS Sync
+        </h1>
+        <p class="subtitle">
+            Import your assignments and courses directly from Canvas.
+        </p>
+    </div>
+    
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert-custom {% if category == 'success' %}alert-success-custom{% elif category == 'warning' %}alert-warning-custom{% else %}alert-error-custom{% endif %}">
+                    {% if category == 'success' %}✅{% elif category == 'warning' %}⚠️{% else %}❌{% endif %}
+                    <span>{{ message }}</span>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <!-- Connection Status -->
+    <div class="status-card">
+        <div class="status-header {% if has_token %}connected{% else %}disconnected{% endif %}">
+            <div class="status-icon">
+                {% if has_token %}✅{% else %}⚠️{% endif %}
+            </div>
+            <div class="status-info">
+                <h3>{% if has_token %}Canvas Connected{% else %}Canvas Not Connected{% endif %}</h3>
+                <p>{% if has_token %}Ready to sync from UCC Canvas{% else %}API token required{% endif %}</p>
+            </div>
+        </div>
+        
+        {% if has_token %}
+        <div class="status-body">
+            <div class="stats-grid">
+                <div class="stat-box primary">
+                    <div class="stat-value">{{ canvas_tasks }}</div>
+                    <div class="stat-label">Canvas Assignments</div>
+                </div>
+                <div class="stat-box success">
+                    <div class="stat-value">{{ total_tasks }}</div>
+                    <div class="stat-label">Total Tasks</div>
+                </div>
+            </div>
+            
+            {% if canvas_tasks > 0 %}
+            <div class="alert-custom alert-success-custom" style="margin-bottom: 0;">
+                ℹ️ <span>You have {{ canvas_tasks }} assignment(s) imported from Canvas. Click "Sync Now" to update.</span>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    
+    {% if not has_token %}
+    <!-- Setup Instructions -->
+    <div class="setup-card">
+        <div class="setup-card-header">
+            <h3>📋 Setup Instructions</h3>
+        </div>
+        <div class="setup-card-body">
+            <h4 style="font-size: 0.95rem; font-weight: 600; color: #1a1a2e; margin-bottom: 1rem;">How to Get Your Canvas API Token:</h4>
+            <ol class="steps-list">
+                <li>Go to <a href="https://ucc.instructure.com" target="_blank" style="color: #4361ee;">UCC Canvas</a> and log in</li>
+                <li>Click <strong>Account</strong> → <strong>Settings</strong></li>
+                <li>Scroll to <strong>Approved Integrations</strong></li>
+                <li>Click <strong>+ New Access Token</strong></li>
+                <li>Name it "Student Planner" and copy the token</li>
+            </ol>
+            
+            <h4 style="font-size: 0.95rem; font-weight: 600; color: #1a1a2e; margin: 1.5rem 0 1rem;">Add Your Token:</h4>
+            <p style="color: #6c757d; font-size: 0.9rem;">Run this SQL in Supabase:</p>
+            <div class="code-block">
+                <code>UPDATE students<br>SET canvas_api_token = 'YOUR_TOKEN_HERE'<br>WHERE id = {{ current_user.id }};</code>
+            </div>
+            
+            <p style="color: #9ca3af; font-size: 0.8rem; margin-top: 1rem;">
+                ⚠️ Keep your token secure. Never share it or commit it to version control.
+            </p>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Sync Action -->
+    {% if has_token %}
+    <div class="sync-action-card">
+        <h3>Ready to Sync?</h3>
+        <p>Import all your upcoming assignments from Canvas LMS</p>
+        
+        <form method="POST" action="{{ url_for('sync_canvas') }}">
+            <button type="submit" class="btn-sync">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M23 4v6h-6M1 20v-6h6"/>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                </svg>
+                Sync Canvas Now
+            </button>
+        </form>
+        
+        <div class="sync-features">
+            <span class="sync-feature"><span class="check">✓</span> Active courses</span>
+            <span class="sync-feature"><span class="check">✓</span> Upcoming assignments</span>
+            <span class="sync-feature"><span class="check">✓</span> Due dates & grades</span>
+            <span class="sync-feature"><span class="check">✓</span> Auto-create modules</span>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert-custom alert-warning-custom">
+        ⚠️ <span>Please add your Canvas API token using the instructions above to enable syncing.</span>
+    </div>
+    {% endif %}
+    
+    <!-- Footer Actions -->
+    <div class="footer-actions">
+        <a href="{{ url_for('index') }}" class="btn-secondary">
+            ← Back to Dashboard
+        </a>
+        <a href="{{ url_for('tasks') }}" class="btn-secondary">
+            View Tasks →
+        </a>
+    </div>
 </div>
 {% endblock %}
-

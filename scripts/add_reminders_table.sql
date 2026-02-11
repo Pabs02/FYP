@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS reminders (
     is_read BOOLEAN NOT NULL DEFAULT FALSE
 );
 
--- Ensure we don't spam duplicate reminders per task/type
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_reminders_unique
     ON reminders(student_id, task_id, reminder_type);
 

@@ -1,129 +1,712 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-	<h2>Add Data</h2>
+<style>
+    .add-data-page {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+    
+    /* Header */
+    .page-header {
+        text-align: center;
+        margin-bottom: 2.5rem;
+    }
+    
+    .page-header h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+    
+    .page-header .subtitle {
+        color: #6c757d;
+        font-size: 1rem;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #6c757d;
+        text-decoration: none;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+        transition: color 0.2s;
+    }
+    
+    .back-link:hover {
+        color: #4361ee;
+    }
+    
+    /* Alert */
+    .alert-custom {
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .alert-success-custom {
+        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+        border: 1px solid #a7f3d0;
+        color: #065f46;
+    }
+    
+    .alert-error-custom {
+        background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+        border: 1px solid #fecaca;
+        color: #991b1b;
+    }
+    
+    .alert-info-custom {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border: 1px solid #93c5fd;
+        color: #1e40af;
+    }
+    
+    /* Grid */
+    .forms-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+    }
+    
+    .forms-grid .full-width {
+        grid-column: 1 / -1;
+    }
+    
+    /* Cards */
+    .form-card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        overflow: hidden;
+    }
+    
+    .form-card-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #f0f0f0;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .form-card-header.blue {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    }
+    
+    .form-card-header.green {
+        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    }
+    
+    .form-card-header.purple {
+        background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
+    }
+    
+    .form-card-header .icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+    
+    .form-card-header.blue .icon {
+        background: rgba(59, 130, 246, 0.15);
+    }
+    
+    .form-card-header.green .icon {
+        background: rgba(16, 185, 129, 0.15);
+    }
+    
+    .form-card-header.purple .icon {
+        background: rgba(139, 92, 246, 0.15);
+    }
+    
+    .form-card-header h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1a1a2e;
+        margin: 0;
+    }
+    
+    .form-card-body {
+        padding: 1.5rem;
+    }
+    
+    /* Form styling */
+    .form-label {
+        font-weight: 500;
+        color: #495057;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-label .required {
+        color: #dc2626;
+    }
+    
+    .form-control, .form-select {
+        border-radius: 10px;
+        border: 1px solid #e0e0e0;
+        padding: 0.65rem 1rem;
+        font-size: 0.95rem;
+        transition: all 0.2s;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #4361ee;
+        box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+    }
+    
+    .form-control::placeholder {
+        color: #adb5bd;
+    }
+    
+    .form-text {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-top: 0.4rem;
+    }
+    
+    /* Buttons */
+    .btn-submit {
+        width: 100%;
+        border: none;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-submit.blue {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+    }
+    
+    .btn-submit.blue:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(59, 130, 246, 0.35);
+    }
+    
+    .btn-submit.green {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+    }
+    
+    .btn-submit.green:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+    }
+    
+    .btn-submit.purple {
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25);
+    }
+    
+    .btn-submit.purple:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(139, 92, 246, 0.35);
+    }
+    
+    /* Two column row */
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .voice-assist {
+        border: 1px dashed #a7f3d0;
+        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .voice-assist-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .voice-assist-title {
+        margin: 0;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #065f46;
+    }
+
+    .voice-status {
+        font-size: 0.75rem;
+        color: #065f46;
+        font-weight: 600;
+    }
+
+    .voice-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+    }
+
+    .voice-assist-hint {
+        margin-top: 0.5rem;
+        font-size: 0.78rem;
+        color: #065f46;
+    }
+
+    .voice-command-result {
+        margin-top: 0.75rem;
+        border: 1px solid #bbf7d0;
+        background: #f7fee7;
+        border-radius: 10px;
+        padding: 0.75rem;
+        font-size: 0.84rem;
+        color: #14532d;
+        display: none;
+    }
+
+    .voice-command-result.error {
+        border-color: #fecaca;
+        background: #fef2f2;
+        color: #991b1b;
+    }
+
+    .voice-command-result h6 {
+        font-size: 0.8rem;
+        margin-bottom: 0.35rem;
+        font-weight: 700;
+    }
+
+    .voice-command-result ul {
+        margin: 0;
+        padding-left: 1rem;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .add-data-page {
+            padding: 1rem;
+        }
+        
+        .page-header h1 {
+            font-size: 1.5rem;
+        }
+        
+        .forms-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="add-data-page">
+    <a href="/" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Back to Dashboard
+    </a>
+    
+    <div class="page-header page-header-card">
+        <h1>
+            <span>➕</span>
+            Add Data
+        </h1>
+        <p class="subtitle">
+            Add modules, tasks, and lecturers to your dashboard.
+        </p>
+    </div>
+    
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert-custom {% if category == 'success' %}alert-success-custom{% else %}alert-error-custom{% endif %}">
+                    {% if category == 'success' %}✅{% else %}⚠️{% endif %}
+                    <span>{{ message }}</span>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <div class="forms-grid">
+        <!-- Add Module -->
+        <div class="form-card">
+            <div class="form-card-header blue">
+                <div class="icon">📚</div>
+                <h3>Add Module</h3>
+            </div>
+            <div class="form-card-body">
+                <form action="/add-module" method="POST">
+                    <div class="mb-3">
+                        <label for="module_code" class="form-label">Module Code <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="module_code" name="code" required placeholder="e.g., IS4416">
+                    </div>
+                    <button type="submit" class="btn-submit blue">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                        Add Module
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Add Lecturer -->
+        <div class="form-card">
+            <div class="form-card-header purple">
+                <div class="icon">🎓</div>
+                <h3>Add Lecturer</h3>
+            </div>
+            <div class="form-card-body">
+                <form action="/add-lecturer" method="POST">
+                    <div class="mb-3">
+                        <label for="lecturer_name" class="form-label">Name <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="lecturer_name" name="name" required placeholder="e.g., Dr. Smith">
+                    </div>
+                    <div class="mb-3">
+                        <label for="lecturer_email" class="form-label">Email <span class="required">*</span></label>
+                        <input type="email" class="form-control" id="lecturer_email" name="email" required placeholder="e.g., smith@ucc.ie">
+                    </div>
+                    <div class="mb-3">
+                        <label for="lecturer_module" class="form-label">Module Code</label>
+                        <input type="text" class="form-control" id="lecturer_module" name="module_code" placeholder="e.g., IS4416">
+                    </div>
+                    <button type="submit" class="btn-submit purple">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                        Add Lecturer
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Add Task (Full Width) -->
+        <div class="form-card full-width">
+            <div class="form-card-header green">
+                <div class="icon">📝</div>
+                <h3>Add Task / Assignment</h3>
+            </div>
+            <div class="form-card-body">
+                <form action="/add-task" method="POST">
+                    <div class="voice-assist">
+                        <div class="voice-assist-header">
+                            <p class="voice-assist-title">🎙️ Voice to Task Capture</p>
+                            <span id="voiceStatus" class="voice-status">Ready</span>
+                        </div>
+                        <textarea id="voiceTranscript" class="form-control" rows="2" placeholder="Example: Add assignment database report for IS4416 due next Thursday at 5pm worth 20 percent"></textarea>
+                        <div class="voice-actions">
+                            <button id="voiceCaptureBtn" type="button" class="btn btn-sm btn-outline-success">Start Recording</button>
+                            <button id="voiceParseBtn" type="button" class="btn btn-sm btn-success">Parse & Autofill</button>
+                            <button id="voiceCommandBtn" type="button" class="btn btn-sm btn-outline-dark">Run Voice Command</button>
+                        </div>
+                        <p id="voiceHint" class="voice-assist-hint">Try commands: "What is due this week?", "Any overdue tasks?", "Add lecture revision every Tuesday 6pm to 8pm until May", or "Break IS4416 database report into 5 steps due next Thursday".</p>
+                        <div id="voiceCommandResult" class="voice-command-result"></div>
+                    </div>
+
+                    <div class="form-row mb-3">
+                        <div>
+                            <label for="task_title" class="form-label">Task Title <span class="required">*</span></label>
+                            <input type="text" class="form-control" id="task_title" name="title" required placeholder="e.g., Complete Lab Report">
+                        </div>
+                        <div>
+                            <label for="task_module" class="form-label">Module <span class="required">*</span></label>
+                            <select class="form-select" id="task_module" name="module_id" required>
+                                <option value="">Select a module...</option>
+                                {% for module in modules %}
+                                    <option value="{{ module.id }}">{{ module.code }}</option>
+                                {% endfor %}
+                            </select>
+                            <p class="form-text">Add modules above if not listed</p>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row mb-3">
+                        <div>
+                            <label for="task_due_date" class="form-label">Due Date <span class="required">*</span></label>
+                            <input type="date" class="form-control" id="task_due_date" name="due_date" required>
+                        </div>
+                        <div>
+                            <label for="task_due_time" class="form-label">Due Time</label>
+                            <input type="time" class="form-control" id="task_due_time" name="due_time">
+                            <p class="form-text">Leave blank for all-day deadline</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="task_description" class="form-label">Description</label>
+                        <textarea class="form-control" id="task_description" name="description" rows="3" placeholder="Brief overview or Canvas notes..."></textarea>
+                    </div>
+                    
+                    <div class="form-row mb-3">
+                        <div>
+                            <label for="task_status" class="form-label">Status</label>
+                            <select class="form-select" id="task_status" name="status">
+                                <option value="pending">Pending</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="completed">Completed</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="task_weight" class="form-label">Assessment Weighting (%)</label>
+                            <input type="number" step="0.5" min="0" max="100" class="form-control" id="task_weight" name="weight_percentage" placeholder="e.g., 20">
+                            <p class="form-text">Used for priority scoring</p>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn-submit green">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                        Add Task
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="alert-custom alert-info-custom" style="margin-top: 1.5rem;">
+        💡 <span>Tasks are assigned to you ({{ current_user.name }}). View them on the <a href="/tasks" style="color: inherit; font-weight: 600;">Tasks page</a>.</span>
+    </div>
 </div>
 
-<!-- Flash Messages -->
-{% with messages = get_flashed_messages(with_categories=true) %}
-	{% if messages %}
-		{% for category, message in messages %}
-			<div class="alert alert-{{ 'success' if category=='success' else 'danger' }} alert-dismissible fade show" role="alert">
-				{{ message }}
-				<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-			</div>
-		{% endfor %}
-	{% endif %}
-{% endwith %}
+<script>
+// Reference: ChatGPT (OpenAI) - Voice-to-Task Frontend Flow
+// Date: 2026-02-10
+// Prompt: "I need browser-side voice capture (Web Speech API) that sends transcript
+// to a Flask endpoint and auto-fills task form fields. Can you provide a simple,
+// resilient JS flow with start/stop, parse request, and user feedback?"
+// ChatGPT provided the speech recognition + parse/autofill interaction pattern below.
+document.addEventListener('DOMContentLoaded', () => {
+    const captureBtn = document.getElementById('voiceCaptureBtn');
+    const parseBtn = document.getElementById('voiceParseBtn');
+    const commandBtn = document.getElementById('voiceCommandBtn');
+    const transcriptEl = document.getElementById('voiceTranscript');
+    const statusEl = document.getElementById('voiceStatus');
+    const hintEl = document.getElementById('voiceHint');
+    const resultEl = document.getElementById('voiceCommandResult');
 
-<div class="row g-4">
-	<!-- Add Module Form -->
-	<div class="col-md-6">
-		<div class="card">
-			<div class="card-header bg-primary text-white">
-				<h5 class="mb-0">📚 Add Module</h5>
-			</div>
-			<div class="card-body">
-				<form action="/add-module" method="POST">
-					<div class="mb-3">
-						<label for="module_code" class="form-label">Module Code <span class="text-danger">*</span></label>
-						<input type="text" class="form-control" id="module_code" name="code" required placeholder="e.g., CS101">
-					</div>
-					<button type="submit" class="btn btn-primary w-100">Add Module</button>
-				</form>
-			</div>
-		</div>
-	</div>
-	
-	<!-- Add Task Form -->
-	<div class="col-md-6">
-		<div class="card">
-			<div class="card-header bg-success text-white">
-				<h5 class="mb-0">📝 Add Task/Assignment</h5>
-			</div>
-			<div class="card-body">
-				<form action="/add-task" method="POST">
-					<div class="mb-3">
-						<label for="task_title" class="form-label">Task Title <span class="text-danger">*</span></label>
-						<input type="text" class="form-control" id="task_title" name="title" required placeholder="e.g., Complete Lab Report">
-					</div>
-					
-					<div class="mb-3">
-						<label for="task_module" class="form-label">Module <span class="text-danger">*</span></label>
-						<select class="form-select" id="task_module" name="module_id" required>
-							<option value="">Select a module...</option>
-							{% for module in modules %}
-								<option value="{{ module.id }}">{{ module.code }}</option>
-							{% endfor %}
-						</select>
-						<div class="form-text">If your module isn't listed, add it first using the form on the left.</div>
-					</div>
-					
-					<div class="mb-3">
-						<label for="task_due_date" class="form-label">Due Date <span class="text-danger">*</span></label>
-						<input type="date" class="form-control" id="task_due_date" name="due_date" required>
-					</div>
-					<div class="mb-3">
-						<label for="task_due_time" class="form-label">Due Time</label>
-						<input type="time" class="form-control" id="task_due_time" name="due_time">
-						<div class="form-text">Leave blank if it's an all-day deadline.</div>
-					</div>
+    const titleEl = document.getElementById('task_title');
+    const moduleEl = document.getElementById('task_module');
+    const dueDateEl = document.getElementById('task_due_date');
+    const dueTimeEl = document.getElementById('task_due_time');
+    const weightEl = document.getElementById('task_weight');
+    const statusFieldEl = document.getElementById('task_status');
 
-					<div class="mb-3">
-						<label for="task_description" class="form-label">Description / instructions</label>
-						<textarea class="form-control" id="task_description" name="description" rows="3" placeholder="Brief overview or Canvas notes"></textarea>
-					</div>
-					<div class="mb-3">
-						<label for="task_status" class="form-label">Status</label>
-						<select class="form-select" id="task_status" name="status">
-							<option value="pending">Pending</option>
-							<option value="in_progress">In Progress</option>
-							<option value="completed">Completed</option>
-						</select>
-					</div>
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let isListening = false;
 
-					<div class="mb-3">
-						<label for="task_weight" class="form-label">Assessment weighting (%)</label>
-						<input type="number" step="0.5" min="0" max="100" class="form-control" id="task_weight" name="weight_percentage" placeholder="e.g., 20">
-						<div class="form-text">Used to prioritise tasks with the highest impact.</div>
-					</div>
-					
-					<button type="submit" class="btn btn-success w-100">Add Task</button>
-				</form>
-			</div>
-		</div>
-	</div>
-</div>
+    const escapeHtml = (raw) => String(raw || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 
-<div class="row g-4 mt-1">
-	<!-- Add Lecturer Form -->
-	<div class="col-md-6">
-		<div class="card">
-			<div class="card-header bg-dark text-white">
-				<h5 class="mb-0">🎓 Add Lecturer</h5>
-			</div>
-			<div class="card-body">
-				<form action="/add-lecturer" method="POST">
-					<div class="mb-3">
-						<label for="lecturer_name" class="form-label">Name <span class="text-danger">*</span></label>
-						<input type="text" class="form-control" id="lecturer_name" name="name" required placeholder="e.g., Dr. Smith">
-					</div>
-					<div class="mb-3">
-						<label for="lecturer_email" class="form-label">Email <span class="text-danger">*</span></label>
-						<input type="email" class="form-control" id="lecturer_email" name="email" required placeholder="e.g., smith@ucc.ie">
-					</div>
-					<div class="mb-3">
-						<label for="lecturer_module" class="form-label">Module Code (Optional)</label>
-						<input type="text" class="form-control" id="lecturer_module" name="module_code" placeholder="e.g., IS4416">
-					</div>
-					<button type="submit" class="btn btn-dark w-100">Add Lecturer</button>
-				</form>
-			</div>
-		</div>
-	</div>
-</div>
+    const renderCommandResult = (data, isError = false) => {
+        if (!resultEl) return;
+        resultEl.style.display = 'block';
+        resultEl.classList.toggle('error', !!isError);
+        if (isError) {
+            resultEl.innerHTML = `<strong>Voice command failed:</strong> ${escapeHtml(data?.error || 'Unknown error')}`;
+            return;
+        }
+        const intent = data.intent || '';
+        const payload = data.data || {};
+        const message = escapeHtml(data.message || 'Command completed.');
 
-<div class="alert alert-info mt-4">
-	<strong>💡 Note:</strong> Tasks are automatically assigned to you ({{ current_user.name }}). After adding tasks here, view them on the <a href="/tasks" class="alert-link">Tasks page</a>.
-</div>
+        if (intent === 'dashboard_query') {
+            const overdue = Array.isArray(payload.overdue) ? payload.overdue : [];
+            const dueWeek = Array.isArray(payload.due_this_week) ? payload.due_this_week : [];
+            const topItems = [...overdue.slice(0, 3), ...dueWeek.slice(0, 3)];
+            const itemsHtml = topItems.length
+                ? `<ul>${topItems.map((item) => `<li>${escapeHtml(item.title)}${item.module_code ? ` (${escapeHtml(item.module_code)})` : ''}</li>`).join('')}</ul>`
+                : '<p class="mb-0">No upcoming or overdue tasks right now.</p>';
+            resultEl.innerHTML = `
+                <h6>Dashboard Voice Query</h6>
+                <p class="mb-2">${message}</p>
+                ${itemsHtml}
+            `;
+            return;
+        }
+
+        if (intent === 'create_recurring_event') {
+            resultEl.innerHTML = `
+                <h6>Recurring Event Created</h6>
+                <p class="mb-1">${message}</p>
+                <p class="mb-0">Pattern: ${escapeHtml(payload.weekday || '')} ${escapeHtml(payload.start_time || '')}-${escapeHtml(payload.end_time || '')}, until ${escapeHtml(payload.until || '')}.</p>
+            `;
+            return;
+        }
+
+        if (intent === 'create_microtasks') {
+            const subtasks = Array.isArray(payload.subtasks) ? payload.subtasks : [];
+            const listHtml = subtasks.length
+                ? `<ul>${subtasks.slice(0, 6).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+                : '';
+            resultEl.innerHTML = `
+                <h6>Microtasks Created</h6>
+                <p class="mb-1">${message}</p>
+                <p class="mb-2">Open: <a href="/tasks/${escapeHtml(payload.task_id)}" class="fw-semibold">Task detail</a></p>
+                ${listHtml}
+            `;
+            return;
+        }
+
+        resultEl.innerHTML = `<p class="mb-0">${message}</p>`;
+    };
+
+    if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.lang = 'en-IE';
+        recognition.interimResults = true;
+        recognition.continuous = false;
+
+        recognition.onstart = () => {
+            isListening = true;
+            captureBtn.textContent = 'Stop Recording';
+            statusEl.textContent = 'Listening...';
+        };
+
+        recognition.onresult = (event) => {
+            let combined = '';
+            for (let i = event.resultIndex; i < event.results.length; i += 1) {
+                combined += event.results[i][0].transcript;
+            }
+            transcriptEl.value = `${transcriptEl.value} ${combined}`.trim();
+        };
+
+        recognition.onerror = () => {
+            statusEl.textContent = 'Voice input failed - type transcript manually.';
+        };
+
+        recognition.onend = () => {
+            isListening = false;
+            captureBtn.textContent = 'Start Recording';
+            if (!statusEl.textContent.includes('failed')) {
+                statusEl.textContent = 'Ready';
+            }
+        };
+    } else {
+        captureBtn.disabled = true;
+        statusEl.textContent = 'Speech API not supported in this browser.';
+    }
+
+    captureBtn?.addEventListener('click', () => {
+        if (!recognition) return;
+        if (isListening) {
+            recognition.stop();
+        } else {
+            recognition.start();
+        }
+    });
+
+    parseBtn?.addEventListener('click', async () => {
+        const transcript = (transcriptEl.value || '').trim();
+        if (!transcript) {
+            hintEl.textContent = 'Please add or record a transcript first.';
+            return;
+        }
+
+        parseBtn.disabled = true;
+        parseBtn.textContent = 'Parsing...';
+        hintEl.textContent = 'Parsing voice note and applying suggestions...';
+
+        try {
+            const response = await fetch('/voice-parse', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ transcript }),
+            });
+            const data = await response.json();
+            if (!response.ok || !data.ok) {
+                throw new Error(data.error || 'Could not parse transcript');
+            }
+
+            const parsed = data.parsed || {};
+            if (parsed.title) titleEl.value = parsed.title;
+            if (parsed.module_id) moduleEl.value = String(parsed.module_id);
+            if (parsed.due_date) dueDateEl.value = parsed.due_date;
+            if (parsed.due_time) dueTimeEl.value = parsed.due_time;
+            if (parsed.weight_percentage !== null && parsed.weight_percentage !== undefined) {
+                weightEl.value = parsed.weight_percentage;
+            }
+            if (parsed.status) statusFieldEl.value = parsed.status;
+
+            if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+                hintEl.textContent = data.warnings.join(' ');
+            } else {
+                hintEl.textContent = 'Voice task parsed and form updated.';
+            }
+        } catch (error) {
+            hintEl.textContent = `Parse failed: ${error.message}`;
+        } finally {
+            parseBtn.disabled = false;
+            parseBtn.textContent = 'Parse & Autofill';
+        }
+    });
+
+    commandBtn?.addEventListener('click', async () => {
+        const transcript = (transcriptEl.value || '').trim();
+        if (!transcript) {
+            hintEl.textContent = 'Please add or record a transcript first.';
+            return;
+        }
+        commandBtn.disabled = true;
+        commandBtn.textContent = 'Running...';
+        hintEl.textContent = 'Running voice command...';
+        try {
+            const response = await fetch('/voice-command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ transcript }),
+            });
+            const data = await response.json();
+            if (!response.ok || !data.ok) {
+                renderCommandResult(data, true);
+                throw new Error(data.error || 'Voice command failed');
+            }
+            renderCommandResult(data, false);
+            hintEl.textContent = data.message || 'Voice command complete.';
+        } catch (error) {
+            hintEl.textContent = `Voice command failed: ${error.message}`;
+        } finally {
+            commandBtn.disabled = false;
+            commandBtn.textContent = 'Run Voice Command';
+        }
+    });
+});
+</script>
 {% endblock %}

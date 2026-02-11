@@ -7,7 +7,7 @@ import os
 import sys
 from dotenv import load_dotenv
 
-# Add the parent directory to the path so we can import our modules
+# Add the parent directory to the path so can import our modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import get_supabase_database_url

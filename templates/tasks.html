@@ -1,8 +1,11 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-	<h2>Tasks</h2>
-	<a href="/add-data" class="btn btn-primary">➕ Add New Task</a>
+<div class="page-header-card d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+	<div class="flex-grow-1">
+		<h2 class="mb-0">Tasks</h2>
+		<p class="text-muted mb-0">Track, update, and manage your assignments.</p>
+	</div>
+	<a href="/add-data" class="btn btn-primary page-header-actions">➕ Add New Task</a>
 </div>
 
 <!-- Flash Messages -->
@@ -17,56 +20,142 @@
 	{% endif %}
 {% endwith %}
 
-<div class="table-responsive">
-	<table class="table table-striped align-middle">
-		<thead>
-			<tr>
-				<th scope="col">ID</th>
-				<th scope="col">Title</th>
-				<th scope="col">Student</th>
-				<th scope="col">Module</th>
-				<th scope="col">Due Date</th>
-				<th scope="col">Status</th>
-				<th scope="col">Actions</th>
-			</tr>
-		</thead>
-		<tbody>
-			{% for t in tasks %}
-			<tr id="task-{{ t.id }}">
-				<td>{{ t.id }}</td>
-				<td>
-					<a href="{{ url_for('task_detail', task_id=t.id) }}" class="text-decoration-none fw-semibold">
-						{{ t.title }}
-					</a>
-					{% if t.canvas_assignment_id %}
-						<span class="badge bg-info ms-1" title="Synced from Canvas LMS">📚 Canvas</span>
-					{% endif %}
-				</td>
-				<td>{{ t.student_name }}</td>
-				<td>{{ t.module_code or 'N/A' }}</td>
-				<td>{{ t.due_date | irish_date }}</td>
-				<td><span class="badge text-bg-{{ 'success' if t.status=='completed' else ('warning' if t.status=='in_progress' else 'secondary') }}">{{ t.status }}</span></td>
-				<td>
-					<div class="d-flex gap-2 align-items-center">
-						<form action="/update-task-status/{{ t.id }}" method="POST" style="display: inline;">
-							<select name="status" class="form-select form-select-sm" style="width: auto; display: inline-block;" onchange="this.form.submit()">
-								<option value="">Update...</option>
-								<option value="pending" {% if t.status=='pending' %}disabled{% endif %}>Mark Pending</option>
-								<option value="in_progress" {% if t.status=='in_progress' %}disabled{% endif %}>Mark In Progress</option>
-								<option value="completed" {% if t.status=='completed' %}disabled{% endif %}>Mark Completed</option>
-							</select>
-						</form>
-						<form action="{{ url_for('delete_task', task_id=t.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this task? This will also delete all associated subtasks.');">
-							<button type="submit" class="btn btn-sm btn-outline-danger" title="Delete task">
-								🗑️
-							</button>
-						</form>
-					</div>
-				</td>
-			</tr>
-			{% endfor %}
-		</tbody>
-	</table>
+{% set completed_tasks = tasks | selectattr('status', 'equalto', 'completed') | list %}
+{% set upcoming_tasks = tasks | rejectattr('status', 'equalto', 'completed') | list %}
+{% set completed_sorted = completed_tasks | sort(attribute='due_date', reverse=true) %}
+
+<div class="card table-card mb-4">
+	<div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+		<span class="fw-semibold">Upcoming & In Progress</span>
+		<span class="text-muted small">{{ upcoming_tasks|length }} total</span>
+	</div>
+	<div class="table-responsive">
+		<table class="table table-hover table-tasks align-middle">
+			<thead>
+				<tr>
+					<th scope="col">ID</th>
+					<th scope="col">Title</th>
+					<th scope="col">Student</th>
+					<th scope="col">Module</th>
+					<th scope="col">Due Date</th>
+					<th scope="col">Status</th>
+					<th scope="col">Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				{% for t in upcoming_tasks %}
+				<tr id="task-{{ t.id }}">
+					<td class="text-muted small">#{{ t.id }}</td>
+					<td class="task-title">
+						<a href="{{ url_for('task_detail', task_id=t.id) }}" class="text-decoration-none fw-semibold">
+							{{ t.title }}
+						</a>
+						{% if t.canvas_assignment_id %}
+							<span class="badge badge-soft ms-1" title="Synced from Canvas LMS">📚 Canvas</span>
+						{% endif %}
+					</td>
+					<td>{{ t.student_name }}</td>
+					<td>{{ t.module_code or 'N/A' }}</td>
+					<td>{{ t.due_date | irish_date }}</td>
+					<td>
+						<span class="badge badge-status text-bg-{{ 'success' if t.status=='completed' else ('warning' if t.status=='in_progress' else 'secondary') }}">
+							{{ t.status }}
+						</span>
+					</td>
+					<td>
+						<div class="d-flex gap-2 align-items-center">
+							<form action="/update-task-status/{{ t.id }}" method="POST" style="display: inline;">
+								<select name="status" class="form-select form-select-sm" style="width: auto; display: inline-block;" onchange="this.form.submit()">
+									<option value="">Update...</option>
+									<option value="pending" {% if t.status=='pending' %}disabled{% endif %}>Mark Pending</option>
+									<option value="in_progress" {% if t.status=='in_progress' %}disabled{% endif %}>Mark In Progress</option>
+									<option value="completed" {% if t.status=='completed' %}disabled{% endif %}>Mark Completed</option>
+								</select>
+							</form>
+							<form action="{{ url_for('delete_task', task_id=t.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this task? This will also delete all associated subtasks.');">
+								<button type="submit" class="btn btn-sm btn-outline-danger" title="Delete task">
+									🗑️
+								</button>
+							</form>
+						</div>
+					</td>
+				</tr>
+				{% endfor %}
+				{% if not upcoming_tasks %}
+				<tr>
+					<td colspan="7" class="text-center text-muted py-4">No upcoming tasks.</td>
+				</tr>
+				{% endif %}
+			</tbody>
+		</table>
+	</div>
+</div>
+
+<div class="card table-card">
+	<div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+		<span class="fw-semibold">Completed</span>
+		<span class="text-muted small">{{ completed_tasks|length }} total</span>
+	</div>
+	<div class="table-responsive">
+		<table class="table table-hover table-tasks align-middle">
+			<thead>
+				<tr>
+					<th scope="col">ID</th>
+					<th scope="col">Title</th>
+					<th scope="col">Student</th>
+					<th scope="col">Module</th>
+					<th scope="col">Due Date</th>
+					<th scope="col">Status</th>
+					<th scope="col">Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				{% for t in completed_sorted %}
+				<tr id="task-{{ t.id }}">
+					<td class="text-muted small">#{{ t.id }}</td>
+					<td class="task-title">
+						<a href="{{ url_for('task_detail', task_id=t.id) }}" class="text-decoration-none fw-semibold">
+							{{ t.title }}
+						</a>
+						{% if t.canvas_assignment_id %}
+							<span class="badge badge-soft ms-1" title="Synced from Canvas LMS">📚 Canvas</span>
+						{% endif %}
+					</td>
+					<td>{{ t.student_name }}</td>
+					<td>{{ t.module_code or 'N/A' }}</td>
+					<td>{{ t.due_date | irish_date }}</td>
+					<td>
+						<span class="badge badge-status text-bg-{{ 'success' if t.status=='completed' else ('warning' if t.status=='in_progress' else 'secondary') }}">
+							{{ t.status }}
+						</span>
+					</td>
+					<td>
+						<div class="d-flex gap-2 align-items-center">
+							<form action="/update-task-status/{{ t.id }}" method="POST" style="display: inline;">
+								<select name="status" class="form-select form-select-sm" style="width: auto; display: inline-block;" onchange="this.form.submit()">
+									<option value="">Update...</option>
+									<option value="pending" {% if t.status=='pending' %}disabled{% endif %}>Mark Pending</option>
+									<option value="in_progress" {% if t.status=='in_progress' %}disabled{% endif %}>Mark In Progress</option>
+									<option value="completed" {% if t.status=='completed' %}disabled{% endif %}>Mark Completed</option>
+								</select>
+							</form>
+							<form action="{{ url_for('delete_task', task_id=t.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this task? This will also delete all associated subtasks.');">
+								<button type="submit" class="btn btn-sm btn-outline-danger" title="Delete task">
+									🗑️
+								</button>
+							</form>
+						</div>
+					</td>
+				</tr>
+				{% endfor %}
+				{% if not completed_tasks %}
+				<tr>
+					<td colspan="7" class="text-center text-muted py-4">No completed tasks yet.</td>
+				</tr>
+				{% endif %}
+			</tbody>
+		</table>
+	</div>
 </div>
 {% if not tasks %}
 <div class="alert alert-info">No tasks found. <a href="/add-data">Add your first task</a>.</div>

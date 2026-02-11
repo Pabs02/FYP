@@ -1,0 +1,543 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-3">
+	<div class="page-header-card p-4 mb-4">
+		<div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+			<div>
+				<h2 class="mb-1">👥 Group Workspace</h2>
+				<p class="text-muted mb-0">Plan group projects, delegate tasks, track progress, and email assignments to team members.</p>
+			</div>
+			<div class="d-flex gap-2 flex-wrap">
+				<a href="{{ url_for('tasks') }}" class="btn btn-outline-secondary btn-sm">Task List</a>
+				<a href="{{ url_for('calendar_view') }}" class="btn btn-outline-secondary btn-sm">Calendar</a>
+			</div>
+		</div>
+	</div>
+
+	{% with messages = get_flashed_messages(with_categories=true) %}
+		{% if messages %}
+			<div class="mb-3">
+				{% for category, message in messages %}
+					<div class="alert {% if category in ['success'] %}alert-success{% elif category in ['warning'] %}alert-warning{% else %}alert-danger{% endif %} py-2 mb-2">
+						{{ message }}
+					</div>
+				{% endfor %}
+			</div>
+		{% endif %}
+	{% endwith %}
+
+	<div class="row g-4">
+		<div class="col-lg-4">
+			<div class="card dashboard-card mb-4">
+				<div class="card-header">Create Group Project</div>
+				<div class="card-body">
+					<form method="POST" action="{{ url_for('group_workspace') }}">
+						<input type="hidden" name="action" value="create_project">
+						<div class="mb-2">
+							<label class="form-label">Project Title</label>
+							<input type="text" name="title" class="form-control" placeholder="e.g., IS4408 Strategic Report" required>
+						</div>
+						<div class="mb-2">
+							<label class="form-label">Module Code</label>
+							<input type="text" name="module_code" class="form-control" placeholder="e.g., IS4408">
+						</div>
+						<div class="mb-2">
+							<label class="form-label">Project Due Date</label>
+							<input type="date" name="due_date" class="form-control">
+						</div>
+						<div class="mb-3">
+							<label class="form-label">Description</label>
+							<textarea name="description" class="form-control" rows="3" placeholder="Scope, rubric, target grade, key constraints..."></textarea>
+						</div>
+						<button type="submit" class="btn btn-primary w-100">Create Project</button>
+					</form>
+				</div>
+			</div>
+
+			<div class="card dashboard-card mb-4">
+				<div class="card-header">Projects</div>
+				<div class="card-body">
+					{% if projects %}
+						<form method="GET" action="{{ url_for('group_workspace') }}">
+							<label class="form-label">Select Active Project</label>
+							<select class="form-select mb-2" name="project_id" onchange="this.form.submit()">
+								{% for project in projects %}
+									<option value="{{ project.id }}" {% if selected_project and selected_project.id == project.id %}selected{% endif %}>
+										{{ project.title }}{% if project.module_code %} ({{ project.module_code }}){% endif %}
+									</option>
+								{% endfor %}
+							</select>
+						</form>
+						{% if selected_project %}
+							<p class="small text-muted mb-0">
+								Active: <strong>{{ selected_project.title }}</strong>
+								{% if selected_project.due_date %}<br>Due: {{ selected_project.due_date }}{% endif %}
+							</p>
+						{% endif %}
+					{% else %}
+						<p class="text-muted mb-0">No group projects yet. Create one to get started.</p>
+					{% endif %}
+				</div>
+			</div>
+
+			{% if selected_project %}
+				<div class="card dashboard-card">
+					<div class="card-header">Progress Tracker</div>
+					<div class="card-body">
+						<div class="d-flex justify-content-between small mb-1">
+							<span>Overall completion</span>
+							<strong>{{ progress.completion_percent }}%</strong>
+						</div>
+						<div class="progress mb-3" role="progressbar" aria-valuenow="{{ progress.completion_percent }}" aria-valuemin="0" aria-valuemax="100">
+							<div class="progress-bar bg-success" style="width: {{ progress.completion_percent }}%"></div>
+						</div>
+						<ul class="list-group list-group-flush small">
+							<li class="list-group-item d-flex justify-content-between"><span>Total tasks</span><strong>{{ progress.total }}</strong></li>
+							<li class="list-group-item d-flex justify-content-between"><span>To do</span><strong>{{ progress.todo }}</strong></li>
+							<li class="list-group-item d-flex justify-content-between"><span>In progress</span><strong>{{ progress.in_progress }}</strong></li>
+							<li class="list-group-item d-flex justify-content-between"><span>In review</span><strong>{{ progress.review }}</strong></li>
+							<li class="list-group-item d-flex justify-content-between"><span>Done</span><strong>{{ progress.done }}</strong></li>
+							<li class="list-group-item d-flex justify-content-between"><span>Overdue</span><strong class="{% if progress.overdue %}text-danger{% endif %}">{{ progress.overdue }}</strong></li>
+						</ul>
+					</div>
+				</div>
+			{% endif %}
+		</div>
+
+		<div class="col-lg-8">
+			{% if not selected_project %}
+				<div class="card dashboard-card">
+					<div class="card-body">
+						<p class="text-muted mb-2">Create a project first, then add members and tasks.</p>
+						<p class="small text-muted mb-0">The <strong>Project Brief &amp; Files</strong> upload section appears after your first project is created.</p>
+					</div>
+				</div>
+			{% else %}
+				<div class="card dashboard-card mb-4">
+					<div class="card-header d-flex justify-content-between align-items-center">
+						<span>Group Members</span>
+						<form method="POST" action="{{ url_for('group_workspace') }}" class="m-0">
+							<input type="hidden" name="action" value="email_all_assignments">
+							<input type="hidden" name="project_id" value="{{ selected_project.id }}">
+							<button type="submit" class="btn btn-sm btn-outline-primary">Email All Assigned Work</button>
+						</form>
+					</div>
+					<div class="card-body">
+						<form method="POST" action="{{ url_for('group_workspace') }}" class="row g-2 mb-3">
+							<input type="hidden" name="action" value="add_member">
+							<input type="hidden" name="project_id" value="{{ selected_project.id }}">
+							<div class="col-md-4">
+								<input type="text" class="form-control" name="member_name" placeholder="Member name" required>
+							</div>
+							<div class="col-md-4">
+								<input type="email" class="form-control" name="member_email" placeholder="Member email" required>
+							</div>
+							<div class="col-md-3">
+								<input type="text" class="form-control" name="member_role" placeholder="Role (optional)">
+							</div>
+							<div class="col-md-1 d-grid">
+								<button type="submit" class="btn btn-outline-success">Add</button>
+							</div>
+						</form>
+
+						{% if members %}
+							<div class="table-responsive">
+								<table class="table table-sm align-middle mb-0">
+									<thead>
+										<tr>
+											<th>Name</th>
+											<th>Email</th>
+											<th>Role</th>
+											<th>Invite</th>
+										</tr>
+									</thead>
+									<tbody>
+										{% for member in members %}
+											<tr>
+												<td>{{ member.member_name }}</td>
+												<td>{{ member.member_email }}</td>
+												<td>{{ member.member_role or '-' }}</td>
+												<td>
+													<div class="d-flex flex-column gap-1">
+														<small class="text-muted">
+															{% if member.invite_status == 'accepted' %}
+																✅ Accepted
+															{% else %}
+																⏳ {{ member.invite_status or 'pending' }}
+															{% endif %}
+														</small>
+														{% if member.invite_token %}
+															<input class="form-control form-control-sm" readonly value="{{ invite_base_url }}/group-workspace/invite/{{ member.invite_token }}">
+														{% endif %}
+														<form method="POST" action="{{ url_for('group_workspace') }}" class="d-inline">
+															<input type="hidden" name="action" value="resend_invite">
+															<input type="hidden" name="project_id" value="{{ selected_project.id }}">
+															<input type="hidden" name="member_id" value="{{ member.id }}">
+															<button type="submit" class="btn btn-sm btn-outline-secondary">Send Invite Link</button>
+														</form>
+													</div>
+												</td>
+											</tr>
+										{% endfor %}
+									</tbody>
+								</table>
+							</div>
+						{% else %}
+							<p class="text-muted mb-0">No members yet. Add teammates to enable delegation and email updates.</p>
+						{% endif %}
+					</div>
+				</div>
+
+				<div class="card dashboard-card mb-4">
+					<div class="card-header">AI Breakdown + Manual Task Add</div>
+					<div class="card-body">
+						<div class="row g-3">
+							<div class="col-md-6">
+								<form method="POST" action="{{ url_for('group_workspace') }}">
+									<input type="hidden" name="action" value="generate_ai_tasks">
+									<input type="hidden" name="project_id" value="{{ selected_project.id }}">
+									<label class="form-label">AI Project Brief</label>
+									<textarea name="ai_brief" class="form-control mb-2" rows="4" placeholder="Paste rubric, deliverables, and constraints..." required></textarea>
+									<div class="row g-2 mb-2">
+										<div class="col-sm-6">
+											<label class="form-label small">Task count</label>
+											<input type="number" name="ai_task_count" min="3" max="15" value="6" class="form-control">
+										</div>
+										<div class="col-sm-6 d-flex align-items-end">
+											<div class="form-check">
+												<input class="form-check-input" type="checkbox" id="replace_ai_tasks" name="replace_ai_tasks">
+												<label class="form-check-label small" for="replace_ai_tasks">Replace previous AI tasks</label>
+											</div>
+										</div>
+									</div>
+									<button type="submit" class="btn btn-outline-primary w-100">Generate & Assign with AI</button>
+								</form>
+							</div>
+							<div class="col-md-6">
+								<form method="POST" action="{{ url_for('group_workspace') }}">
+									<input type="hidden" name="action" value="add_task">
+									<input type="hidden" name="project_id" value="{{ selected_project.id }}">
+									<label class="form-label">Manual Task Title</label>
+									<input type="text" class="form-control mb-2" name="task_title" placeholder="e.g., Draft Methodology section" required>
+									<textarea class="form-control mb-2" rows="2" name="task_description" placeholder="Task detail..."></textarea>
+									<div class="row g-2 mb-2">
+										<div class="col-sm-6">
+											<select name="assigned_member_id" class="form-select">
+												<option value="">Assign member...</option>
+												{% for member in members %}
+													<option value="{{ member.id }}">{{ member.member_name }}</option>
+												{% endfor %}
+											</select>
+										</div>
+										<div class="col-sm-6">
+											<input type="date" class="form-control" name="task_due_date">
+										</div>
+									</div>
+									<div class="row g-2 mb-2">
+										<div class="col-sm-4">
+											<select name="task_status" class="form-select">
+												<option value="todo">To do</option>
+												<option value="in_progress">In progress</option>
+												<option value="review">Review</option>
+												<option value="done">Done</option>
+											</select>
+										</div>
+										<div class="col-sm-4">
+											<select name="task_priority" class="form-select">
+												<option value="low">Low priority</option>
+												<option value="medium" selected>Medium priority</option>
+												<option value="high">High priority</option>
+											</select>
+										</div>
+										<div class="col-sm-4">
+											<input type="number" name="task_estimated_hours" min="0" step="0.5" class="form-control" placeholder="Hours">
+										</div>
+									</div>
+									<button type="submit" class="btn btn-outline-success w-100">Add Manual Task</button>
+								</form>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="card dashboard-card mb-4">
+					<div class="card-header">Team Workload Snapshot</div>
+					<div class="card-body">
+						{% if member_stats %}
+							<div class="row g-2">
+								{% for stat in member_stats %}
+									<div class="col-md-6">
+										<div class="border rounded-3 p-2 h-100">
+											<div class="d-flex justify-content-between align-items-center mb-1">
+												<strong>{{ stat.name }}</strong>
+												<small class="text-muted">{{ stat.assigned }} assigned</small>
+											</div>
+											<div class="progress" style="height: 8px;">
+												<div class="progress-bar bg-success" style="width: {{ stat.completion_percent }}%"></div>
+											</div>
+											<div class="small text-muted mt-1">
+												Done: {{ stat.done }} · In progress: {{ stat.in_progress }} · Completion: {{ stat.completion_percent }}%
+											</div>
+										</div>
+									</div>
+								{% endfor %}
+							</div>
+						{% else %}
+							<p class="text-muted mb-0">Add members and tasks to view workload balance.</p>
+						{% endif %}
+					</div>
+				</div>
+
+				<div class="card dashboard-card mb-4">
+					<div class="card-header">Milestones Timeline</div>
+					<div class="card-body">
+						<form method="POST" action="{{ url_for('group_workspace') }}" class="row g-2 mb-3">
+							<input type="hidden" name="action" value="add_milestone">
+							<input type="hidden" name="project_id" value="{{ selected_project.id }}">
+							<div class="col-md-4">
+								<input type="text" class="form-control" name="milestone_title" placeholder="Milestone title" required>
+							</div>
+							<div class="col-md-3">
+								<input type="date" class="form-control" name="milestone_target_date" required>
+							</div>
+							<div class="col-md-4">
+								<input type="text" class="form-control" name="milestone_notes" placeholder="Optional note">
+							</div>
+							<div class="col-md-1 d-grid">
+								<button type="submit" class="btn btn-outline-success">Add</button>
+							</div>
+						</form>
+						{% if milestones %}
+							<div class="list-group list-group-flush">
+								{% for milestone in milestones %}
+									<div class="list-group-item px-0">
+										<div class="d-flex justify-content-between align-items-start gap-2">
+											<div>
+												<div class="fw-semibold">{{ milestone.title }}</div>
+												<div class="small text-muted">Target: {{ milestone.target_date }}</div>
+												{% if milestone.notes %}
+													<div class="small text-muted">{{ milestone.notes }}</div>
+												{% endif %}
+											</div>
+											<form method="POST" action="{{ url_for('group_workspace') }}">
+												<input type="hidden" name="action" value="toggle_milestone">
+												<input type="hidden" name="project_id" value="{{ selected_project.id }}">
+												<input type="hidden" name="milestone_id" value="{{ milestone.id }}">
+												<button type="submit" class="btn btn-sm {% if milestone.is_completed %}btn-success{% else %}btn-outline-secondary{% endif %}">
+													{% if milestone.is_completed %}Completed{% else %}Mark Done{% endif %}
+												</button>
+											</form>
+										</div>
+									</div>
+								{% endfor %}
+							</div>
+						{% else %}
+							<p class="text-muted mb-0">No milestones yet.</p>
+						{% endif %}
+					</div>
+				</div>
+
+				<div class="card dashboard-card mb-4">
+					<div class="card-header">Project Brief & Files</div>
+					<div class="card-body">
+						<form method="POST" action="{{ url_for('group_workspace') }}" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 align-items-center mb-3">
+							<input type="hidden" name="action" value="upload_project_file">
+							<input type="hidden" name="project_id" value="{{ selected_project.id }}">
+							<input type="file" name="project_file" class="form-control" style="max-width: 320px;" required>
+							<button type="submit" class="btn btn-outline-dark">Upload Project File</button>
+						</form>
+						{% if project_files %}
+							<div class="table-responsive">
+								<table class="table table-sm align-middle mb-0">
+									<thead>
+										<tr>
+											<th>File</th>
+											<th>Size</th>
+											<th>Uploaded</th>
+											<th>Actions</th>
+										</tr>
+									</thead>
+									<tbody>
+										{% for file in project_files %}
+											<tr>
+												<td>{{ file.filename }}</td>
+												<td class="small text-muted">{{ (file.file_size_bytes / 1024)|round(1) if file.file_size_bytes else '-' }} KB</td>
+												<td class="small text-muted">{{ file.uploaded_at | irish_datetime if file.uploaded_at else '-' }}</td>
+												<td>
+													<a href="{{ url_for('group_workspace_download_project_file', file_id=file.id) }}" class="btn btn-sm btn-outline-secondary">Download</a>
+													<form method="POST" action="{{ url_for('group_workspace') }}" class="d-inline" onsubmit="return confirm('Delete this project file?');">
+														<input type="hidden" name="action" value="delete_project_file">
+														<input type="hidden" name="project_id" value="{{ selected_project.id }}">
+														<input type="hidden" name="file_id" value="{{ file.id }}">
+														<button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+													</form>
+												</td>
+											</tr>
+										{% endfor %}
+									</tbody>
+								</table>
+							</div>
+						{% else %}
+							<p class="text-muted mb-0">No project files uploaded yet.</p>
+						{% endif %}
+					</div>
+				</div>
+
+				<div class="card dashboard-card mb-4">
+					<div class="card-header">Team Messaging Thread</div>
+					<div class="card-body">
+						<form method="POST" action="{{ url_for('group_workspace') }}" class="mb-3">
+							<input type="hidden" name="action" value="post_message">
+							<input type="hidden" name="project_id" value="{{ selected_project.id }}">
+							<div class="input-group">
+								<textarea class="form-control" name="message_text" rows="2" placeholder="Post an update for your team..." required></textarea>
+								<button type="submit" class="btn btn-outline-primary">Post</button>
+							</div>
+						</form>
+						{% if project_messages %}
+							<div class="dashboard-scroll" style="max-height: 260px;">
+								<div class="list-group list-group-flush">
+									{% for msg in project_messages %}
+										<div class="list-group-item px-0 py-2">
+											<div class="d-flex justify-content-between align-items-start">
+												<strong class="small">{{ msg.sender_name }}</strong>
+												<small class="text-muted">{{ msg.created_at | irish_datetime if msg.created_at else '' }}</small>
+											</div>
+											<div class="small mt-1" style="white-space: pre-wrap;">{{ msg.message }}</div>
+										</div>
+									{% endfor %}
+								</div>
+							</div>
+						{% else %}
+							<p class="text-muted mb-0">No team messages yet.</p>
+						{% endif %}
+					</div>
+				</div>
+
+				<div class="card dashboard-card">
+					<div class="card-header">Project Tasks</div>
+					<div class="card-body p-0">
+						{% if tasks %}
+							<div class="table-responsive">
+								<table class="table table-hover align-middle mb-0">
+									<thead>
+										<tr>
+											<th style="min-width: 220px;">Task</th>
+											<th>Owner</th>
+											<th>Status</th>
+											<th>Progress</th>
+											<th>Due</th>
+											<th>Actions</th>
+										</tr>
+									</thead>
+									<tbody>
+										{% for task in tasks %}
+											<tr>
+												<td>
+													<div class="fw-semibold">{{ task.title }}</div>
+													<div class="small text-muted">{{ task.description or "No description" }}</div>
+													{% if task.ai_generated %}
+														<span class="badge text-bg-info mt-1">AI</span>
+													{% endif %}
+													{% if task.priority == "high" %}
+														<span class="badge text-bg-danger mt-1">High</span>
+													{% elif task.priority == "medium" %}
+														<span class="badge text-bg-warning mt-1">Medium</span>
+													{% else %}
+														<span class="badge text-bg-secondary mt-1">Low</span>
+													{% endif %}
+												</td>
+												<td>
+													<select class="form-select form-select-sm" name="assigned_member_id" form="update-task-{{ task.id }}">
+														<option value="">Unassigned</option>
+														{% for member in members %}
+															<option value="{{ member.id }}" {% if task.assigned_member_id == member.id %}selected{% endif %}>
+																{{ member.member_name }}
+															</option>
+														{% endfor %}
+													</select>
+												</td>
+												<td>
+													<select class="form-select form-select-sm" name="status" form="update-task-{{ task.id }}">
+														<option value="todo" {% if task.status == "todo" %}selected{% endif %}>To do</option>
+														<option value="in_progress" {% if task.status == "in_progress" %}selected{% endif %}>In progress</option>
+														<option value="review" {% if task.status == "review" %}selected{% endif %}>Review</option>
+														<option value="done" {% if task.status == "done" %}selected{% endif %}>Done</option>
+													</select>
+												</td>
+												<td style="min-width: 120px;">
+													<input type="number" class="form-control form-control-sm" min="0" max="100" name="progress_percent" value="{{ task.progress_percent or 0 }}" form="update-task-{{ task.id }}">
+												</td>
+												<td style="min-width: 130px;">
+													<input type="date" class="form-control form-control-sm" name="due_date" value="{{ task.due_date if task.due_date else '' }}" form="update-task-{{ task.id }}">
+												</td>
+												<td>
+													<div class="d-flex gap-1 flex-wrap">
+														<form method="POST" action="{{ url_for('group_workspace') }}" id="update-task-{{ task.id }}" class="d-inline">
+															<input type="hidden" name="action" value="update_task">
+															<input type="hidden" name="project_id" value="{{ selected_project.id }}">
+															<input type="hidden" name="task_id" value="{{ task.id }}">
+															<button type="submit" class="btn btn-sm btn-outline-primary">Save</button>
+														</form>
+													<form method="POST" action="{{ url_for('group_workspace') }}" class="d-inline">
+														<input type="hidden" name="action" value="email_task">
+														<input type="hidden" name="project_id" value="{{ selected_project.id }}">
+														<input type="hidden" name="task_id" value="{{ task.id }}">
+														<button type="submit" class="btn btn-sm btn-outline-secondary">Email</button>
+													</form>
+													<form method="POST" action="{{ url_for('group_workspace') }}" class="d-inline" onsubmit="return confirm('Delete this task?');">
+														<input type="hidden" name="action" value="delete_task">
+														<input type="hidden" name="project_id" value="{{ selected_project.id }}">
+														<input type="hidden" name="task_id" value="{{ task.id }}">
+														<button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+													</form>
+													</div>
+												</td>
+											</tr>
+											<tr class="bg-light">
+												<td colspan="6" class="pt-2 pb-2">
+													<div class="d-flex flex-wrap align-items-center gap-2">
+														<form method="POST" action="{{ url_for('group_workspace') }}" enctype="multipart/form-data" class="d-flex flex-wrap align-items-center gap-2">
+															<input type="hidden" name="action" value="upload_task_file">
+															<input type="hidden" name="project_id" value="{{ selected_project.id }}">
+															<input type="hidden" name="task_id" value="{{ task.id }}">
+															<input type="file" name="task_file" class="form-control form-control-sm" style="max-width: 260px;" required>
+															<button type="submit" class="btn btn-sm btn-outline-dark">Upload Attachment</button>
+														</form>
+														{% set files_for_task = task_files_map.get(task.id, []) %}
+														{% if files_for_task %}
+															<div class="small">
+																<strong>Files:</strong>
+																{% for file in files_for_task %}
+																	<a class="me-2" href="{{ url_for('group_workspace_download_file', file_id=file.id) }}">{{ file.filename }}</a>
+																	<form method="POST" action="{{ url_for('group_workspace') }}" class="d-inline me-2">
+																		<input type="hidden" name="action" value="delete_task_file">
+																		<input type="hidden" name="project_id" value="{{ selected_project.id }}">
+																		<input type="hidden" name="file_id" value="{{ file.id }}">
+																		<button type="submit" class="btn btn-sm btn-link text-danger p-0">remove</button>
+																	</form>
+																{% endfor %}
+															</div>
+														{% else %}
+															<div class="small text-muted">No attachments yet.</div>
+														{% endif %}
+													</div>
+												</td>
+											</tr>
+										{% endfor %}
+									</tbody>
+								</table>
+							</div>
+						{% else %}
+							<div class="p-3">
+								<p class="text-muted mb-0">No tasks yet. Add manually or generate with AI.</p>
+							</div>
+						{% endif %}
+					</div>
+				</div>
+			{% endif %}
+		</div>
+	</div>
+</div>
+{% endblock %}

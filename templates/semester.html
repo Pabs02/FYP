@@ -1,186 +1,705 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-	<h2>📅 Active Semester</h2>
-	<a href="/" class="btn btn-outline-secondary">← Back to Dashboard</a>
-</div>
+<style>
+    .semester-page {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+    
+    /* Header */
+    .semester-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    .semester-header h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+    
+    .semester-header .subtitle {
+        color: #6c757d;
+        font-size: 1rem;
+        max-width: 600px;
+        margin: 0 auto;
+        line-height: 1.6;
+    }
+    
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #6c757d;
+        text-decoration: none;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+        transition: color 0.2s;
+    }
+    
+    .back-link:hover {
+        color: #4361ee;
+    }
+    
+    /* Date filter card */
+    .filter-card {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: flex-end;
+    }
+    
+    .filter-group {
+        flex: 1;
+        min-width: 180px;
+    }
+    
+    .filter-group label {
+        display: block;
+        font-weight: 500;
+        color: #495057;
+        font-size: 0.85rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .filter-group input {
+        width: 100%;
+        border-radius: 10px;
+        border: 1px solid #e0e0e0;
+        padding: 0.65rem 1rem;
+        font-size: 0.95rem;
+        transition: all 0.2s;
+    }
+    
+    .filter-group input:focus {
+        border-color: #4361ee;
+        box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+        outline: none;
+    }
+    
+    .filter-actions {
+        display: flex;
+        gap: 0.75rem;
+    }
+    
+    .btn-apply {
+        background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);
+        border: none;
+        color: white;
+        padding: 0.65rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(67, 97, 238, 0.25);
+    }
+    
+    .btn-apply:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(67, 97, 238, 0.35);
+        color: white;
+    }
+    
+    .btn-save {
+        background: transparent;
+        border: 1px solid #e0e0e0;
+        color: #495057;
+        padding: 0.65rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    
+    .btn-save:hover {
+        background: #f8f9fa;
+        border-color: #d0d0d0;
+        color: #1a1a2e;
+    }
+    
+    /* Stats grid */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: #ffffff;
+        border-radius: 14px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        text-align: center;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+    
+    .stat-card.assignments {
+        border-top: 4px solid #4361ee;
+    }
+    
+    .stat-card.events {
+        border-top: 4px solid #10b981;
+    }
+    
+    .stat-card.reviews {
+        border-top: 4px solid #f59e0b;
+    }
+    
+    .stat-card.microtasks {
+        border-top: 4px solid #8b5cf6;
+    }
 
-<form class="row g-2 mb-4" method="GET">
-	<div class="col-md-4">
-		<label class="form-label">Start date</label>
-		<input type="date" class="form-control" name="start" value="{{ start_date }}">
-	</div>
-	<div class="col-md-4">
-		<label class="form-label">End date</label>
-		<input type="date" class="form-control" name="end" value="{{ end_date }}">
-	</div>
-	<div class="col-md-4 d-flex align-items-end gap-2">
-		<button class="btn btn-primary w-100" type="submit">Apply</button>
-		<button class="btn btn-outline-secondary w-100" type="submit" name="save" value="1">Save range</button>
-	</div>
-</form>
+    .stat-card.activity {
+        border-top: 4px solid #0ea5e9;
+    }
+    
+    .stat-icon {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        line-height: 1;
+    }
+    
+    .stat-label {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+    
+    .stat-sub {
+        font-size: 0.75rem;
+        color: #9ca3af;
+        margin-top: 0.5rem;
+    }
+    
+    /* Content cards */
+    .content-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .content-card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        overflow: hidden;
+    }
+    
+    .content-card.full-width {
+        grid-column: 1 / -1;
+    }
+    
+    .content-card-header {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #f0f0f0;
+        background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .content-card-header h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1a1a2e;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .content-card-header .count {
+        background: #f3f4f6;
+        color: #6c757d;
+        padding: 0.2rem 0.6rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .content-card-body {
+        padding: 0;
+        max-height: 320px;
+        overflow-y: auto;
+    }
+    
+    /* List items */
+    .list-item {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #f0f0f0;
+        transition: background 0.2s;
+    }
+    
+    .list-item:last-child {
+        border-bottom: none;
+    }
+    
+    .list-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .list-item.clickable {
+        cursor: pointer;
+        text-decoration: none;
+        color: inherit;
+        display: block;
+    }
+    
+    .list-item.clickable:hover {
+        background: linear-gradient(135deg, #f0f4ff 0%, #f8f9fa 100%);
+    }
+    
+    .list-item.clickable:hover .list-item-title {
+        color: #4361ee;
+    }
+    
+    .list-item .view-link {
+        font-size: 0.75rem;
+        color: #4361ee;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+    
+    .list-item:hover .view-link {
+        opacity: 1;
+    }
+    
+    .list-item-title {
+        font-weight: 600;
+        color: #1a1a2e;
+        margin-bottom: 0.25rem;
+        font-size: 0.95rem;
+    }
+    
+    .list-item-meta {
+        font-size: 0.8rem;
+        color: #6c757d;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+    }
+    
+    .list-item-meta .separator {
+        color: #d1d5db;
+    }
+    
+    .module-tag {
+        background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+        color: #4338ca;
+        padding: 0.15rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .list-item-content {
+        font-size: 0.85rem;
+        color: #4b5563;
+        margin-top: 0.5rem;
+        line-height: 1.5;
+        white-space: pre-wrap;
+    }
+    
+    /* Empty state */
+    .empty-state {
+        text-align: center;
+        padding: 2rem 1rem;
+        color: #9ca3af;
+    }
+    
+    .empty-state-icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        opacity: 0.5;
+    }
+    
+    .empty-state-text {
+        font-size: 0.9rem;
+    }
+    
+    /* Scrollbar */
+    .content-card-body::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .content-card-body::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+    
+    .content-card-body::-webkit-scrollbar-thumb {
+        background: #d1d5db;
+        border-radius: 3px;
+    }
+    
+    .content-card-body::-webkit-scrollbar-thumb:hover {
+        background: #9ca3af;
+    }
+    
+    /* Responsive */
+    @media (max-width: 992px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .content-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .semester-page {
+            padding: 1rem;
+        }
+        
+        .semester-header h1 {
+            font-size: 1.5rem;
+        }
+        
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+        
+        .stat-card {
+            padding: 1rem;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+        }
+        
+        .filter-row {
+            flex-direction: column;
+        }
+        
+        .filter-actions {
+            width: 100%;
+        }
+        
+        .filter-actions button {
+            flex: 1;
+        }
+    }
+</style>
 
-<div class="row g-3 mb-4">
-	<div class="col-md-3">
-		<div class="card">
-			<div class="card-body">
-				<div class="text-muted small">Assignments</div>
-				<div class="fs-4 fw-semibold">{{ total_tasks }}</div>
-				<div class="small text-muted">Completed: {{ status_counts.completed }}</div>
-			</div>
-		</div>
-	</div>
-	<div class="col-md-3">
-		<div class="card">
-			<div class="card-body">
-				<div class="text-muted small">Events</div>
-				<div class="fs-4 fw-semibold">{{ total_events }}</div>
-				<div class="small text-muted">In range</div>
-			</div>
-		</div>
-	</div>
-	<div class="col-md-3">
-		<div class="card">
-			<div class="card-body">
-				<div class="text-muted small">Reviews</div>
-				<div class="fs-4 fw-semibold">{{ total_reviews }}</div>
-				<div class="small text-muted">In range</div>
-			</div>
-		</div>
-	</div>
-	<div class="col-md-3">
-		<div class="card">
-			<div class="card-body">
-				<div class="text-muted small">Microtasks</div>
-				<div class="fs-4 fw-semibold">{{ total_subtasks }}</div>
-				<div class="small text-muted">Completed: {{ completed_subtasks }}</div>
-			</div>
-		</div>
-	</div>
-</div>
+<div class="semester-page">
+    <a href="/" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Back to Dashboard
+    </a>
+    
+    <div class="semester-header page-header-card">
+        <h1>
+            <span>📅</span>
+            Semester Overview
+        </h1>
+        <p class="subtitle">
+            View and filter all your academic activity within a specific date range.
+        </p>
+    </div>
+    
+    <!-- Date Filter -->
+    <form class="filter-card" method="GET">
+        <div class="filter-row">
+            <div class="filter-group">
+                <label>Start Date</label>
+                <input type="date" name="start" value="{{ start_date }}">
+            </div>
+            <div class="filter-group">
+                <label>End Date</label>
+                <input type="date" name="end" value="{{ end_date }}">
+            </div>
+            <div class="filter-actions">
+                <button class="btn-apply" type="submit">
+                    Apply Filter
+                </button>
+                <button class="btn-save" type="submit" name="save" value="1">
+                    Save Range
+                </button>
+            </div>
+        </div>
+    </form>
+    
+    <!-- Reference: ChatGPT (OpenAI) - Semester Activity Log Stats
+         Date: 2026-02-04
+         Prompt: "Add a new stats card to show total activity logs in the semester view."
+         ChatGPT provided the pattern for adding activity stats alongside existing cards. -->
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-card assignments">
+            <div class="stat-icon">📚</div>
+            <div class="stat-value">{{ total_tasks }}</div>
+            <div class="stat-label">Assignments</div>
+            <div class="stat-sub">{{ status_counts.completed }} completed</div>
+        </div>
+        <div class="stat-card events">
+            <div class="stat-icon">🗓️</div>
+            <div class="stat-value">{{ total_events }}</div>
+            <div class="stat-label">Events</div>
+            <div class="stat-sub">In date range</div>
+        </div>
+        <div class="stat-card reviews">
+            <div class="stat-icon">✨</div>
+            <div class="stat-value">{{ total_reviews }}</div>
+            <div class="stat-label">Reviews</div>
+            <div class="stat-sub">In date range</div>
+        </div>
+        <div class="stat-card microtasks">
+            <div class="stat-icon">🧩</div>
+            <div class="stat-value">{{ total_subtasks }}</div>
+            <div class="stat-label">Microtasks</div>
+            <div class="stat-sub">{{ completed_subtasks }} completed</div>
+        </div>
+        <div class="stat-card activity">
+            <div class="stat-icon">🕒</div>
+            <div class="stat-value">{{ total_activity }}</div>
+            <div class="stat-label">Activity Logs</div>
+            <div class="stat-sub">Actions in range</div>
+        </div>
+    </div>
+    
+    <!-- Assignments & Events -->
+    <div class="content-grid">
+        <div class="content-card">
+            <div class="content-card-header">
+                <h3>📚 Assignments</h3>
+                <span class="count">{{ tasks|length }}</span>
+            </div>
+            <div class="content-card-body">
+                {% if tasks %}
+                    {% for task in tasks %}
+                    <a href="{{ url_for('task_detail', task_id=task.id) }}" class="list-item clickable">
+                        <div class="list-item-title">
+                            {{ task.title }}
+                            <span class="view-link">View →</span>
+                        </div>
+                        <div class="list-item-meta">
+                            {% if task.module_code %}
+                            <span class="module-tag">{{ task.module_code }}</span>
+                            {% endif %}
+                            {% if task.due_at %}
+                            <span>📅 Due {{ task.due_at | irish_datetime }}</span>
+                            {% elif task.due_date %}
+                            <span>📅 Due {{ task.due_date | irish_date }}</span>
+                            {% endif %}
+                        </div>
+                    </a>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📚</div>
+                        <div class="empty-state-text">No assignments in this date range</div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="content-card">
+            <div class="content-card-header">
+                <h3>🗓️ Calendar Events</h3>
+                <span class="count">{{ events|length }}</span>
+            </div>
+            <div class="content-card-body">
+                {% if events %}
+                    {% for ev in events %}
+                    <div class="list-item">
+                        <div class="list-item-title">{{ ev.title }}</div>
+                        <div class="list-item-meta">
+                            {% if ev.module_code %}
+                            <span class="module-tag">{{ ev.module_code }}</span>
+                            {% endif %}
+                            {% if ev.time %}
+                            <span>🕐 {{ ev.time }}</span>
+                            {% endif %}
+                            {% if ev.first %}
+                            <span>{{ ev.first | irish_date }}</span>
+                            {% endif %}
+                            {% if ev.last %}
+                            <span class="separator">→</span>
+                            <span>{{ ev.last | irish_date }}</span>
+                            {% endif %}
+                            {% if ev.count %}
+                            <span>({{ ev.count }}x)</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🗓️</div>
+                        <div class="empty-state-text">No events in this date range</div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Reviews & Microtasks -->
+    <div class="content-grid">
+        <div class="content-card">
+            <div class="content-card-header">
+                <h3>✨ Assignment Reviews</h3>
+                <span class="count">{{ reviews|length }}</span>
+            </div>
+            <div class="content-card-body">
+                {% if reviews %}
+                    {% for review in reviews %}
+                    <a href="{{ url_for('assignment_review') }}#review-{{ review.id }}" class="list-item clickable">
+                        <div class="list-item-title">
+                            {% if review.filename %}📄 {{ review.filename }}{% else %}📝 Text Review{% endif %}
+                            <span class="view-link">View →</span>
+                        </div>
+                        <div class="list-item-meta">
+                            {% if review.module_code %}
+                            <span class="module-tag">{{ review.module_code }}</span>
+                            {% endif %}
+                            <span>{{ review.task_title or "Unlinked" }}</span>
+                            <span class="separator">·</span>
+                            <span>{{ review.reviewed_at | irish_datetime }}</span>
+                        </div>
+                    </a>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <div class="empty-state-icon">✨</div>
+                        <div class="empty-state-text">No reviews in this date range</div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="content-card">
+            <div class="content-card-header">
+                <h3>🧩 Microtasks</h3>
+                <span class="count">{{ subtasks|length }}</span>
+            </div>
+            <div class="content-card-body">
+                {% if subtasks %}
+                    {% for item in subtasks %}
+                    <a href="{{ url_for('subtasks_history') }}" class="list-item clickable">
+                        <div class="list-item-title">
+                            {{ item.title }}
+                            <span class="view-link">View →</span>
+                        </div>
+                        <div class="list-item-meta">
+                            {% if item.module_code %}
+                            <span class="module-tag">{{ item.module_code }}</span>
+                            {% endif %}
+                            <span>{{ item.task_title }}</span>
+                        </div>
+                    </a>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🧩</div>
+                        <div class="empty-state-text">No microtasks in this date range</div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Lecturer Messages -->
+    <div class="content-grid">
+        <div class="content-card full-width">
+            <div class="content-card-header">
+                <h3>📧 Lecturer Messages</h3>
+                <span class="count">{{ lecturer_messages|length }}</span>
+            </div>
+            <div class="content-card-body">
+                {% if lecturer_messages %}
+                    {% for item in lecturer_messages %}
+                    <div class="list-item">
+                        <div class="list-item-title">{{ item.subject }}</div>
+                        <div class="list-item-meta">
+                            <span>👤 To {{ item.lecturer_name or "Lecturer" }}</span>
+                            <span class="separator">·</span>
+                            <span>{{ item.sent_at | irish_datetime }}</span>
+                        </div>
+                        {% if item.message %}
+                        <div class="list-item-content">{{ item.message[:200] }}{% if item.message|length > 200 %}...{% endif %}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📧</div>
+                        <div class="empty-state-text">No lecturer messages in this date range</div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
 
-<div class="row g-4">
-	<div class="col-lg-6">
-		<div class="card">
-			<div class="card-header">Assignments</div>
-			<div class="card-body">
-				{% if tasks %}
-					<ul class="list-group list-group-flush">
-						{% for task in tasks %}
-							<li class="list-group-item">
-								<div class="fw-semibold">{{ task.title }}</div>
-								<small class="text-muted">
-									{{ task.module_code or "Module" }} ·
-									{% if task.due_at %}Due {{ task.due_at | irish_datetime }}{% elif task.due_date %}Due {{ task.due_date | irish_date }}{% endif %}
-								</small>
-							</li>
-						{% endfor %}
-					</ul>
-				{% else %}
-					<p class="text-muted mb-0">No assignments in this date range.</p>
-				{% endif %}
-			</div>
-		</div>
-	</div>
-	<div class="col-lg-6">
-		<div class="card">
-			<div class="card-header">Calendar Events</div>
-			<div class="card-body">
-				{% if events %}
-					<ul class="list-group list-group-flush">
-						{% for ev in events %}
-							<li class="list-group-item">
-								<div class="fw-semibold">{{ ev.title }}</div>
-								<small class="text-muted">
-									{% if ev.module_code %}{{ ev.module_code }} · {% endif %}
-									{% if ev.time %}{{ ev.time }}{% endif %}
-									{% if ev.first %} · {{ ev.first | irish_date }}{% endif %}
-									{% if ev.last %} → {{ ev.last | irish_date }}{% endif %}
-									{% if ev.count %} · {{ ev.count }} occurrences{% endif %}
-								</small>
-							</li>
-						{% endfor %}
-					</ul>
-				{% else %}
-					<p class="text-muted mb-0">No events in this date range.</p>
-				{% endif %}
-			</div>
-		</div>
-	</div>
-</div>
-
-<div class="row g-4 mt-1">
-	<div class="col-lg-6">
-		<div class="card">
-			<div class="card-header">Assignment Reviews</div>
-			<div class="card-body">
-				{% if reviews %}
-					<ul class="list-group list-group-flush">
-						{% for review in reviews %}
-							<li class="list-group-item">
-								<div class="fw-semibold">
-									{% if review.filename %}{{ review.filename }}{% else %}Text Review{% endif %}
-								</div>
-								<small class="text-muted">
-									{{ review.task_title or "Unlinked" }}{% if review.module_code %} ({{ review.module_code }}){% endif %}
-									· {{ review.reviewed_at | irish_datetime }}
-								</small>
-							</li>
-						{% endfor %}
-					</ul>
-				{% else %}
-					<p class="text-muted mb-0">No reviews in this date range.</p>
-				{% endif %}
-			</div>
-		</div>
-	</div>
-	<div class="col-lg-6">
-		<div class="card">
-			<div class="card-header">Microtasks</div>
-			<div class="card-body">
-				{% if subtasks %}
-					<ul class="list-group list-group-flush">
-						{% for item in subtasks %}
-							<li class="list-group-item">
-								<div class="fw-semibold">{{ item.title }}</div>
-								<small class="text-muted">
-									{{ item.task_title }}{% if item.module_code %} ({{ item.module_code }}){% endif %}
-								</small>
-							</li>
-						{% endfor %}
-					</ul>
-				{% else %}
-					<p class="text-muted mb-0">No microtasks in this date range.</p>
-				{% endif %}
-			</div>
-		</div>
-	</div>
-</div>
-
-<div class="row g-4 mt-1">
-	<div class="col-lg-12">
-		<div class="card">
-			<div class="card-header">Lecturer Messages</div>
-			<div class="card-body">
-				{% if lecturer_messages %}
-					<ul class="list-group list-group-flush">
-						{% for item in lecturer_messages %}
-							<li class="list-group-item">
-								<div class="fw-semibold">{{ item.subject }}</div>
-								<small class="text-muted">
-									To {{ item.lecturer_name or "Lecturer" }} · {{ item.sent_at | irish_datetime }}
-								</small>
-								{% if item.message %}
-									<div class="small text-muted mt-2" style="white-space: pre-wrap;">{{ item.message }}</div>
-								{% endif %}
-							</li>
-						{% endfor %}
-					</ul>
-				{% else %}
-					<p class="text-muted mb-0">No lecturer messages in this date range.</p>
-				{% endif %}
-			</div>
-		</div>
-	</div>
+    <!-- Reference: ChatGPT (OpenAI) - Semester Activity Log Section
+         Date: 2026-02-04
+         Prompt: "I need an activity log list in the semester view showing actions with
+         timestamps, status codes, and durations."
+         ChatGPT provided the list-item layout and metadata fields for display. -->
+    <!-- Activity Log -->
+    <div class="content-grid">
+        <div class="content-card full-width">
+            <div class="content-card-header">
+                <h3>🕒 Activity Log</h3>
+                <span class="count">{{ activity_logs|length }}</span>
+            </div>
+            <div class="content-card-body">
+                {% if activity_logs %}
+                    {% for item in activity_logs %}
+                    <div class="list-item">
+                        <div class="list-item-title">
+                            {{ item.title or (item.method ~ " " ~ item.path) }}
+                        </div>
+                        <div class="list-item-meta">
+                            <span>{{ item.created_at | irish_datetime }}</span>
+                            <span class="separator">·</span>
+                            <span>Status {{ item.status_code }}</span>
+                            {% if item.duration_ms %}
+                            <span class="separator">·</span>
+                            <span>{{ item.duration_ms }}ms</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🕒</div>
+                        <div class="empty-state-text">No activity logged in this date range</div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}

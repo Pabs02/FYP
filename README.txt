@@ -367,6 +367,290 @@ Reference:
     only those sources. Can you outline the flow and storage steps?"
   ChatGPT provided the upload + Q&A orchestration with citations stored in history.
 
+Lines 695-850: Active Semester View with Date Filtering and Event Grouping
+Reference:
+  - ChatGPT (OpenAI). Semester View with Event Grouping.
+    Date: 2026-02-03
+    Prompt: "I need a semester overview page that shows tasks, events, reviews, and 
+    microtasks within a configurable date range. Events should be grouped by title and 
+    time to show recurring lectures as a single entry with a count. The date range should 
+    be saveable in session. Can you help me build this view?"
+    ChatGPT provided the date filtering logic with session persistence, the SQL queries 
+    for fetching tasks/events/reviews within the date window, and the event grouping 
+    algorithm that consolidates recurring lectures by title + time into single entries 
+    with occurrence counts.
+
+Lines 1447-1610: IMAP Email Fetching for Lecturer Replies
+Reference:
+  - ChatGPT (OpenAI). IMAP Email Fetching with SSL.
+    Date: 2026-02-03
+    Prompt: "I need a function that connects to an IMAP email server, searches for emails 
+    from specific sender addresses (lecturers), parses the email content (subject, body, 
+    date), and stores them in a database. It should handle SSL connections, email header 
+    decoding, and avoid duplicate messages using message-id."
+    ChatGPT provided the IMAP connection pattern using imaplib, email parsing with the 
+    email module, header decoding with decode_header, and duplicate prevention using 
+    message-id as a unique constraint.
+  - Python Documentation. imaplib Module.
+    URL: https://docs.python.org/3/library/imaplib.html
+  - Python Documentation. email Module.
+    URL: https://docs.python.org/3/library/email.html
+
+Lines 2981-3055: Calendar Recurring Events Pattern Detection
+Reference:
+  - ChatGPT (OpenAI). Recurring Event Pattern Detection Algorithm.
+    Date: 2026-02-03
+    Prompt: "I have calendar events that repeat weekly (like lectures) but aren't always 
+    marked as recurring in the database. I need to automatically detect recurring patterns 
+    by grouping events with the same title, same day of week, and same time. Events that 
+    appear 2+ times with this pattern should be grouped and displayed as a single recurring 
+    entry with a count."
+    ChatGPT provided the pattern detection algorithm using a dictionary to group events 
+    by a composite key (title + day_of_week + time), then separating groups with 2+ 
+    occurrences as recurring vs single events.
+
+Lines 4186-4223: Reviews History Paginated View
+Reference:
+  - ChatGPT (OpenAI). Paginated History View Pattern.
+    Date: 2026-02-03
+    Prompt: "I need a paginated view for assignment review history. It should show reviews 
+    with their scores, feedback, linked task details, and support pagination with page 
+    numbers and offset calculations."
+    ChatGPT provided the pagination pattern with COUNT query for totals, LIMIT/OFFSET 
+    for paging, and the SQL query joining assignment_reviews with tasks and modules for 
+    display context.
+
+Lines 4226-4269: Subtasks History Paginated View
+Reference:
+  - ChatGPT (OpenAI). Paginated History View Pattern.
+    Date: 2026-02-03
+    Prompt: "I need a paginated view for AI-generated subtasks/microtasks. It should show 
+    subtasks with their parent task, completion status, estimated hours, and support 
+    pagination."
+    ChatGPT provided the pagination pattern with COUNT query, LIMIT/OFFSET for paging, 
+    and the SQL query joining subtasks with tasks and modules for display context.
+
+Lines 4272-4312: Lecturer Messages History Paginated View
+Reference:
+  - ChatGPT (OpenAI). Paginated Sent Messages View Pattern.
+    Date: 2026-02-03
+    Prompt: "I need a paginated view for messages sent to lecturers via the Quick Connect 
+    feature. It should show the message subject, lecturer name, sent timestamp, and email 
+    delivery status."
+    ChatGPT provided the pagination pattern with COUNT query, LIMIT/OFFSET for paging, 
+    and the SQL query joining lecturer_messages with lecturers for display context.
+
+Lines 4315-4368: Lecturer Replies Inbox View
+Reference:
+  - ChatGPT (OpenAI). Email Inbox View with Read/Unread Status.
+    Date: 2026-02-03
+    Prompt: "I need an inbox view for lecturer email replies. It should show unread count, 
+    display replies with sender info, subject, body preview, received date, and support 
+    marking as read and pagination."
+    ChatGPT provided the inbox view pattern with unread count query, pagination, and the 
+    SQL query for fetching replies with lecturer info.
+
+Lines 4456-4555: Contact Lecturer Quick Connect Route
+Reference:
+  - ChatGPT (OpenAI). Quick Connect Lecturer Email Flow.
+    Date: 2026-01-23
+    Prompt: "I need a simple flow that lets students pick a lecturer, enter a subject
+    and message, and send it via SMTP with validation. Can you outline the pattern?"
+    ChatGPT provided the validation and send flow. The route handles two actions:
+    "generate" to use AI to draft a professional email, and "send" to send the message
+    via SMTP. It validates lecturer exists, adds the student signature, records the 
+    message in the database with delivery status, and handles errors gracefully.
+
+Lines 4777-4799: Add Lecturer Contact Route
+Reference:
+  - ChatGPT (OpenAI). Simple Form Handler Pattern.
+    Date: 2026-01-23
+    Prompt: "I need a route to add lecturer contacts from a form. It should validate 
+    name and email are provided, normalize the module code to uppercase, and insert 
+    into the lecturers table."
+    ChatGPT provided the form validation and database insert pattern for adding 
+    lecturer contacts.
+
+Lines 49-118: Activity Logging Middleware
+Reference:
+  - ChatGPT (OpenAI). Activity Logging Middleware.
+    Date: 2026-02-04
+    Prompt: "I need to log all authenticated user actions with timestamps. It should
+    capture method, path, endpoint, status code, duration, IP, and user agent, and
+    store them in a database table. Can you provide a clean before_request/after_request
+    pattern in Flask?"
+    ChatGPT provided the before_request/after_request pattern to capture timing and
+    persist request metadata for authenticated users.
+
+Lines 808-870: Semester Activity Log Queries
+Reference:
+  - ChatGPT (OpenAI). Activity Log Query Pattern.
+    Date: 2026-02-04
+    Prompt: "I need to show activity logs in a semester view. Provide SQL to count
+    activity in a date range and fetch the latest entries for display."
+    ChatGPT provided the COUNT and SELECT queries with date-range filtering and
+    limit ordering for activity logs.
+
+Lines 120-179: Activity Log Title Mapping
+Reference:
+  - ChatGPT (OpenAI). Activity Log Title Mapping.
+    Date: 2026-02-04
+    Prompt: "I want activity logs to show friendly titles instead of raw paths.
+    Can you map endpoints/paths to readable labels and add action verbs by method?"
+    ChatGPT provided the mapping approach with method-based verbs.
+
+Analytics Visualisation Queries (Daily Density + Cumulative Progress)
+Reference:
+  - ChatGPT (OpenAI). Analytics Visualisation Queries.
+    Date: 2026-02-10
+    Prompt: "I need extra analytics queries for new Chart.js visuals:
+    daily task due counts (workload heatmap), cumulative completed tasks
+    over time (progress line), and per-module completion % for a radar chart."
+    ChatGPT provided the PostgreSQL queries for daily task density, cumulative
+    completions using window functions (SUM OVER), and the Chart.js radar,
+    bar, and line chart configurations for the analytics dashboard.
+
+Analytics Data Densification + Chart Date Safety Improvements
+Reference:
+  - ChatGPT (OpenAI). Dense Time-Series Chart Preparation.
+    Date: 2026-02-10
+    Prompt: "My workload chart only shows dates that have tasks. I want to
+    render a stable 30-day timeline including zero-value days so the chart
+    is easier to read. Can you show a Python pattern to densify SQL rows?"
+    ChatGPT provided the dictionary-lookup + fixed-range expansion approach
+    used to fill missing dates with zero counts before sending chart data.
+  - ChatGPT (OpenAI). Safe Local Date Parsing for Chart Labels.
+    Date: 2026-02-10
+    Prompt: "My Chart.js labels can shift by one day because JS Date parses
+    YYYY-MM-DD as UTC in some environments. Can you provide a helper that
+    parses ISO date-only strings in local time and formats them for charts?"
+    ChatGPT provided the local date parsing helper pattern used in
+    analytics.html to avoid timezone-shifted labels.
+
+Voice-to-Task Capture (US 19)
+Reference:
+  - ChatGPT (OpenAI). Voice Transcript Parsing for Task Forms.
+    Date: 2026-02-10
+    Prompt: "I need a Flask endpoint to parse spoken task text into structured
+    fields (title, module code, due date, due time, weight, status) for
+    auto-filling a form. Can you provide a robust parsing pattern with
+    fallback defaults?"
+    ChatGPT provided the Flask helper + endpoint structure used in main.py,
+    including regex/date parsing and module matching fallbacks.
+  - ChatGPT (OpenAI). Voice-to-Task Frontend Flow.
+    Date: 2026-02-10
+    Prompt: "I need browser-side voice capture (Web Speech API) that sends
+    transcript to a Flask endpoint and auto-fills task form fields. Can you
+    provide a simple, resilient JS flow with start/stop, parse request, and
+    user feedback?"
+    ChatGPT provided the Web Speech API + fetch/autofill interaction pattern
+    used in add_data.html.
+  - ChatGPT (OpenAI). Voice Command Intent Router + Action Handlers.
+    Date: 2026-02-11
+    Prompt: "I already have voice-to-task autofill. I now need one endpoint
+    that detects voice intents for (1) dashboard query ('what is due this week/
+    any overdue'), (2) recurring calendar event creation, and (3) microtask
+    generation from a spoken command. Can you provide a safe Flask pattern with
+    helper functions, regex parsing, DB inserts, and structured JSON responses?"
+    ChatGPT provided the intent-router + helper pattern used in main.py
+    (`/voice-command`) for dashboard querying, recurring event creation, and
+    microtask generation.
+  - ChatGPT (OpenAI). Voice Command API Response Contract.
+    Date: 2026-02-11
+    Prompt: "For multiple voice actions, I need a single Flask endpoint that
+    returns consistent JSON (`ok`, `intent`, `message`, `data`) and gracefully
+    handles unknown intents and validation errors. Can you provide a clean route
+    pattern?"
+    ChatGPT provided the response-contract + intent dispatch pattern now used in
+    `/voice-command`.
+
+Group Workspace (US 21)
+Reference:
+  - ChatGPT (OpenAI). Group Workspace Backend Flow.
+    Date: 2026-02-11
+    Prompt: "I need a group project workspace in Flask where students can create
+    projects, add members, assign tasks manually or with AI, track progress, and
+    email members their assigned items. Can you provide a robust route/action
+    pattern with ownership checks, safe parsing, and summary metrics?"
+    ChatGPT provided the backend helper + route architecture used in main.py for
+    `/group-workspace`, including task delegation, progress tracking, and email
+    actions.
+  - ChatGPT (OpenAI). Group Workspace SQL Schema.
+    Date: 2026-02-11
+    Prompt: "I need PostgreSQL tables for a group project workspace: projects
+    owned by a student, members per project, and delegated tasks with
+    status/progress for tracking. Can you draft a practical schema with indexes
+    and safe constraints?"
+    ChatGPT provided the schema pattern used in
+    `scripts/add_group_workspace_tables.sql`.
+  - ChatGPT (OpenAI). Invite Token Member Portal Pattern.
+    Date: 2026-02-11
+    Prompt: "I need invited group members to open a secure token link, accept
+    the invite, and update only tasks assigned to them without full account
+    login. Can you provide a safe Flask route flow?"
+    ChatGPT provided the invite-token validation and restricted task-update flow
+    used in `/group-workspace/invite/<invite_token>`.
+  - ChatGPT (OpenAI). Group Workspace Collaboration Extensions.
+    Date: 2026-02-11
+    Prompt: "Extend the group workspace with member invite resend emails,
+    project milestones, and per-task file attachments (upload/delete) while
+    keeping action handling in a single Flask route. Can you provide a clean
+    branching pattern?"
+    ChatGPT provided the extension branch pattern used in main.py for invite
+    resend, milestone actions, and task attachment actions.
+  - ChatGPT (OpenAI). Secure Project File Download Guard.
+    Date: 2026-02-11
+    Prompt: "I need a secure Flask download route for project-level files where
+    only the project owner can access downloads. Can you provide a safe
+    ownership check and send_file pattern?"
+    ChatGPT provided the owner-check + safe send_file pattern used in
+    `/group-workspace/project-files/<file_id>/download`.
+  - ChatGPT (OpenAI). Project Team Messaging Thread Flow.
+    Date: 2026-02-11
+    Prompt: "I need a project-level team thread in Flask where the project owner
+    can post updates/comments and render messages newest-last in the workspace.
+    Can you provide a simple insert + fetch pattern with validation?"
+    ChatGPT provided the insertion/ordering pattern used for
+    `group_project_messages` in `/group-workspace`.
+  - ChatGPT (OpenAI). Secure Owner-Only File Download Route.
+    Date: 2026-02-11
+    Prompt: "I need a Flask download endpoint for group-task attachments where
+    only the project owner can download files. Can you provide a secure pattern
+    with ownership checks and safe send_file handling?"
+    ChatGPT provided the ownership-check + send_file route pattern used in
+    `/group-workspace/files/<file_id>/download`.
+  - ChatGPT (OpenAI). Group Workspace Incremental Migration.
+    Date: 2026-02-11
+    Prompt: "I already created initial group workspace tables. I now need a safe
+    follow-up migration to add invite token support, milestones, and task
+    attachments without breaking existing data. Can you provide ALTER/CREATE
+    statements with IF NOT EXISTS patterns?"
+    ChatGPT provided the incremental migration approach used in
+    `scripts/add_group_workspace_extras.sql`.
+
+ICS Calendar Export Route
+Reference:
+  - ChatGPT (OpenAI). ICS Calendar Export with icalendar Library.
+    Date: 2026-02-10
+    Prompt: "I need a Flask route that generates an ICS feed from my tasks
+    (due dates) and calendar events tables so students can subscribe in
+    Google Calendar or Outlook. Can you show me how to build VEVENT entries
+    with the icalendar library and return the file as a download?"
+    ChatGPT provided the route pattern, VEVENT construction with DTSTART,
+    DTEND, SUMMARY, UID, DESCRIPTION fields, timezone handling, and the
+    Content-Type/Content-Disposition headers for ICS file download.
+  - icalendar Library Documentation.
+    URL: https://icalendar.readthedocs.io/
+  Used for generating standards-compliant ICS calendar files.
+
+Lines 871-950: Activity History Page (Pagination)
+Reference:
+  - ChatGPT (OpenAI). Activity History Pagination.
+    Date: 2026-02-04
+    Prompt: "I need a paginated activity log page. It should count total rows,
+    fetch a page of recent activity, and display friendly titles."
+    ChatGPT provided the pagination flow and query pattern.
+
 ================================================================================
 FILE: canvas_sync.py
 ================================================================================
@@ -629,6 +913,18 @@ Reference:
     steps without markdown. Can you craft a prompt for that?"
   ChatGPT provided the system/user prompts and output constraints.
 
+Lines 554-600: Draft Lecturer Email Function
+Reference:
+  - ChatGPT (OpenAI). Professional Lecturer Email Draft.
+    Date: 2026-01-23
+    Prompt: "I need a professional email draft to a lecturer based on a subject
+    and a short request from a student. It should be polite, concise, and sign off
+    with the student's name and ID. Can you craft the prompt?"
+    ChatGPT provided the drafting prompt and format for generating professional 
+    academic emails. The function takes the student name, ID, lecturer name, subject, 
+    and request text, then uses AI to generate a polished email draft that the student 
+    can review before sending.
+
 ================================================================================
 FILE: scripts/send_daily_summaries.py
 ================================================================================
@@ -657,6 +953,27 @@ Reference:
     URL: https://github.com/theskumar/python-dotenv
   Loads environment variables from .env file for configuration management.
 
+Lines 43-52: IMAP Configuration Dataclass
+Reference:
+  - ChatGPT (OpenAI). IMAP Configuration Pattern.
+    Date: 2026-02-03
+    Prompt: "I need a configuration pattern for IMAP email settings using a Python 
+    dataclass. It should store host, port, username, password, SSL flag, and folder 
+    settings for connecting to an email server to receive lecturer replies."
+    ChatGPT provided the ImapConfig dataclass with typed fields for IMAP connection 
+    settings.
+
+Lines 128-166: IMAP Configuration Loader Function
+Reference:
+  - ChatGPT (OpenAI). IMAP Configuration Loader.
+    Date: 2026-02-03
+    Prompt: "I need a function that loads IMAP settings from environment variables. 
+    It should read host, port, username, password, SSL flag, and folder from env vars, 
+    validate that required fields are present, and return None if not fully configured."
+    ChatGPT provided the get_imap_config() function that reads IMAP settings from 
+    environment variables with validation, default values for port (993) and SSL (true), 
+    and returns None if the configuration is incomplete.
+
 ================================================================================
 FILE: templates/calendar.html
 ================================================================================
@@ -675,6 +992,28 @@ Reference:
     URL: https://fullcalendar.io/docs/event-object
   Configuration based on FullCalendar docs, customized for assignment display.
   Includes time grid views, event formatting, and custom date formats.
+
+Print Timetable: Print-Friendly Calendar CSS
+Reference:
+  - ChatGPT (OpenAI). Print-Friendly Calendar CSS.
+    Date: 2026-02-10
+    Prompt: "I need @media print CSS rules to create a clean, printable
+    timetable from my FullCalendar.js calendar. Hide navigation, buttons,
+    modals, and non-essential UI, keep the calendar grid clean with high
+    contrast and a student info header."
+    ChatGPT provided the @media print rules, the print header pattern,
+    and the JavaScript logic for switching views and filtering events
+    before printing.
+
+Print Timetable: Print View JavaScript Logic
+Reference:
+  - ChatGPT (OpenAI). Print Timetable JavaScript Logic.
+    Date: 2026-02-10
+    Prompt: "I need JavaScript that switches the FullCalendar view to weekly
+    or monthly before printing, filters events by type (assignments, lectures,
+    manual), populates a print header, and restores the view after printing."
+    ChatGPT provided the selectPrintView, printTimetable functions, and
+    the event filtering by title prefix pattern.
 
 Lines 80-106: Ordinal Date Formatter
 Reference:
@@ -705,6 +1044,23 @@ Reference:
     URL: https://getbootstrap.com/docs/5.3/getting-started/javascript/
   Bootstrap JavaScript bundle for interactive components (dropdowns, modals,
   etc.).
+
+Lines 34-470 (CSS), 754-810 (JS): Dynamic Island Navigation Component
+Reference:
+  - ChatGPT (OpenAI). Dynamic Island Navigation Design.
+    Date: 2026-02-03
+    Prompt: "I want to create a floating pill-shaped navigation bar inspired by Apple's 
+    Dynamic Island. It should have glassmorphism styling, grouped navigation links, a 
+    'More' dropdown for additional pages, user profile section, and be fully responsive 
+    with a mobile hamburger menu. Can you help me design the CSS and JavaScript for this?"
+    ChatGPT provided the complete CSS styling with glassmorphism effects (backdrop-filter, 
+    rgba backgrounds), the grouped navigation structure, dropdown menu behavior, and 
+    mobile-responsive transforms. JavaScript handles toggle functions for the More menu 
+    and mobile navigation, plus click-outside-to-close behavior.
+  - CSS-Tricks. Glassmorphism CSS Guide.
+    URL: https://css-tricks.com/glassmorphism-css-generator/
+  The Dynamic Island navigation was designed for improved user experience with a modern, 
+  floating interface that adapts to different screen sizes.
 
 ================================================================================
 LIBRARY LICENSES
@@ -747,6 +1103,9 @@ All major libraries used are open source with permissive licenses:
 
 - Matplotlib: PSF-like License
   https://github.com/matplotlib/matplotlib/blob/main/LICENSE/LICENSE
+
+- icalendar: BSD License
+  https://github.com/collective/icalendar/blob/main/LICENSE.rst
 
 ================================================================================
 STANDARD LIBRARY USAGE
@@ -858,6 +1217,55 @@ Reference:
     Prompt: "I need fields to track reminder email sent time, status, and error.
     Can you add those columns to the reminders table?"
   ChatGPT provided the SQL for the reminder email tracking fields.
+
+FILE: scripts/add_lecturer_replies_table.sql
+Reference:
+  - ChatGPT (OpenAI). Lecturer Replies Table Schema.
+    Date: 2026-02-03
+    Prompt: "I need a PostgreSQL table to store incoming email replies from lecturers. 
+    It should track the student, optionally link to a lecturer record, store email 
+    fields (from_email, from_name, subject, body, received_at), have a read/unread 
+    flag, prevent duplicates using message-id, and optionally link to the original 
+    outgoing message. Can you provide the schema?"
+    ChatGPT provided the table schema with foreign keys to students, lecturers, and 
+    lecturer_messages tables, indexes for student_id and is_read status queries, and 
+    unique constraint on message_id for deduplication.
+  - PostgreSQL Documentation. CREATE TABLE Statement.
+    URL: https://www.postgresql.org/docs/current/sql-createtable.html
+
+FILE: scripts/add_lecturers_table.sql
+Reference:
+  - ChatGPT (OpenAI). Lecturers Directory Table.
+    Date: 2026-01-23
+    Prompt: "I need a lecturers table to store names, emails, and optional module codes
+    so students can contact lecturers from a dashboard form. Can you draft the schema
+    and indexes?"
+    ChatGPT provided the schema and indexing pattern for lecturer contacts, including 
+    email and module_code indexes for efficient lookups.
+  - PostgreSQL Documentation. CREATE TABLE Statement.
+    URL: https://www.postgresql.org/docs/current/sql-createtable.html
+
+FILE: scripts/add_lecturer_messages_table.sql
+Reference:
+  - ChatGPT (OpenAI). Lecturer Messages Table.
+    Date: 2026-01-23
+    Prompt: "I need a table to store messages sent to lecturers from a dashboard
+    contact form, with student and lecturer references, email status tracking, and 
+    timestamps. Can you draft the schema and indexes?"
+    ChatGPT provided the schema and indexing pattern for lecturer messages, including 
+    email_status and email_error fields for delivery tracking.
+  - PostgreSQL Documentation. CREATE TABLE Statement.
+    URL: https://www.postgresql.org/docs/current/sql-createtable.html
+
+FILE: scripts/add_activity_logs_table.sql
+Reference:
+  - ChatGPT (OpenAI). Activity Logs Table Schema.
+    Date: 2026-02-04
+    Prompt: "I need a table to store all user actions with timestamps. It should log
+    student_id, path, method, endpoint, status_code, duration, and metadata."
+    ChatGPT provided the schema and indexing pattern for activity logs.
+  - PostgreSQL Documentation. CREATE TABLE Statement.
+    URL: https://www.postgresql.org/docs/current/sql-createtable.html
 
 All database migration scripts were created with ChatGPT assistance to ensure proper 
 PostgreSQL syntax, indexing strategies, and constraint definitions.

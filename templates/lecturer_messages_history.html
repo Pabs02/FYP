@@ -1,48 +1,452 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-	<h2>📨 Lecturer Messages</h2>
-	<a href="/" class="btn btn-outline-secondary">← Back to Dashboard</a>
+<style>
+    .messages-page {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+    
+    /* Header */
+    .messages-header {
+        text-align: center;
+        margin-bottom: 2.5rem;
+    }
+    
+    .messages-header h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+    
+    .messages-header .subtitle {
+        color: #6c757d;
+        font-size: 1rem;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #6c757d;
+        text-decoration: none;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+        transition: color 0.2s;
+    }
+    
+    .back-link:hover {
+        color: #4361ee;
+    }
+    
+    /* Stats */
+    .stats-row {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        justify-content: center;
+    }
+    
+    .stat-pill {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 20px;
+        padding: 0.5rem 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    .stat-pill .count {
+        font-weight: 700;
+        color: #1a1a2e;
+    }
+    
+    .stat-pill .label {
+        color: #6c757d;
+    }
+    
+    .stat-pill.sent {
+        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+        border-color: #a7f3d0;
+    }
+    
+    .stat-pill.sent .count {
+        color: #059669;
+    }
+    
+    /* Card */
+    .messages-card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        overflow: hidden;
+    }
+    
+    .messages-card-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #f0f0f0;
+        background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .messages-card-header h2 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1a1a2e;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    /* Message item */
+    .message-item {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #f0f0f0;
+        transition: background 0.2s;
+    }
+    
+    .message-item:last-child {
+        border-bottom: none;
+    }
+    
+    .message-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .message-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 0.75rem;
+        gap: 1rem;
+    }
+    
+    .message-subject {
+        font-weight: 600;
+        color: #1a1a2e;
+        font-size: 1rem;
+        margin-bottom: 0.25rem;
+    }
+    
+    .message-meta {
+        font-size: 0.85rem;
+        color: #6c757d;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .message-meta .separator {
+        color: #d1d5db;
+    }
+    
+    .lecturer-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        color: #1e40af;
+        padding: 0.2rem 0.6rem;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    
+    .module-tag {
+        background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+        color: #4338ca;
+        padding: 0.15rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .status-badge {
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: capitalize;
+    }
+    
+    .status-badge.sent {
+        background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+        color: #166534;
+    }
+    
+    .status-badge.pending {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        color: #92400e;
+    }
+    
+    .status-badge.failed {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        color: #991b1b;
+    }
+    
+    .status-badge.unknown {
+        background: #f3f4f6;
+        color: #6b7280;
+    }
+    
+    .message-body {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border-radius: 10px;
+        padding: 1rem;
+        font-size: 0.9rem;
+        color: #374151;
+        line-height: 1.6;
+        white-space: pre-wrap;
+    }
+    
+    .message-error {
+        margin-top: 0.75rem;
+        padding: 0.5rem 0.75rem;
+        background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+        border-radius: 6px;
+        font-size: 0.8rem;
+        color: #991b1b;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    
+    /* Empty state */
+    .empty-state {
+        text-align: center;
+        padding: 4rem 1.5rem;
+        color: #6c757d;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.4;
+    }
+    
+    .empty-state-title {
+        font-weight: 600;
+        font-size: 1.25rem;
+        color: #1a1a2e;
+        margin-bottom: 0.5rem;
+    }
+    
+    .empty-state-text {
+        max-width: 400px;
+        margin: 0 auto 1.5rem;
+    }
+    
+    .btn-compose {
+        background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);
+        border: none;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
+    }
+    
+    .btn-compose:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
+        color: white;
+    }
+    
+    /* Pagination */
+    .pagination-wrapper {
+        padding: 1.25rem 1.5rem;
+        background: #f8f9fa;
+        border-top: 1px solid #f0f0f0;
+        display: flex;
+        justify-content: center;
+    }
+    
+    .pagination-custom {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .page-btn {
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+    
+    .page-btn.prev,
+    .page-btn.next {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        color: #374151;
+    }
+    
+    .page-btn.prev:hover:not(.disabled),
+    .page-btn.next:hover:not(.disabled) {
+        background: #f3f4f6;
+        border-color: #d1d5db;
+        color: #1f2937;
+    }
+    
+    .page-btn.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+    
+    .page-info {
+        padding: 0.5rem 1rem;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .messages-page {
+            padding: 1rem;
+        }
+        
+        .messages-header h1 {
+            font-size: 1.5rem;
+        }
+        
+        .stats-row {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .message-header {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .status-badge {
+            align-self: flex-start;
+        }
+    }
+</style>
+
+<div class="messages-page">
+    <a href="/" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Back to Dashboard
+    </a>
+    
+    <div class="messages-header page-header-card">
+        <h1>
+            <span>📨</span>
+            Sent Messages
+        </h1>
+        <p class="subtitle">
+            View all messages you've sent to your lecturers.
+        </p>
+    </div>
+    
+    {% if messages %}
+    {% set sent_count = messages | selectattr('email_status', 'equalto', 'sent') | list | length %}
+    <div class="stats-row">
+        <div class="stat-pill">
+            <span class="count">{{ messages|length }}</span>
+            <span class="label">Total Messages</span>
+        </div>
+        <div class="stat-pill sent">
+            <span class="count">{{ sent_count }}</span>
+            <span class="label">Delivered</span>
+        </div>
+    </div>
+    
+    <div class="messages-card">
+        <div class="messages-card-header">
+            <h2>📬 Message History</h2>
+            <span style="color: #6c757d; font-size: 0.85rem;">Page {{ page }} of {{ total_pages }}</span>
+        </div>
+        
+        {% for item in messages %}
+        <div class="message-item">
+            <div class="message-header">
+                <div>
+                    <div class="message-subject">{{ item.subject }}</div>
+                    <div class="message-meta">
+                        <span class="lecturer-badge">
+                            👤 {{ item.lecturer_name or 'Lecturer' }}
+                        </span>
+                        {% if item.module_code %}
+                        <span class="module-tag">{{ item.module_code }}</span>
+                        {% endif %}
+                        <span class="separator">·</span>
+                        <span>{{ item.sent_at | irish_datetime }}</span>
+                    </div>
+                </div>
+                <span class="status-badge {% if item.email_status == 'sent' %}sent{% elif item.email_status == 'failed' %}failed{% elif item.email_status == 'pending' %}pending{% else %}unknown{% endif %}">
+                    {% if item.email_status == 'sent' %}✓ Sent{% elif item.email_status == 'failed' %}✗ Failed{% elif item.email_status == 'pending' %}⏳ Pending{% else %}{{ item.email_status or 'Unknown' }}{% endif %}
+                </span>
+            </div>
+            {% if item.message %}
+            <div class="message-body">{{ item.message }}</div>
+            {% endif %}
+            {% if item.email_error %}
+            <div class="message-error">
+                ⚠️ {{ item.email_error }}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+        
+        {% if total_pages > 1 %}
+        <div class="pagination-wrapper">
+            <div class="pagination-custom">
+                <a href="?page={{ page - 1 }}" class="page-btn prev {% if page <= 1 %}disabled{% endif %}">
+                    ← Previous
+                </a>
+                <span class="page-info">Page {{ page }} of {{ total_pages }}</span>
+                <a href="?page={{ page + 1 }}" class="page-btn next {% if page >= total_pages %}disabled{% endif %}">
+                    Next →
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    {% else %}
+    <div class="messages-card">
+        <div class="empty-state">
+            <div class="empty-state-icon">📨</div>
+            <div class="empty-state-title">No messages sent yet</div>
+            <p class="empty-state-text">
+                Send your first message to a lecturer using the Lecturer Connect feature.
+            </p>
+            <a href="/lecturer-messages" class="btn-compose">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                    <polyline points="22,6 12,13 2,6"/>
+                </svg>
+                Compose Message
+            </a>
+        </div>
+    </div>
+    {% endif %}
 </div>
-
-{% if messages %}
-	{% for item in messages %}
-	<div class="border rounded p-3 mb-3">
-		<div class="d-flex justify-content-between align-items-start mb-2">
-			<div>
-				<h6 class="mb-1">{{ item.subject }}</h6>
-				<small class="text-muted">
-					To {{ item.lecturer_name or 'Lecturer' }}{% if item.module_code %} ({{ item.module_code }}){% endif %}
-					· {{ item.sent_at | irish_datetime }}
-				</small>
-			</div>
-			<span class="badge {% if item.email_status == 'sent' %}text-bg-success{% else %}text-bg-secondary{% endif %}">
-				{{ item.email_status or 'unknown' }}
-			</span>
-		</div>
-		{% if item.message %}
-			<div class="small text-muted" style="white-space: pre-wrap;">{{ item.message }}</div>
-		{% endif %}
-		{% if item.email_error %}
-			<div class="small text-danger mt-2">{{ item.email_error }}</div>
-		{% endif %}
-	</div>
-	{% endfor %}
-
-	<nav class="mt-3">
-		<ul class="pagination">
-			<li class="page-item {% if page <= 1 %}disabled{% endif %}">
-				<a class="page-link" href="?page={{ page - 1 }}">Previous</a>
-			</li>
-			<li class="page-item disabled">
-				<span class="page-link">Page {{ page }} of {{ total_pages }}</span>
-			</li>
-			<li class="page-item {% if page >= total_pages %}disabled{% endif %}">
-				<a class="page-link" href="?page={{ page + 1 }}">Next</a>
-			</li>
-		</ul>
-	</nav>
-{% else %}
-	<p class="text-muted">No lecturer messages yet.</p>
-{% endif %}
 {% endblock %}

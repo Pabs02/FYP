@@ -1,441 +1,591 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2 class="mb-4">Analytics Dashboard</h2>
+<style>
+	.analytics-page {
+		max-width: 1400px;
+		margin: 0 auto;
+	}
+	.analytics-header {
+		margin-bottom: 2rem;
+	}
+	.analytics-header h1 {
+		font-size: 1.75rem;
+		font-weight: 700;
+		color: #1e293b;
+		margin-bottom: 0.25rem;
+	}
+	.analytics-header p {
+		color: #64748b;
+		font-size: 0.95rem;
+	}
+	
+	/* Stat Cards */
+	.stat-grid {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 1rem;
+		margin-bottom: 1.5rem;
+	}
+	@media (max-width: 992px) {
+		.stat-grid { grid-template-columns: repeat(2, 1fr); }
+	}
+	@media (max-width: 576px) {
+		.stat-grid { grid-template-columns: 1fr; }
+	}
+	.stat-card {
+		background: #fff;
+		border: 1px solid #e2e8f0;
+		border-radius: 16px;
+		padding: 1.25rem 1.5rem;
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		transition: all 0.2s ease;
+	}
+	.stat-card:hover {
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+		transform: translateY(-2px);
+	}
+	.stat-icon {
+		width: 48px;
+		height: 48px;
+		border-radius: 12px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 1.25rem;
+		flex-shrink: 0;
+	}
+	.stat-icon.total { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); }
+	.stat-icon.completed { background: linear-gradient(135deg, #10b981 0%, #34d399 100%); }
+	.stat-icon.progress { background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%); }
+	.stat-icon.pending { background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%); }
+	.stat-content h3 {
+		font-size: 1.75rem;
+		font-weight: 700;
+		color: #1e293b;
+		margin: 0;
+		line-height: 1;
+	}
+	.stat-content p {
+		font-size: 0.8rem;
+		color: #64748b;
+		margin: 0.25rem 0 0 0;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		font-weight: 500;
+	}
+	
+	/* Analytics Cards */
+	.analytics-card {
+		background: #fff;
+		border: 1px solid #e2e8f0;
+		border-radius: 16px;
+		overflow: hidden;
+		height: 100%;
+	}
+	.analytics-card-header {
+		padding: 1rem 1.25rem;
+		border-bottom: 1px solid #e2e8f0;
+		background: #f8fafc;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+	.analytics-card-header h3 {
+		font-size: 0.95rem;
+		font-weight: 600;
+		color: #1e293b;
+		margin: 0;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.analytics-card-body {
+		padding: 1.25rem;
+	}
+	
+	/* Insights Banner */
+	.insights-banner {
+		background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+		border: 1px solid #fcd34d;
+		border-radius: 16px;
+		padding: 1.25rem;
+		margin-bottom: 1.5rem;
+	}
+	.insights-banner h4 {
+		font-size: 0.9rem;
+		font-weight: 600;
+		color: #92400e;
+		margin: 0 0 1rem 0;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.insight-cards {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+		gap: 1rem;
+	}
+	.insight-item {
+		background: rgba(255, 255, 255, 0.8);
+		border-radius: 12px;
+		padding: 1rem;
+	}
+	.insight-item h5 {
+		font-size: 0.85rem;
+		font-weight: 600;
+		margin: 0 0 0.5rem 0;
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+	.insight-item p {
+		font-size: 0.8rem;
+		color: #78350f;
+		margin: 0;
+	}
+	.insight-item ul {
+		font-size: 0.75rem;
+		color: #92400e;
+		margin: 0.5rem 0 0 0;
+		padding-left: 1rem;
+	}
+	
+	/* Grade Cards */
+	.grade-summary {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+		gap: 1rem;
+		margin-bottom: 1.5rem;
+	}
+	.grade-stat {
+		text-align: center;
+		padding: 1rem;
+		background: #f8fafc;
+		border-radius: 12px;
+		border: 1px solid #e2e8f0;
+	}
+	.grade-stat h4 {
+		font-size: 1.5rem;
+		font-weight: 700;
+		margin: 0;
+		line-height: 1.2;
+	}
+	.grade-stat p {
+		font-size: 0.7rem;
+		color: #64748b;
+		margin: 0.25rem 0 0 0;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+	.grade-stat.primary h4 { color: #6366f1; }
+	.grade-stat.success h4 { color: #10b981; }
+	.grade-stat.info h4 { color: #0ea5e9; }
+	
+	/* Clean Tables */
+	.clean-table {
+		width: 100%;
+		border-collapse: collapse;
+	}
+	.clean-table th {
+		font-size: 0.7rem;
+		font-weight: 600;
+		color: #64748b;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		padding: 0.75rem 1rem;
+		text-align: left;
+		border-bottom: 2px solid #e2e8f0;
+		background: #f8fafc;
+	}
+	.clean-table td {
+		font-size: 0.85rem;
+		padding: 0.875rem 1rem;
+		border-bottom: 1px solid #f1f5f9;
+		color: #334155;
+	}
+	.clean-table tr:last-child td {
+		border-bottom: none;
+	}
+	.clean-table tr:hover td {
+		background: #f8fafc;
+	}
+	
+	/* Progress Bars */
+	.progress-slim {
+		height: 8px;
+		background: #e2e8f0;
+		border-radius: 99px;
+		overflow: hidden;
+	}
+	.progress-slim-fill {
+		height: 100%;
+		background: linear-gradient(90deg, #6366f1, #8b5cf6);
+		border-radius: 99px;
+		transition: width 0.5s ease;
+	}
+	
+	/* Badges */
+	.grade-badge {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.25rem 0.6rem;
+		border-radius: 99px;
+		font-size: 0.75rem;
+		font-weight: 600;
+	}
+	.grade-badge.excellent { background: #dcfce7; color: #166534; }
+	.grade-badge.good { background: #dbeafe; color: #1e40af; }
+	.grade-badge.average { background: #fef3c7; color: #92400e; }
+	.grade-badge.low { background: #fee2e2; color: #991b1b; }
+	
+	/* Chart containers */
+	.chart-container {
+		position: relative;
+		height: 280px;
+	}
+	
+	/* Empty State */
+	.empty-state {
+		text-align: center;
+		padding: 2rem;
+		color: #94a3b8;
+	}
+	.empty-state svg {
+		width: 48px;
+		height: 48px;
+		margin-bottom: 1rem;
+		opacity: 0.5;
+	}
+	.empty-state p {
+		font-size: 0.9rem;
+		margin: 0;
+	}
+	
+	/* Priority Score */
+	.priority-score {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 42px;
+		padding: 0.3rem 0.5rem;
+		background: linear-gradient(135deg, #ef4444, #f97316);
+		color: white;
+		font-size: 0.75rem;
+		font-weight: 700;
+		border-radius: 8px;
+	}
+	
+	/* Weight Stats Grid */
+	.weight-stats {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 0.75rem;
+	}
+	.weight-stat-item {
+		text-align: center;
+		padding: 1rem;
+		background: #f8fafc;
+		border-radius: 12px;
+		border: 1px solid #e2e8f0;
+	}
+	.weight-stat-item h4 {
+		font-size: 1.25rem;
+		font-weight: 700;
+		color: #6366f1;
+		margin: 0;
+	}
+	.weight-stat-item p {
+		font-size: 0.7rem;
+		color: #64748b;
+		margin: 0.25rem 0 0 0;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+</style>
 
-<!-- Summary Cards -->
-<div class="row g-4 mb-4">
-	<div class="col-md-3">
-		<div class="card text-center">
-			<div class="card-body">
-				<h5 class="card-title">{{ analytics.total_tasks }}</h5>
-				<p class="card-text">Total Tasks</p>
+<div class="analytics-page">
+	<!-- Header -->
+<div class="analytics-header page-header-card">
+		<h1>📊 Analytics Dashboard</h1>
+		<p>Track your academic progress, grades, and task completion across all modules.</p>
+	</div>
+	
+	<!-- Summary Stats -->
+	<div class="stat-grid">
+		<div class="stat-card">
+			<div class="stat-icon total">📋</div>
+			<div class="stat-content">
+				<h3>{{ analytics.total_tasks }}</h3>
+				<p>Total Tasks</p>
+			</div>
+		</div>
+		<div class="stat-card">
+			<div class="stat-icon completed">✓</div>
+			<div class="stat-content">
+				<h3>{{ analytics.completed_tasks }}</h3>
+				<p>Completed</p>
+			</div>
+		</div>
+		<div class="stat-card">
+			<div class="stat-icon progress">⏳</div>
+			<div class="stat-content">
+				<h3>{{ analytics.in_progress_tasks }}</h3>
+				<p>In Progress</p>
+			</div>
+		</div>
+		<div class="stat-card">
+			<div class="stat-icon pending">📌</div>
+			<div class="stat-content">
+				<h3>{{ analytics.pending_tasks }}</h3>
+				<p>Pending</p>
 			</div>
 		</div>
 	</div>
-	<div class="col-md-3">
-		<div class="card text-center">
-			<div class="card-body">
-				<h5 class="card-title text-success">{{ analytics.completed_tasks }}</h5>
-				<p class="card-text">Completed</p>
+	
+	<!-- Actionable Insights -->
+	{% if analytics.focus_module or analytics.at_risk_assignments or analytics.overdue_by_module %}
+	<div class="insights-banner">
+		<h4>💡 Actionable Insights</h4>
+		<div class="insight-cards">
+			{% if analytics.focus_module %}
+			<div class="insight-item">
+				<h5>🎯 Focus Module</h5>
+				<p><strong>{{ analytics.focus_module.module_code }}</strong> has {{ analytics.focus_module.completion_rate }}% completion. Consider prioritizing tasks here.</p>
 			</div>
+			{% endif %}
+			{% if analytics.at_risk_assignments %}
+			<div class="insight-item">
+				<h5 style="color: #dc2626;">⚠️ At-Risk</h5>
+				<p><strong>{{ analytics.at_risk_assignments|length }}</strong> high-weight assignments due within 7 days</p>
+				<ul>
+					{% for task in analytics.at_risk_assignments[:2] %}
+					<li>{{ task.module_code }}: {{ task.title }}</li>
+					{% endfor %}
+				</ul>
+			</div>
+			{% endif %}
+			{% if analytics.overdue_by_module %}
+			<div class="insight-item">
+				<h5 style="color: #dc2626;">📅 Overdue</h5>
+				<p><strong>{{ analytics.overdue_by_module|sum(attribute='overdue_count') }}</strong> tasks overdue across modules</p>
+			</div>
+			{% endif %}
 		</div>
 	</div>
-	<div class="col-md-3">
-		<div class="card text-center">
-			<div class="card-body">
-				<h5 class="card-title text-warning">{{ analytics.in_progress_tasks }}</h5>
-				<p class="card-text">In Progress</p>
-			</div>
-		</div>
-	</div>
-	<div class="col-md-3">
-		<div class="card text-center">
-			<div class="card-body">
-				<h5 class="card-title text-info">{{ analytics.pending_tasks }}</h5>
-				<p class="card-text">Pending</p>
-			</div>
-		</div>
-	</div>
-</div>
-
-<!-- 7. Actionable Insights Section -->
-{% if analytics.focus_module or analytics.at_risk_assignments or analytics.overdue_by_module %}
-<div class="row g-4 mb-4">
-	<div class="col-md-12">
-		<div class="card border-warning">
-			<div class="card-header bg-warning bg-opacity-10">
-				<h5 class="mb-0">💡 Actionable Insights</h5>
-			</div>
-			<div class="card-body">
-				<div class="row">
-					{% if analytics.focus_module %}
-					<div class="col-md-4 mb-3">
-						<div class="p-3 border rounded bg-light">
-							<h6 class="text-primary">🎯 Focus Module</h6>
-							<p class="mb-1"><strong>{{ analytics.focus_module.module_code }}</strong></p>
-							<p class="mb-0 text-muted small">Completion Rate: {{ analytics.focus_module.completion_rate }}%</p>
-							<p class="text-muted small mb-0">Consider prioritizing tasks in this module.</p>
-						</div>
+	{% endif %}
+	
+	<!-- Charts Row -->
+	<div class="row g-4 mb-4">
+		<div class="col-lg-6">
+			<div class="analytics-card">
+				<div class="analytics-card-header">
+					<h3>📈 Weekly Completions</h3>
+				</div>
+				<div class="analytics-card-body">
+					{% if analytics.weekly_data %}
+					<div class="chart-container">
+						<canvas id="weeklyChart"></canvas>
 					</div>
-					{% endif %}
-					
-					{% if analytics.at_risk_assignments %}
-					<div class="col-md-4 mb-3">
-						<div class="p-3 border rounded bg-light">
-							<h6 class="text-danger">⚠️ At-Risk Assignments</h6>
-							<p class="mb-1"><strong>{{ analytics.at_risk_assignments|length }} high-weight assignments</strong> due within 7 days</p>
-							<ul class="mb-0 small text-muted">
-								{% for task in analytics.at_risk_assignments[:3] %}
-								<li>{{ task.module_code }}: {{ task.title }} ({{ "%.0f"|format(task.days_remaining) }} days, {{ task.weight_percentage }}%)</li>
-								{% endfor %}
-							</ul>
-						</div>
-					</div>
-					{% endif %}
-					
-					{% if analytics.overdue_by_module %}
-					<div class="col-md-4 mb-3">
-						<div class="p-3 border rounded bg-light">
-							<h6 class="text-danger">📅 Overdue Tasks</h6>
-							<p class="mb-1"><strong>{{ analytics.overdue_by_module|sum(attribute='overdue_count') }} overdue</strong> across modules</p>
-							<ul class="mb-0 small text-muted">
-								{% for module in analytics.overdue_by_module[:3] %}
-								<li>{{ module.module_code }}: {{ module.overdue_count }} overdue</li>
-								{% endfor %}
-							</ul>
-						</div>
+					{% else %}
+					<div class="empty-state">
+						<p>No completion data yet. Start completing tasks to see trends.</p>
 					</div>
 					{% endif %}
 				</div>
 			</div>
 		</div>
-	</div>
-</div>
-{% endif %}
-
-<!-- Charts Row -->
-<div class="row g-4">
-	<div class="col-md-6">
-		<div class="card">
-			<div class="card-header">
-				<h5 class="mb-0">Weekly Task Completions</h5>
-			</div>
-			<div class="card-body">
-				{% if analytics.weekly_data %}
-					<!-- 4. Visual Improvement: Better chart visualization -->
-					<canvas id="weeklyChart" style="max-height: 300px;"></canvas>
-					<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-					<script>
-						const weeklyCtx = document.getElementById('weeklyChart');
-						if (weeklyCtx) {
-							const weeklyData = {{ analytics.weekly_data | tojson }};
-							new Chart(weeklyCtx, {
-								type: 'line',
-								data: {
-									labels: weeklyData.map(w => {
-										const date = new Date(w.week);
-										return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-									}),
-									datasets: [{
-										label: 'Tasks Completed',
-										data: weeklyData.map(w => w.completions),
-										borderColor: 'rgb(13, 110, 253)',
-										backgroundColor: 'rgba(13, 110, 253, 0.1)',
-										tension: 0.4,
-										fill: true
-									}]
-								},
-								options: {
-									responsive: true,
-									maintainAspectRatio: true,
-									plugins: {
-										legend: { display: false }
-									},
-									scales: {
-										y: {
-											beginAtZero: true,
-											ticks: { stepSize: 1 }
-										}
-									}
-								}
-							});
-						}
-					</script>
-				{% else %}
-					<p class="text-muted">No completion data available</p>
-				{% endif %}
-			</div>
-		</div>
-	</div>
-	
-	<div class="col-md-6">
-		<div class="card">
-			<div class="card-header">
-				<h5 class="mb-0">On-time vs Late Completion</h5>
-			</div>
-			<div class="card-body">
-				{% if analytics.completion_stats %}
-					<!-- 4. Visual Improvement: Pie chart instead of progress bar -->
-					<canvas id="completionChart" style="max-height: 250px;"></canvas>
-					<script>
-						const completionCtx = document.getElementById('completionChart');
-						if (completionCtx) {
-							new Chart(completionCtx, {
-								type: 'doughnut',
-								data: {
-									labels: ['On Time', 'Late'],
-									datasets: [{
-										data: [
-											{{ analytics.completion_stats.on_time }},
-											{{ analytics.completion_stats.late }}
-										],
-										backgroundColor: ['rgb(22, 163, 74)', 'rgb(220, 38, 38)']
-									}]
-								},
-								options: {
-									responsive: true,
-									maintainAspectRatio: true,
-									plugins: {
-										legend: { position: 'bottom' },
-										tooltip: {
-											callbacks: {
-												label: function(context) {
-													const total = {{ analytics.completion_stats.total_completed }};
-													const value = context.parsed;
-													const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-													return context.label + ': ' + value + ' (' + percentage + '%)';
-												}
-											}
-										}
-									}
-								}
-							});
-						}
-					</script>
+		<div class="col-lg-6">
+			<div class="analytics-card">
+				<div class="analytics-card-header">
+					<h3>⏱️ On-time vs Late</h3>
+				</div>
+				<div class="analytics-card-body">
+					{% if analytics.completion_stats and analytics.completion_stats.total_completed > 0 %}
+					<div class="chart-container" style="height: 220px;">
+						<canvas id="completionChart"></canvas>
+					</div>
 					<div class="text-center mt-3">
-						<h5>{{ analytics.completion_stats.total_completed }}</h5>
-						<p class="text-muted mb-0">Total Completed Tasks</p>
+						<span class="grade-badge excellent">{{ analytics.completion_stats.total_completed }} Completed</span>
 					</div>
-				{% else %}
-					<p class="text-muted">No completion data available</p>
-				{% endif %}
-			</div>
-		</div>
-	</div>
-</div>
-
-<!-- 1. Grade Performance Analytics -->
-{% if analytics.grade_performance or analytics.overall_grade_stats %}
-<div class="row g-4 mt-4">
-	<div class="col-md-12">
-		<div class="card">
-			<div class="card-header">
-				<h5 class="mb-0">📊 Grade Performance</h5>
-			</div>
-			<div class="card-body">
-				{% if analytics.overall_grade_stats and analytics.overall_grade_stats.total_graded > 0 %}
-				<div class="row mb-4">
-					<div class="col-md-3 text-center">
-						<div class="p-3 border rounded">
-							<h4 class="text-primary">{{ "%.1f"|format(analytics.overall_grade_stats.overall_avg_percentage or 0) }}%</h4>
-							<p class="mb-0 text-muted small">Average Grade</p>
-						</div>
-					</div>
-					<div class="col-md-3 text-center">
-						<div class="p-3 border rounded">
-							<h4 class="text-success">{{ analytics.overall_grade_stats.total_graded }}</h4>
-							<p class="mb-0 text-muted small">Graded Assignments</p>
-						</div>
-					</div>
-					{% if analytics.predicted_grade_pct %}
-					<div class="col-md-3 text-center">
-						<div class="p-3 border rounded bg-info bg-opacity-10">
-							<h4 class="text-info">{{ analytics.predicted_grade_pct }}%</h4>
-							<p class="mb-0 text-muted small">Predicted Grade (Weighted)</p>
-						</div>
+					{% else %}
+					<div class="empty-state">
+						<p>Complete some tasks to see your on-time performance.</p>
 					</div>
 					{% endif %}
 				</div>
-				{% endif %}
-				
-				{% if analytics.grade_performance %}
-				<div class="table-responsive">
-					<table class="table table-striped">
-						<thead>
-							<tr>
-								<th>Module</th>
-								<th>Graded Assignments</th>
-								<th>Average Score</th>
-								<th>Average Percentage</th>
-							</tr>
-						</thead>
-						<tbody>
-							{% for module in analytics.grade_performance %}
-							<tr>
-								<td><strong>{{ module.module_code }}</strong></td>
-								<td>{{ module.graded_count }}</td>
-								<td>{{ "%.1f"|format(module.avg_score or 0) }} / {{ "%.1f"|format(module.avg_possible or 0) }}</td>
-								<td>
-									<span class="badge {% if module.avg_percentage is not none and module.avg_percentage >= 70 %}bg-success{% elif module.avg_percentage is not none and module.avg_percentage >= 50 %}bg-warning{% else %}bg-secondary{% endif %}">
-										{{ "%.1f"|format(module.avg_percentage or 0) }}%
-									</span>
-								</td>
-							</tr>
-							{% endfor %}
-						</tbody>
-					</table>
-				</div>
-				{% else %}
-				<p class="text-muted">No grade data available. Sync Canvas assignments to see grades.</p>
-				{% endif %}
-				
-				<!-- Individual Assignment Scores -->
-				{% if analytics.individual_grades %}
-				<hr class="my-4">
-				<h6 class="mb-3">📝 Individual Assignment Scores</h6>
-				<div class="table-responsive">
-					<table class="table table-sm table-hover">
-						<thead>
-							<tr>
-								<th>Assignment</th>
-								<th>Module</th>
-								<th>Score</th>
-								<th>Percentage</th>
-								<th>Weight</th>
-								<th>Graded Date</th>
-							</tr>
-						</thead>
-						<tbody>
-							{% for grade in analytics.individual_grades %}
-							<tr>
-								<td>
-									<small><strong>{{ grade.title }}</strong></small>
-								</td>
-								<td>
-									<small>{{ grade.module_code or 'N/A' }}</small>
-								</td>
-								<td>
-									<small>{{ "%.1f"|format(grade.canvas_score or 0) }} / {{ "%.1f"|format(grade.canvas_possible or 0) }}</small>
-								</td>
-								<td>
-									{% if grade.percentage is not none %}
-									<span class="badge {% if grade.percentage >= 70 %}bg-success{% elif grade.percentage >= 50 %}bg-warning{% else %}bg-danger{% endif %}">
-										{{ "%.1f"|format(grade.percentage) }}%
-									</span>
-									{% else %}
-									<span class="text-muted">-</span>
-									{% endif %}
-								</td>
-								<td>
-									{% if grade.weight_percentage %}
-									<small><span class="badge bg-secondary">{{ "%.0f"|format(grade.weight_percentage) }}%</span></small>
-									{% else %}
-									<small class="text-muted">-</small>
-									{% endif %}
-								</td>
-								<td>
-									<small class="text-muted">
-										{% if grade.canvas_graded_at %}
-										{{ grade.canvas_graded_at.strftime('%d/%m/%Y') }}
-										{% else %}
-										-
-										{% endif %}
-									</small>
-								</td>
-							</tr>
-							{% endfor %}
-						</tbody>
-					</table>
-				</div>
-				{% endif %}
-			</div>
-		</div>
-	</div>
-</div>
-{% endif %}
-
-<!-- 3. Priority & Weighting Analytics -->
-{% if analytics.high_priority_tasks or analytics.weight_stats %}
-<div class="row g-4 mt-4">
-	<div class="col-md-6">
-		<div class="card">
-			<div class="card-header">
-				<h5 class="mb-0">🔥 High Priority Tasks</h5>
-			</div>
-			<div class="card-body">
-				{% if analytics.high_priority_tasks %}
-				<div class="table-responsive">
-					<table class="table table-sm">
-						<thead>
-							<tr>
-								<th>Task</th>
-								<th>Weight</th>
-								<th>Priority</th>
-							</tr>
-						</thead>
-						<tbody>
-							{% for task in analytics.high_priority_tasks[:5] %}
-							<tr>
-								<td>
-									<small><strong>{{ task.module_code }}</strong></small><br>
-									<small>{{ task.title }}</small>
-								</td>
-								<td>
-									{% if task.weight_percentage %}
-									<span class="badge bg-warning">{{ task.weight_percentage }}%</span>
-									{% else %}
-									<span class="text-muted">-</span>
-									{% endif %}
-								</td>
-								<td>
-									<span class="badge bg-danger">{{ "%.1f"|format(task.priority or 0) }}</span>
-								</td>
-							</tr>
-							{% endfor %}
-						</tbody>
-					</table>
-				</div>
-				{% else %}
-				<p class="text-muted">No high priority tasks found</p>
-				{% endif %}
 			</div>
 		</div>
 	</div>
 	
-	<div class="col-md-6">
-		<div class="card">
-			<div class="card-header">
-				<h5 class="mb-0">⚖️ Assignment Weighting</h5>
-			</div>
-			<div class="card-body">
-				{% if analytics.weight_stats and analytics.weight_stats.total_with_weight > 0 %}
-				<div class="row text-center">
-					<div class="col-4">
-						<div class="p-3 border rounded">
-							<h5>{{ analytics.weight_stats.total_with_weight }}</h5>
-							<p class="mb-0 text-muted small">With Weight</p>
-						</div>
-					</div>
-					<div class="col-4">
-						<div class="p-3 border rounded">
-							<h5>{{ "%.1f"|format(analytics.weight_stats.avg_weight or 0) }}%</h5>
-							<p class="mb-0 text-muted small">Avg Weight</p>
-						</div>
-					</div>
-					<div class="col-4">
-						<div class="p-3 border rounded">
-							<h5>{{ "%.1f"|format(analytics.weight_stats.max_weight or 0) }}%</h5>
-							<p class="mb-0 text-muted small">Max Weight</p>
-						</div>
-					</div>
+	<!-- NEW: Module Radar + Cumulative Progress -->
+	<!-- Reference: ChatGPT (OpenAI) - Chart.js Radar and Cumulative Line Charts
+	     Date: 2026-02-10
+	     Prompt: "I need a radar chart showing per-module completion % and a
+	     cumulative progress line chart using Chart.js. Can you provide the
+	     dataset and config for both?"
+	     ChatGPT provided the radar/line chart configurations below. -->
+	<div class="row g-4 mb-4">
+		<div class="col-lg-6">
+			<div class="analytics-card">
+				<div class="analytics-card-header">
+					<h3>🕸️ Module Completion Radar</h3>
 				</div>
-				{% else %}
-				<p class="text-muted">No weighting data available. Add weight percentages to assignments.</p>
-				{% endif %}
+				<div class="analytics-card-body">
+					{% if analytics.module_stats and analytics.module_stats|length > 1 %}
+					<div class="chart-container">
+						<canvas id="radarChart"></canvas>
+					</div>
+					{% else %}
+					<div class="empty-state"><p>Need data from 2+ modules to display.</p></div>
+					{% endif %}
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-6">
+			<div class="analytics-card">
+				<div class="analytics-card-header">
+					<h3>📈 Cumulative Progress</h3>
+				</div>
+				<div class="analytics-card-body">
+					{% if analytics.cumulative_completions %}
+					<div class="chart-container">
+						<canvas id="cumulativeChart"></canvas>
+					</div>
+					{% else %}
+					<div class="empty-state"><p>Complete tasks to see cumulative progress.</p></div>
+					{% endif %}
+				</div>
 			</div>
 		</div>
 	</div>
-</div>
-{% endif %}
 
-<!-- Additional Analytics -->
-<div class="row g-4 mt-4">
-	<div class="col-md-12">
-		<div class="card">
-			<div class="card-header">
-				<h5 class="mb-0">Module Performance</h5>
+	<!-- NEW: Grade Distribution + Workload Heatmap -->
+	<div class="row g-4 mb-4">
+		<div class="col-lg-6">
+			<div class="analytics-card">
+				<div class="analytics-card-header">
+					<h3>📊 Grade Distribution</h3>
+				</div>
+				<div class="analytics-card-body">
+					{% if analytics.individual_grades %}
+					<div class="chart-container">
+						<canvas id="gradeDistChart"></canvas>
+					</div>
+					{% else %}
+					<div class="empty-state"><p>No graded tasks yet.</p></div>
+					{% endif %}
+				</div>
 			</div>
-			<div class="card-body">
-				{% if analytics.module_stats %}
+		</div>
+		<div class="col-lg-6">
+			<div class="analytics-card">
+				<div class="analytics-card-header">
+					<h3>🗓️ Upcoming Workload</h3>
+					<span style="font-size: 0.75rem; color: #64748b;">Next 30 days</span>
+				</div>
+				<div class="analytics-card-body">
+					{% if analytics.daily_task_density %}
+					<div class="chart-container" style="height: 220px;">
+						<canvas id="workloadChart"></canvas>
+					</div>
+					{% else %}
+					<div class="empty-state"><p>No upcoming deadlines in the next 30 days.</p></div>
+					{% endif %}
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Grade Performance -->
+	<div class="row g-4 mb-4">
+		<div class="col-12">
+			<div class="analytics-card">
+				<div class="analytics-card-header">
+					<h3>🎓 Grade Performance</h3>
+					{% if analytics.overall_grade_stats and analytics.overall_grade_stats.total_graded > 0 %}
+					<span class="grade-badge good">{{ analytics.overall_grade_stats.total_graded }} Graded</span>
+					{% endif %}
+				</div>
+				<div class="analytics-card-body">
+					{% if analytics.overall_grade_stats and analytics.overall_grade_stats.total_graded > 0 %}
+					<div class="grade-summary">
+						<div class="grade-stat primary">
+							<h4>{{ "%.1f"|format(analytics.overall_grade_stats.overall_avg_percentage or 0) }}%</h4>
+							<p>Average Grade</p>
+						</div>
+						<div class="grade-stat success">
+							<h4>{{ analytics.overall_grade_stats.total_graded }}</h4>
+							<p>Graded Tasks</p>
+						</div>
+						{% if analytics.predicted_grade_pct %}
+						<div class="grade-stat info">
+							<h4>{{ analytics.predicted_grade_pct }}%</h4>
+							<p>Predicted (Weighted)</p>
+						</div>
+						{% endif %}
+					</div>
+					{% endif %}
+					
+					{% if analytics.grade_performance %}
 					<div class="table-responsive">
-						<table class="table table-striped">
+						<table class="clean-table">
 							<thead>
 								<tr>
 									<th>Module</th>
-									<th>Total Tasks</th>
-									<th>Completed</th>
-									<th>Completion Rate</th>
-									<th>Progress</th>
+									<th>Graded</th>
+									<th>Avg Score</th>
+									<th>Avg %</th>
+								</tr>
+							</thead>
+							<tbody>
+								{% for module in analytics.grade_performance %}
+								<tr>
+									<td><strong>{{ module.module_code }}</strong></td>
+									<td>{{ module.graded_count }}</td>
+									<td>{{ "%.1f"|format(module.avg_score or 0) }} / {{ "%.1f"|format(module.avg_possible or 0) }}</td>
+									<td>
+										{% if module.avg_percentage is not none and module.avg_percentage >= 70 %}
+										<span class="grade-badge excellent">{{ "%.1f"|format(module.avg_percentage) }}%</span>
+										{% elif module.avg_percentage is not none and module.avg_percentage >= 50 %}
+										<span class="grade-badge average">{{ "%.1f"|format(module.avg_percentage) }}%</span>
+										{% else %}
+										<span class="grade-badge low">{{ "%.1f"|format(module.avg_percentage or 0) }}%</span>
+										{% endif %}
+									</td>
+								</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+					{% else %}
+					<div class="empty-state">
+						<p>No grade data available yet. Sync Canvas to import your grades.</p>
+					</div>
+					{% endif %}
+				</div>
+			</div>
+		</div>
+	</div>
+	
+	<!-- Module Performance & Priority -->
+	<div class="row g-4 mb-4">
+		<div class="col-lg-7">
+			<div class="analytics-card">
+				<div class="analytics-card-header">
+					<h3>📚 Module Progress</h3>
+				</div>
+				<div class="analytics-card-body">
+					{% if analytics.module_stats %}
+					<div class="table-responsive">
+						<table class="clean-table">
+							<thead>
+								<tr>
+									<th>Module</th>
+									<th>Tasks</th>
+									<th>Done</th>
+									<th style="width: 40%;">Progress</th>
 								</tr>
 							</thead>
 							<tbody>
@@ -444,14 +594,12 @@
 									<td><strong>{{ module.module_code }}</strong></td>
 									<td>{{ module.total_tasks }}</td>
 									<td>{{ module.completed }}</td>
-									<td>{{ module.completion_rate }}%</td>
 									<td>
-										<div class="progress" style="height: 20px;">
-											<div class="progress-bar" role="progressbar" 
-												 style="width: {{ module.completion_rate }}%"
-												 aria-valuenow="{{ module.completion_rate }}" aria-valuemin="0" aria-valuemax="100">
-												{{ module.completion_rate }}%
+										<div class="d-flex align-items-center gap-2">
+											<div class="progress-slim flex-grow-1">
+												<div class="progress-slim-fill" style="width: {{ module.completion_rate }}%"></div>
 											</div>
+											<span class="text-muted" style="font-size: 0.75rem; min-width: 35px;">{{ module.completion_rate }}%</span>
 										</div>
 									</td>
 								</tr>
@@ -459,12 +607,429 @@
 							</tbody>
 						</table>
 					</div>
-				{% else %}
-					<p class="text-muted">No module data available</p>
-				{% endif %}
+					{% else %}
+					<div class="empty-state">
+						<p>No module data available</p>
+					</div>
+					{% endif %}
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-5">
+			<div class="analytics-card">
+				<div class="analytics-card-header">
+					<h3>🔥 High Priority</h3>
+				</div>
+				<div class="analytics-card-body">
+					{% if analytics.high_priority_tasks %}
+					<div class="table-responsive">
+						<table class="clean-table">
+							<thead>
+								<tr>
+									<th>Task</th>
+									<th>Weight</th>
+									<th>Priority</th>
+								</tr>
+							</thead>
+							<tbody>
+								{% for task in analytics.high_priority_tasks[:5] %}
+								<tr>
+									<td>
+										<div><strong style="font-size: 0.8rem;">{{ task.module_code }}</strong></div>
+										<div style="font-size: 0.8rem; color: #64748b;">{{ task.title[:30] }}{% if task.title|length > 30 %}...{% endif %}</div>
+									</td>
+									<td>
+										{% if task.weight_percentage %}
+										<span class="grade-badge average">{{ task.weight_percentage }}%</span>
+										{% else %}
+										<span class="text-muted">—</span>
+										{% endif %}
+									</td>
+									<td>
+										<span class="priority-score">{{ "%.1f"|format(task.priority or 0) }}</span>
+									</td>
+								</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+					{% else %}
+					<div class="empty-state">
+						<p>No high priority tasks</p>
+					</div>
+					{% endif %}
+				</div>
 			</div>
 		</div>
 	</div>
+	
+	<!-- Assignment Weighting Stats -->
+	{% if analytics.weight_stats and analytics.weight_stats.total_with_weight > 0 %}
+	<div class="row g-4 mb-4">
+		<div class="col-12">
+			<div class="analytics-card">
+				<div class="analytics-card-header">
+					<h3>⚖️ Assignment Weighting</h3>
+				</div>
+				<div class="analytics-card-body">
+					<div class="weight-stats">
+						<div class="weight-stat-item">
+							<h4>{{ analytics.weight_stats.total_with_weight }}</h4>
+							<p>With Weight</p>
+						</div>
+						<div class="weight-stat-item">
+							<h4>{{ "%.1f"|format(analytics.weight_stats.avg_weight or 0) }}%</h4>
+							<p>Avg Weight</p>
+						</div>
+						<div class="weight-stat-item">
+							<h4>{{ "%.1f"|format(analytics.weight_stats.max_weight or 0) }}%</h4>
+							<p>Max Weight</p>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	{% endif %}
+	
+	<!-- Individual Grades (if available) -->
+	{% if analytics.individual_grades %}
+	<div class="row g-4">
+		<div class="col-12">
+			<div class="analytics-card">
+				<div class="analytics-card-header">
+					<h3>📝 Individual Scores</h3>
+					<span style="font-size: 0.75rem; color: #64748b;">{{ analytics.individual_grades|length }} assignments</span>
+				</div>
+				<div class="analytics-card-body">
+					<div class="table-responsive">
+						<table class="clean-table">
+							<thead>
+								<tr>
+									<th>Assignment</th>
+									<th>Module</th>
+									<th>Score</th>
+									<th>Grade</th>
+									<th>Weight</th>
+								</tr>
+							</thead>
+							<tbody>
+								{% for grade in analytics.individual_grades %}
+								<tr>
+									<td><strong>{{ grade.title[:40] }}{% if grade.title|length > 40 %}...{% endif %}</strong></td>
+									<td>{{ grade.module_code or '—' }}</td>
+									<td>{{ "%.1f"|format(grade.canvas_score or 0) }} / {{ "%.1f"|format(grade.canvas_possible or 0) }}</td>
+									<td>
+										{% if grade.percentage is not none %}
+											{% if grade.percentage >= 70 %}
+											<span class="grade-badge excellent">{{ "%.0f"|format(grade.percentage) }}%</span>
+											{% elif grade.percentage >= 50 %}
+											<span class="grade-badge average">{{ "%.0f"|format(grade.percentage) }}%</span>
+											{% else %}
+											<span class="grade-badge low">{{ "%.0f"|format(grade.percentage) }}%</span>
+											{% endif %}
+										{% else %}
+										<span class="text-muted">—</span>
+										{% endif %}
+									</td>
+									<td>
+										{% if grade.weight_percentage %}
+										<span style="font-size: 0.8rem;">{{ "%.0f"|format(grade.weight_percentage) }}%</span>
+										{% else %}
+										<span class="text-muted">—</span>
+										{% endif %}
+									</td>
+								</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	{% endif %}
 </div>
 
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+	// Reference: ChatGPT (OpenAI) - Safe Local Date Parsing for Chart Labels
+	// Date: 2026-02-10
+	// Prompt: "My Chart.js labels can shift by one day because JS Date parses
+	// YYYY-MM-DD as UTC in some environments. Can you provide a helper that
+	// parses ISO date-only strings in local time and formats them for charts?"
+	// ChatGPT provided the local date parsing helper pattern below.
+	const _parseLocalDate = (value) => {
+		if (!value) return null;
+		if (typeof value !== 'string') return new Date(value);
+		const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+		if (dateOnlyMatch) {
+			const year = Number(dateOnlyMatch[1]);
+			const month = Number(dateOnlyMatch[2]) - 1;
+			const day = Number(dateOnlyMatch[3]);
+			return new Date(year, month, day);
+		}
+		return new Date(value);
+	};
+	const _formatShortDate = (value) => {
+		const date = _parseLocalDate(value);
+		if (!date || Number.isNaN(date.getTime())) return '';
+		return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+	};
+	const _formatWeekdayShortDate = (value) => {
+		const date = _parseLocalDate(value);
+		if (!date || Number.isNaN(date.getTime())) return '';
+		return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+	};
+
+	const baseGridColor = 'rgba(15, 23, 42, 0.06)';
+	const chartAnimation = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? false : { duration: 650 };
+
+	// Weekly Chart
+	{% if analytics.weekly_data %}
+	const weeklyCtx = document.getElementById('weeklyChart');
+	if (weeklyCtx) {
+		const weeklyData = {{ analytics.weekly_data | tojson }};
+		new Chart(weeklyCtx, {
+			type: 'line',
+			data: {
+				labels: weeklyData.map(w => _formatShortDate(w.week)),
+				datasets: [{
+					label: 'Completed',
+					data: weeklyData.map(w => w.completions),
+					borderColor: '#6366f1',
+					backgroundColor: 'rgba(99, 102, 241, 0.1)',
+					tension: 0.4,
+					fill: true,
+					pointBackgroundColor: '#6366f1',
+					pointRadius: 4,
+					pointHoverRadius: 6
+				}]
+			},
+			options: {
+				animation: chartAnimation,
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: {
+					legend: { display: false }
+				},
+				scales: {
+					y: {
+						beginAtZero: true,
+						ticks: { stepSize: 1 },
+						grid: { color: baseGridColor }
+					},
+					x: {
+						grid: { display: false }
+					}
+				}
+			}
+		});
+	}
+	{% endif %}
+	
+	// Completion Chart
+	{% if analytics.completion_stats and analytics.completion_stats.total_completed > 0 %}
+	const completionCtx = document.getElementById('completionChart');
+	if (completionCtx) {
+		new Chart(completionCtx, {
+			type: 'doughnut',
+			data: {
+				labels: ['On Time', 'Late'],
+				datasets: [{
+					data: [{{ analytics.completion_stats.on_time }}, {{ analytics.completion_stats.late }}],
+					backgroundColor: ['#10b981', '#ef4444'],
+					borderWidth: 0
+				}]
+			},
+			options: {
+				animation: chartAnimation,
+				responsive: true,
+				maintainAspectRatio: false,
+				cutout: '70%',
+				plugins: {
+					legend: {
+						position: 'bottom',
+						labels: { padding: 14, usePointStyle: true, boxWidth: 8 }
+					}
+				}
+			}
+		});
+	}
+	{% endif %}
+
+	/* ── NEW CHARTS (Iteration 5 – US 18) ────────────────────────── */
+	// Reference: ChatGPT (OpenAI) - Chart.js Radar, Bar, and Line Chart Config
+	// Date: 2026-02-10
+	// Prompt: "I need Chart.js configs for: a radar chart of module completion %,
+	// a cumulative line chart, a grade distribution bar chart, and a workload
+	// bar chart showing task density per day. Can you give clean configs?"
+	// ChatGPT provided the chart configurations below.
+
+	// 1) Module Completion Radar
+	{% if analytics.module_stats and analytics.module_stats|length > 1 %}
+	const radarCtx = document.getElementById('radarChart');
+	if (radarCtx) {
+		const moduleData = {{ analytics.module_stats | tojson }};
+		new Chart(radarCtx, {
+			type: 'radar',
+			data: {
+				labels: moduleData.map(m => m.module_code),
+				datasets: [{
+					label: 'Completion %',
+					data: moduleData.map(m => m.completion_rate),
+					backgroundColor: 'rgba(99, 102, 241, 0.15)',
+					borderColor: '#6366f1',
+					pointBackgroundColor: '#6366f1',
+					pointRadius: 4,
+					borderWidth: 2
+				}]
+			},
+			options: {
+				animation: chartAnimation,
+				responsive: true,
+				maintainAspectRatio: false,
+				scales: {
+					r: {
+						beginAtZero: true,
+						max: 100,
+						ticks: { stepSize: 25, display: false },
+						grid: { color: 'rgba(0,0,0,0.06)' },
+						pointLabels: { font: { size: 11, weight: '600' } }
+					}
+				},
+				plugins: {
+					legend: { display: false },
+					tooltip: {
+						callbacks: {
+							label: (ctx) => ` ${ctx.formattedValue}% complete`
+						}
+					}
+				}
+			}
+		});
+	}
+	{% endif %}
+
+	// 2) Cumulative Progress
+	{% if analytics.cumulative_completions %}
+	const cumCtx = document.getElementById('cumulativeChart');
+	if (cumCtx) {
+		const cumData = {{ analytics.cumulative_completions | tojson }};
+		new Chart(cumCtx, {
+			type: 'line',
+			data: {
+				labels: cumData.map(c => {
+					return _formatShortDate(c.day);
+				}),
+				datasets: [{
+					label: 'Total Completed',
+					data: cumData.map(c => c.cumulative),
+					borderColor: '#10b981',
+					backgroundColor: 'rgba(16, 185, 129, 0.1)',
+					tension: 0.35,
+					fill: true,
+					pointBackgroundColor: '#10b981',
+					pointRadius: 3,
+					pointHoverRadius: 5,
+					borderWidth: 2
+				}]
+			},
+			options: {
+				animation: chartAnimation,
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: { legend: { display: false } },
+				scales: {
+					y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: baseGridColor } },
+					x: { grid: { display: false } }
+				}
+			}
+		});
+	}
+	{% endif %}
+
+	// 3) Grade Distribution Bar
+	{% if analytics.individual_grades %}
+	const gradeCtx = document.getElementById('gradeDistChart');
+	if (gradeCtx) {
+		const grades = {{ analytics.individual_grades | tojson }}.slice(0, 12);
+		const labels = grades.map(g => {
+			const t = g.title || '';
+			return t.length > 20 ? t.substring(0, 20) + '…' : t;
+		});
+		const pcts = grades.map(g => g.percentage != null ? g.percentage : 0);
+		const colors = pcts.map(p => p >= 70 ? '#10b981' : p >= 50 ? '#f59e0b' : '#ef4444');
+		new Chart(gradeCtx, {
+			type: 'bar',
+			data: {
+				labels: labels,
+				datasets: [{
+					label: 'Grade %',
+					data: pcts,
+					backgroundColor: colors,
+					borderRadius: 6,
+					maxBarThickness: 40
+				}]
+			},
+			options: {
+				animation: chartAnimation,
+				responsive: true,
+				maintainAspectRatio: false,
+				indexAxis: 'y',
+				plugins: { legend: { display: false } },
+				scales: {
+					x: { beginAtZero: true, max: 100, grid: { color: baseGridColor } },
+					y: { grid: { display: false }, ticks: { font: { size: 10 } } }
+				}
+			}
+		});
+	}
+	{% endif %}
+
+	// 4) Workload Density (upcoming 30 days)
+	{% if analytics.daily_task_density %}
+	const wlCtx = document.getElementById('workloadChart');
+	if (wlCtx) {
+		const wlData = {{ analytics.daily_task_density | tojson }};
+		new Chart(wlCtx, {
+			type: 'bar',
+			data: {
+				labels: wlData.map(d => {
+					return _formatWeekdayShortDate(d.day);
+				}),
+				datasets: [{
+					label: 'Tasks Due',
+					data: wlData.map(d => d.task_count),
+					backgroundColor: wlData.map(d =>
+						d.task_count >= 3 ? '#ef4444' : d.task_count >= 2 ? '#f59e0b' : '#6366f1'
+					),
+					borderRadius: 6,
+					maxBarThickness: 28
+				}]
+			},
+			options: {
+				animation: chartAnimation,
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: {
+					legend: { display: false },
+					tooltip: {
+						callbacks: {
+							label: (ctx) => ` ${ctx.raw} task${ctx.raw === 1 ? '' : 's'} due`
+						}
+					}
+				},
+				scales: {
+					y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: baseGridColor } },
+					x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 55, minRotation: 55 } }
+				}
+			}
+		});
+	}
+	{% endif %}
+});
+</script>
 {% endblock %}

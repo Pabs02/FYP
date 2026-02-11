@@ -1,224 +1,707 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-	<h2>AI Workspace</h2>
-	<a href="/tasks" class="btn btn-outline-secondary">← Back to Tasks</a>
+<style>
+    .ai-workspace {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+    
+    /* Header */
+    .workspace-header {
+        text-align: center;
+        margin-bottom: 2.5rem;
+    }
+    
+    .workspace-header h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+    
+    .workspace-header h1 .icon {
+        font-size: 1.75rem;
+    }
+    
+    .workspace-header .subtitle {
+        color: #6c757d;
+        font-size: 1rem;
+        max-width: 600px;
+        margin: 0 auto;
+        line-height: 1.6;
+    }
+    
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #6c757d;
+        text-decoration: none;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+        transition: color 0.2s;
+    }
+    
+    .back-link:hover {
+        color: #4361ee;
+    }
+    
+    /* Cards */
+    .workspace-card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+    
+    .workspace-card-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #f0f0f0;
+        background: linear-gradient(135deg, #fafbfc 0%, #ffffff 100%);
+    }
+    
+    .workspace-card-header h2 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1a1a2e;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .workspace-card-body {
+        padding: 1.5rem;
+    }
+    
+    /* Form styling */
+    .form-label {
+        font-weight: 500;
+        color: #495057;
+        font-size: 0.875rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-control, .form-select {
+        border-radius: 10px;
+        border: 1px solid #e0e0e0;
+        padding: 0.65rem 1rem;
+        font-size: 0.95rem;
+        transition: all 0.2s;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #4361ee;
+        box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+    }
+    
+    .form-control::placeholder {
+        color: #adb5bd;
+    }
+    
+    /* Drop zone */
+    .drop-zone {
+        border: 2px dashed #dee2e6;
+        border-radius: 12px;
+        padding: 2rem;
+        text-align: center;
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .drop-zone:hover {
+        border-color: #4361ee;
+        background: linear-gradient(135deg, #f0f4ff 0%, #ffffff 100%);
+    }
+    
+    .drop-zone.active {
+        border-color: #4361ee;
+        background: linear-gradient(135deg, #e8edff 0%, #f0f4ff 100%);
+        transform: scale(1.01);
+    }
+    
+    .drop-zone-icon {
+        font-size: 2.5rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .drop-zone-title {
+        font-weight: 600;
+        color: #1a1a2e;
+        margin-bottom: 0.25rem;
+    }
+    
+    .drop-zone-subtitle {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    
+    /* Generate button */
+    .btn-generate {
+        background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);
+        border: none;
+        color: white;
+        padding: 0.85rem 2rem;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 1rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
+    }
+    
+    .btn-generate:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
+        color: white;
+    }
+    
+    .btn-generate:active {
+        transform: translateY(0);
+    }
+    
+    /* Footer tip */
+    .form-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.25rem 1.5rem;
+        background: #f8f9fa;
+        border-top: 1px solid #f0f0f0;
+    }
+    
+    .tip-text {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #6c757d;
+        font-size: 0.85rem;
+    }
+    
+    /* Results section */
+    .results-card {
+        border-left: 4px solid #10b981;
+    }
+    
+    .results-card .workspace-card-header {
+        background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%);
+    }
+    
+    .subtask-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 1.25rem;
+        border-bottom: 1px solid #f0f0f0;
+        transition: background 0.2s;
+    }
+    
+    .subtask-item:last-child {
+        border-bottom: none;
+    }
+    
+    .subtask-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .subtask-number {
+        width: 28px;
+        height: 28px;
+        background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: 600;
+        flex-shrink: 0;
+        margin-right: 1rem;
+    }
+    
+    .subtask-content {
+        flex: 1;
+    }
+    
+    .subtask-title {
+        font-weight: 600;
+        color: #1a1a2e;
+        margin-bottom: 0.25rem;
+    }
+    
+    .subtask-description {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .subtask-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        font-size: 0.8rem;
+    }
+    
+    .subtask-meta-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        color: #6c757d;
+    }
+    
+    .subtask-badge {
+        background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+        color: #4361ee;
+        padding: 0.4rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    
+    /* Save button */
+    .btn-save {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        border: none;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+    }
+    
+    .btn-save:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        color: white;
+    }
+    
+    /* Advice section */
+    .advice-box {
+        background: linear-gradient(135deg, #fef3c7 0%, #fef9c3 100%);
+        border: 1px solid #fcd34d;
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+    
+    .advice-box .icon {
+        font-size: 1.25rem;
+    }
+    
+    .advice-box p {
+        margin: 0;
+        color: #92400e;
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+    
+    /* Preview sections */
+    .preview-section {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+    }
+    
+    .preview-section pre {
+        margin: 0;
+        font-size: 0.85rem;
+        white-space: pre-wrap;
+        color: #495057;
+    }
+    
+    /* Alert styles */
+    .alert-workspace {
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .alert-success-custom {
+        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+        border: 1px solid #a7f3d0;
+        color: #065f46;
+    }
+    
+    .alert-danger-custom {
+        background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+        border: 1px solid #fecaca;
+        color: #991b1b;
+    }
+    
+    /* Collapsible */
+    .collapsible-trigger {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #6c757d;
+        font-size: 0.85rem;
+        cursor: pointer;
+        padding: 0.5rem 0;
+        transition: color 0.2s;
+    }
+    
+    .collapsible-trigger:hover {
+        color: #4361ee;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .ai-workspace {
+            padding: 1rem;
+        }
+        
+        .workspace-header h1 {
+            font-size: 1.5rem;
+        }
+        
+        .form-footer {
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .subtask-item {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .subtask-badge {
+            align-self: flex-start;
+        }
+    }
+</style>
+
+<div class="ai-workspace">
+    <a href="/tasks" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Back to Tasks
+    </a>
+    
+    <div class="workspace-header page-header-card">
+        <h1>
+            <span class="icon">🤖</span>
+            AI Workspace
+        </h1>
+        <p class="subtitle">
+            Upload an assignment brief or paste the requirements to generate a structured micro-task plan powered by AI.
+        </p>
+    </div>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert-workspace {% if category == 'success' %}alert-success-custom{% else %}alert-danger-custom{% endif %}">
+                    {% if category == 'success' %}✅{% else %}⚠️{% endif %}
+                    <span>{{ message }}</span>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    {% if error %}
+    <div class="alert-workspace alert-danger-custom">
+        ⚠️ <span>{{ error }}</span>
+    </div>
+    {% elif breakdown %}
+    <div class="alert-workspace alert-success-custom">
+        ✅ <span>AI generated a micro-plan successfully!</span>
+    </div>
+    {% endif %}
+    
+    <form method="POST" enctype="multipart/form-data">
+        <div class="workspace-card">
+            <div class="workspace-card-header">
+                <h2>📝 Assignment Details</h2>
+            </div>
+            <div class="workspace-card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="assignment_title" class="form-label">Assignment Title <span class="text-danger">*</span></label>
+                        <input type="text" id="assignment_title" name="assignment_title" class="form-control" 
+                            placeholder="e.g. IS4416 Research Project"
+                            value="{{ form_data.get('assignment_title', '') }}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="module_code" class="form-label">Module Code</label>
+                        <input type="text" id="module_code" name="module_code" class="form-control" 
+                            placeholder="e.g. IS4416"
+                            value="{{ form_data.get('module_code', '') }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="due_date" class="form-label">Due Date</label>
+                        <input type="date" id="due_date" name="due_date" class="form-control"
+                            value="{{ form_data.get('due_date', '') }}">
+                    </div>
+                </div>
+                
+                <div class="row g-3 mt-2">
+                    <div class="col-md-4">
+                        <label for="status" class="form-label">Current Status</label>
+                        <select id="status" name="status" class="form-select">
+                            <option value="">Select status...</option>
+                            {% for option in ['pending', 'in_progress', 'completed'] %}
+                                <option value="{{ option }}" {% if form_data.get('status') == option %}selected{% endif %}>
+                                    {{ option.replace('_', ' ').title() }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="workspace-card">
+            <div class="workspace-card-header">
+                <h2>📄 Assignment Brief</h2>
+            </div>
+            <div class="workspace-card-body">
+                <div class="mb-4">
+                    <label class="form-label">Upload File</label>
+                    <div id="drop-zone" class="drop-zone">
+                        <div class="drop-zone-icon">📁</div>
+                        <p class="drop-zone-title">Drop your file here or click to browse</p>
+                        <p class="drop-zone-subtitle">Supported: .txt, .md, .docx, .pdf · Max 4 MB</p>
+                    </div>
+                    <input type="file" name="brief_file" id="brief_file" accept=".txt,.md,.markdown,.docx,.pdf" class="d-none">
+                    <div id="file-name" class="form-text mt-2">
+                        {% if uploaded_filename %}
+                            <span style="color: #10b981;">✓ {{ uploaded_filename }}</span>
+                        {% else %}
+                            No file selected
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="brief_text" class="form-label">Or Paste Brief Text</label>
+                    <textarea id="brief_text" name="brief_text" class="form-control" rows="5" 
+                        placeholder="Paste the assignment requirements, grading criteria, or key details...">{{ form_data.get('brief_text', '') }}</textarea>
+                </div>
+                
+                <div>
+                    <label for="additional_context" class="form-label">Additional Context <span class="text-muted">(optional)</span></label>
+                    <textarea id="additional_context" name="additional_context" class="form-control" rows="2" 
+                        placeholder="Personal constraints, grading focus, or available study hours...">{{ form_data.get('additional_context', '') }}</textarea>
+                </div>
+            </div>
+            <div class="form-footer">
+                <div class="tip-text">
+                    💡 <span>Tip: Keep briefs under 1,000 words for best results</span>
+                </div>
+                <button type="submit" class="btn-generate">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                    Generate Micro-Plan
+                </button>
+            </div>
+        </div>
+    </form>
+    
+    {% if schedule_context_text %}
+    <div class="workspace-card">
+        <div class="workspace-card-header">
+            <h2>📅 Current Schedule Snapshot</h2>
+        </div>
+        <div class="workspace-card-body">
+            <div class="preview-section">
+                <pre>{{ schedule_context_text }}</pre>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if breakdown %}
+    <div class="workspace-card results-card">
+        <div class="workspace-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <h2>✨ Generated Micro-Tasks</h2>
+            {% if plan_payload %}
+            <form method="POST" action="{{ url_for('ai_workspace_save') }}" style="margin: 0;">
+                <input type="hidden" name="assignment_title" value="{{ form_data.get('assignment_title', '') }}">
+                <input type="hidden" name="module_code" value="{{ form_data.get('module_code', '') }}">
+                <input type="hidden" name="due_date" value="{{ form_data.get('due_date', '') }}">
+                <input type="hidden" name="plan_json" value='{{ plan_payload|tojson|safe }}'>
+                <button type="submit" class="btn-save">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                        <polyline points="17 21 17 13 7 13 7 21"/>
+                        <polyline points="7 3 7 8 15 8"/>
+                    </svg>
+                    Save to Calendar
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        <div class="workspace-card-body p-0">
+            {% for item in breakdown.subtasks %}
+            <div class="subtask-item">
+                <div class="d-flex" style="flex: 1;">
+                    <div class="subtask-number">{{ loop.index }}</div>
+                    <div class="subtask-content">
+                        <div class="subtask-title">{{ item.title }}</div>
+                        {% if item.description %}
+                        <p class="subtask-description">{{ item.description }}</p>
+                        {% endif %}
+                        <div class="subtask-meta">
+                            {% if item.planned_start or item.planned_end %}
+                            <span class="subtask-meta-item">
+                                📅 
+                                {% if item.planned_start %}{{ item.planned_start }}{% endif %}
+                                {% if item.planned_end %} → {{ item.planned_end }}{% endif %}
+                            </span>
+                            {% endif %}
+                            {% if item.focus %}
+                            <span class="subtask-meta-item">
+                                🎯 {{ item.focus }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% if item.estimated_hours %}
+                <div class="subtask-badge">
+                    ⏱️ {{ "%.1f"|format(item.estimated_hours) }} hrs
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% if breakdown.advice %}
+        <div class="workspace-card-body pt-0">
+            <div class="advice-box">
+                <span class="icon">💡</span>
+                <p>{{ breakdown.advice }}</p>
+            </div>
+        </div>
+        {% endif %}
+        <div class="workspace-card-body pt-0">
+            <details>
+                <summary class="collapsible-trigger">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                    View raw AI response
+                </summary>
+                <div class="preview-section mt-2">
+                    <pre>{{ breakdown.raw_text }}</pre>
+                </div>
+            </details>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if source_text %}
+    <div class="workspace-card">
+        <div class="workspace-card-header">
+            <h2>👁️ Brief Preview</h2>
+        </div>
+        <div class="workspace-card-body">
+            <div class="preview-section">
+                <pre>{{ source_text[:1200] }}{% if source_text|length > 1200 %}…{% endif %}</pre>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if sanitized_summary %}
+    <div class="workspace-card">
+        <div class="workspace-card-body">
+            <details>
+                <summary class="collapsible-trigger">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                    </svg>
+                    View sanitized summary sent to AI
+                </summary>
+                <p class="small text-muted mt-2 mb-0">{{ sanitized_summary }}</p>
+            </details>
+        </div>
+    </div>
+    {% endif %}
 </div>
-<p class="text-muted">
-	Upload an assignment brief or paste the key requirements to generate micro-task suggestions.
-	ChatGPT will return a structured plan you can refine and schedule.
-</p>
-
-{% with messages = get_flashed_messages(with_categories=true) %}
-	{% if messages %}
-		{% for category, message in messages %}
-			<div class="alert alert-{{ category }}">{{ message }}</div>
-		{% endfor %}
-	{% endif %}
-{% endwith %}
-
-{% if error %}
-<div class="alert alert-danger">{{ error }}</div>
-{% elif breakdown %}
-<div class="alert alert-success">ChatGPT generated a micro-plan successfully.</div>
-{% endif %}
-
-<form method="POST" enctype="multipart/form-data" class="card shadow-sm mb-4">
-	<div class="card-body">
-		<div class="row g-3">
-			<div class="col-md-6">
-				<label for="assignment_title" class="form-label">Assignment title</label>
-				<input type="text" id="assignment_title" name="assignment_title" class="form-control" placeholder="e.g. IS4416 Research Project"
-					value="{{ form_data.get('assignment_title', '') }}" required>
-			</div>
-			<div class="col-md-3">
-				<label for="module_code" class="form-label">Module code (optional)</label>
-				<input type="text" id="module_code" name="module_code" class="form-control" placeholder="e.g. IS4416"
-					value="{{ form_data.get('module_code', '') }}">
-			</div>
-			<div class="col-md-3">
-				<label for="due_date" class="form-label">Due date (optional)</label>
-				<input type="date" id="due_date" name="due_date" class="form-control"
-					value="{{ form_data.get('due_date', '') }}">
-			</div>
-		</div>
-
-		<div class="row g-3 mt-0 mt-md-3">
-			<div class="col-md-4">
-				<label for="status" class="form-label">Current status</label>
-				<select id="status" name="status" class="form-select">
-					<option value="">Select status</option>
-					{% for option in ['pending', 'in_progress', 'completed'] %}
-						<option value="{{ option }}" {% if form_data.get('status') == option %}selected{% endif %}>
-							{{ option.replace('_', ' ').title() }}
-						</option>
-					{% endfor %}
-				</select>
-			</div>
-			<div class="col-md-8">
-				<label class="form-label">Upload assignment brief (drag &amp; drop)</label>
-				<div id="drop-zone" class="border border-2 border-secondary-subtle rounded p-4 text-center bg-light-subtle">
-					<p class="mb-1 fw-semibold">Drop your file here or click to browse</p>
-					<p class="text-muted small mb-0">Supported formats: .txt, .md, .docx, .pdf · Max size 4&nbsp;MB</p>
-				</div>
-				<input type="file" name="brief_file" id="brief_file" accept=".txt,.md,.markdown,.docx,.pdf" class="d-none">
-				<div id="file-name" class="form-text mt-2 text-truncate">
-					{% if uploaded_filename %}
-						Selected file: {{ uploaded_filename }}
-					{% else %}
-						No file selected.
-					{% endif %}
-				</div>
-			</div>
-		</div>
-
-		<div class="mt-3">
-			<label for="brief_text" class="form-label">Or paste assignment brief text</label>
-			<textarea id="brief_text" name="brief_text" class="form-control" rows="6" placeholder="Paste the key grading criteria or brief">{{ form_data.get('brief_text', '') }}</textarea>
-		</div>
-
-		<div class="mt-3">
-			<label for="additional_context" class="form-label">Additional context (optional)</label>
-			<textarea id="additional_context" name="additional_context" class="form-control" rows="3" placeholder="Add personal constraints, grading focus, or available study hours">{{ form_data.get('additional_context', '') }}</textarea>
-		</div>
-	</div>
-	<div class="card-footer d-flex justify-content-between align-items-center">
-		<small class="text-muted">Tip: keep briefs under 1,000 words for the best results.</small>
-		<button type="submit" class="btn btn-primary">Generate micro-plan</button>
-	</div>
-</form>
-
-{% if schedule_context_text %}
-<section class="mb-4">
-	<h4 class="h5">Current schedule snapshot</h4>
-	<pre class="bg-light border rounded p-3 small" style="white-space: pre-wrap;">{{ schedule_context_text }}</pre>
-</section>
-{% endif %}
-
-{% if breakdown %}
-<section class="mb-4">
-	<h3 class="h4">Suggested micro-tasks</h3>
-	{% if plan_payload %}
-	<form method="POST" action="{{ url_for('ai_workspace_save') }}" class="mb-3">
-		<input type="hidden" name="assignment_title" value="{{ form_data.get('assignment_title', '') }}">
-		<input type="hidden" name="module_code" value="{{ form_data.get('module_code', '') }}">
-		<input type="hidden" name="due_date" value="{{ form_data.get('due_date', '') }}">
-		<input type="hidden" name="plan_json" value='{{ plan_payload|tojson|safe }}'>
-		<button type="submit" class="btn btn-success">Add these subtasks to my calendar</button>
-	</form>
-	{% endif %}
-	<ol class="list-group list-group-numbered">
-		{% for item in breakdown.subtasks %}
-		<li class="list-group-item">
-			<div class="d-flex justify-content-between align-items-start">
-				<div>
-					<strong>{{ item.title }}</strong>
-					{% if item.description %}
-					<p class="mb-1">{{ item.description }}</p>
-					{% endif %}
-					{% if item.planned_start or item.planned_end %}
-					<div class="text-muted small">
-						Suggested window:
-						{% if item.planned_start %}{{ item.planned_start }}{% endif %}
-						{% if item.planned_end %}→ {{ item.planned_end }}{% endif %}
-					</div>
-					{% endif %}
-					{% if item.focus %}
-					<div class="small text-muted fst-italic">Focus tip: {{ item.focus }}</div>
-					{% endif %}
-				</div>
-				{% if item.estimated_hours %}
-				<span class="badge bg-info text-dark">~{{ "%.1f"|format(item.estimated_hours) }} hrs</span>
-				{% endif %}
-			</div>
-		</li>
-		{% endfor %}
-	</ol>
-	{% if breakdown.advice %}
-	<div class="alert alert-secondary mt-3 mb-0">{{ breakdown.advice }}</div>
-	{% endif %}
-	<details class="mt-3">
-		<summary class="text-muted">Show raw ChatGPT response</summary>
-		<pre class="bg-light border rounded p-3 small" style="white-space: pre-wrap;">{{ breakdown.raw_text }}</pre>
-	</details>
-</section>
-{% endif %}
-
-{% if source_text %}
-<section class="mb-4">
-	<h4 class="h5">Brief preview</h4>
-	<div class="bg-light border rounded p-3 small" style="white-space: pre-wrap;">
-		{{ source_text[:1200] }}{% if source_text|length > 1200 %}…{% endif %}
-	</div>
-</section>
-{% endif %}
-
-{% if sanitized_summary %}
-<details class="mb-4">
-	<summary class="text-muted">Sanitized summary sent to ChatGPT</summary>
-	<p class="small mb-0">{{ sanitized_summary }}</p>
-</details>
-{% endif %}
 
 <script>
-	const dropZone = document.getElementById("drop-zone");
-	const fileInput = document.getElementById("brief_file");
-	const fileName = document.getElementById("file-name");
+    const dropZone = document.getElementById("drop-zone");
+    const fileInput = document.getElementById("brief_file");
+    const fileName = document.getElementById("file-name");
 
-	function updateFileName(files) {
-		if (!files || !files.length) {
-			fileName.textContent = "No file selected.";
-			return;
-		}
-		if (files.length > 1) {
-			fileName.textContent = `${files.length} files selected (using the first one)`;
-		} else {
-			fileName.textContent = `Selected file: ${files[0].name}`;
-		}
-	}
+    function updateFileName(files) {
+        if (!files || !files.length) {
+            fileName.innerHTML = "No file selected";
+            return;
+        }
+        if (files.length > 1) {
+            fileName.innerHTML = `<span style="color: #10b981;">✓ ${files.length} files selected (using the first one)</span>`;
+        } else {
+            fileName.innerHTML = `<span style="color: #10b981;">✓ ${files[0].name}</span>`;
+        }
+    }
 
-	function highlightDropZone(active) {
-		dropZone.classList.toggle("border-primary", active);
-		dropZone.classList.toggle("bg-body-tertiary", active);
-	}
+    function highlightDropZone(active) {
+        dropZone.classList.toggle("active", active);
+    }
 
-	function assignFiles(files) {
-		if (!files || !files.length) {
-			return;
-		}
-		if (window.DataTransfer) {
-			const dataTransfer = new DataTransfer();
-			for (let i = 0; i < files.length; i += 1) {
-				dataTransfer.items.add(files[i]);
-			}
-			fileInput.files = dataTransfer.files;
-			updateFileName(fileInput.files);
-			return;
-		}
-		try {
-			fileInput.files = files;
-		} catch {
-			console.warn("Drag-and-drop assignment not supported in this browser.");
-		}
-		updateFileName(fileInput.files);
-	}
+    function assignFiles(files) {
+        if (!files || !files.length) {
+            return;
+        }
+        if (window.DataTransfer) {
+            const dataTransfer = new DataTransfer();
+            for (let i = 0; i < files.length; i += 1) {
+                dataTransfer.items.add(files[i]);
+            }
+            fileInput.files = dataTransfer.files;
+            updateFileName(fileInput.files);
+            return;
+        }
+        try {
+            fileInput.files = files;
+        } catch {
+            console.warn("Drag-and-drop assignment not supported in this browser.");
+        }
+        updateFileName(fileInput.files);
+    }
 
-	dropZone.addEventListener("click", () => fileInput.click());
-	dropZone.addEventListener("dragenter", (event) => {
-		event.preventDefault();
-		highlightDropZone(true);
-	});
-	dropZone.addEventListener("dragover", (event) => {
-		event.preventDefault();
-		highlightDropZone(true);
-	});
-	dropZone.addEventListener("dragleave", () => highlightDropZone(false));
-	dropZone.addEventListener("drop", (event) => {
-		event.preventDefault();
-		highlightDropZone(false);
-		assignFiles(event.dataTransfer.files);
-	});
-	fileInput.addEventListener("change", (event) => assignFiles(event.target.files));
+    dropZone.addEventListener("click", () => fileInput.click());
+    dropZone.addEventListener("dragenter", (event) => {
+        event.preventDefault();
+        highlightDropZone(true);
+    });
+    dropZone.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        highlightDropZone(true);
+    });
+    dropZone.addEventListener("dragleave", () => highlightDropZone(false));
+    dropZone.addEventListener("drop", (event) => {
+        event.preventDefault();
+        highlightDropZone(false);
+        assignFiles(event.dataTransfer.files);
+    });
+    fileInput.addEventListener("change", (event) => assignFiles(event.target.files));
 </script>
 {% endblock %}
-

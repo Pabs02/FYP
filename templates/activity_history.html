@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+    .activity-page {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+    
+    .activity-header {
+        text-align: center;
+        margin-bottom: 2.5rem;
+    }
+    
+    .activity-header h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+    
+    .activity-header .subtitle {
+        color: #6c757d;
+        font-size: 1rem;
+        max-width: 600px;
+        margin: 0 auto;
+        line-height: 1.6;
+    }
+    
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #6c757d;
+        text-decoration: none;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+        transition: color 0.2s;
+    }
+    
+    .back-link:hover {
+        color: #4361ee;
+    }
+    
+    .stats-row {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .stat-pill {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        border-radius: 999px;
+        background: #f8f9fa;
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        font-size: 0.9rem;
+        color: #495057;
+    }
+    
+    .stat-pill .count {
+        font-weight: 700;
+        color: #1a1a2e;
+    }
+    
+    .activity-card {
+        background: #ffffff;
+        border-radius: 16px;
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        overflow: hidden;
+    }
+    
+    .activity-card-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+    
+    .activity-card-header h2 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin: 0;
+        color: #1a1a2e;
+    }
+    
+    .activity-item {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    
+    .activity-item:last-child {
+        border-bottom: none;
+    }
+    
+    .activity-title {
+        font-weight: 600;
+        color: #1a1a2e;
+        margin-bottom: 0.35rem;
+    }
+    
+    .activity-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    .activity-meta .separator {
+        opacity: 0.6;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 2rem;
+        color: #6c757d;
+    }
+    
+    .empty-state-icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .pagination {
+        display: flex;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-top: 2rem;
+        flex-wrap: wrap;
+    }
+    
+    .pagination a, .pagination span {
+        padding: 0.5rem 0.9rem;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        text-decoration: none;
+        color: #495057;
+        background: #ffffff;
+        font-size: 0.9rem;
+    }
+    
+    .pagination .active {
+        background: #4361ee;
+        border-color: #4361ee;
+        color: #ffffff;
+    }
+    
+    @media (max-width: 768px) {
+        .activity-page {
+            padding: 1rem;
+        }
+        
+        .activity-header h1 {
+            font-size: 1.5rem;
+        }
+        
+        .activity-card-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+</style>
+
+<div class="activity-page">
+    <a href="/" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Back to Dashboard
+    </a>
+    
+    <div class="activity-header page-header-card">
+        <h1>
+            <span>🕒</span>
+            Activity History
+        </h1>
+        <p class="subtitle">
+            Review all actions recorded across the dashboard, with timestamps.
+        </p>
+    </div>
+    
+    {% if activity_logs %}
+    <div class="stats-row">
+        <div class="stat-pill">
+            <span class="count">{{ activity_logs|length }}</span>
+            <span class="label">Actions on this page</span>
+        </div>
+        <div class="stat-pill">
+            <span class="count">{{ total_pages }}</span>
+            <span class="label">Total pages</span>
+        </div>
+    </div>
+    
+    <div class="activity-card">
+        <div class="activity-card-header">
+            <h2>🧭 Recent Activity</h2>
+            <span style="color: #6c757d; font-size: 0.85rem;">Page {{ page }} of {{ total_pages }}</span>
+        </div>
+        {% for item in activity_logs %}
+        <div class="activity-item">
+            <div class="activity-title">{{ item.title or (item.method ~ " " ~ item.path) }}</div>
+            <div class="activity-meta">
+                <span>{{ item.created_at | irish_datetime }}</span>
+                <span class="separator">·</span>
+                <span>Status {{ item.status_code }}</span>
+                {% if item.duration_ms %}
+                <span class="separator">·</span>
+                <span>{{ item.duration_ms }}ms</span>
+                {% endif %}
+                {% if item.endpoint %}
+                <span class="separator">·</span>
+                <span>{{ item.endpoint }}</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    {% if total_pages > 1 %}
+    <div class="pagination">
+        {% if page > 1 %}
+        <a href="?page={{ page - 1 }}">← Previous</a>
+        {% endif %}
+        <span class="active">{{ page }}</span>
+        {% if page < total_pages %}
+        <a href="?page={{ page + 1 }}">Next →</a>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="activity-card">
+        <div class="empty-state">
+            <div class="empty-state-icon">🕒</div>
+            <div class="empty-state-text">No activity recorded yet.</div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

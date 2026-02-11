@@ -3,161 +3,562 @@
 {% block title %}Profile Settings{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-	<div class="row">
-		<div class="col-md-8 mx-auto">
-			<h2 class="mb-4">👤 Profile Settings</h2>
-			
-			<!-- Flash Messages -->
-			{% with messages = get_flashed_messages(with_categories=true) %}
-				{% if messages %}
-					{% for category, message in messages %}
-						<div class="alert alert-{{ 'success' if category=='success' else 'danger' }} alert-dismissible fade show" role="alert">
-							{{ message }}
-							<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-						</div>
-					{% endfor %}
-				{% endif %}
-			{% endwith %}
-			
-			<!-- Account Information -->
-			<div class="card mb-4">
-				<div class="card-header">
-					<h5 class="mb-0">📧 Account Information</h5>
-				</div>
-				<div class="card-body">
-					<div class="row mb-3">
-						<div class="col-sm-4 fw-bold">Name:</div>
-						<div class="col-sm-8">{{ current_user.name }}</div>
-					</div>
-					<div class="row mb-3">
-						<div class="col-sm-4 fw-bold">Email:</div>
-						<div class="col-sm-8">{{ current_user.email }}</div>
-					</div>
-					<div class="row mb-3">
-						<div class="col-sm-4 fw-bold">Student Number:</div>
-						<div class="col-sm-8">{{ current_user.student_number or "Not set" }}</div>
-					</div>
-					<div class="row">
-						<div class="col-sm-4 fw-bold">Student ID:</div>
-						<div class="col-sm-8">#{{ current_user.id }}</div>
-					</div>
-				</div>
-			</div>
-			
-			<!-- Canvas API Token -->
-			<div class="card mb-4">
-				<div class="card-header">
-					<h5 class="mb-0">🎓 Canvas LMS Integration</h5>
-				</div>
-				<div class="card-body">
-					<form method="POST" action="{{ url_for('update_profile') }}">
-						<div class="mb-3">
-							<label for="student_number" class="form-label">Student Number</label>
-							<input type="text" class="form-control" id="student_number" name="student_number"
-								   value="{{ current_user.student_number or '' }}"
-								   placeholder="e.g., 122753729">
-							<div class="form-text">Used to sign off lecturer emails.</div>
-						</div>
-						<div class="mb-3">
-							<label for="canvas_api_token" class="form-label">Canvas API Token</label>
-							<input type="text" class="form-control" id="canvas_api_token" name="canvas_api_token" 
-								   value="{{ current_user.canvas_api_token or '' }}" 
-								   placeholder="Paste your UCC Canvas API token here">
-							<div class="form-text">
-								{% if current_user.canvas_api_token %}
-									<span class="badge bg-success">✅ Token Configured</span>
-									<small class="text-muted ms-2">Update your token here if needed.</small>
-								{% else %}
-									<span class="badge bg-warning">⚠️ No Token Set</span>
-									<small class="text-muted ms-2">Add your Canvas token to enable assignment sync.</small>
-								{% endif %}
-							</div>
-						</div>
-						
-						<div class="alert alert-info mb-3">
-							<strong>📖 How to get your Canvas API token:</strong><br>
-							1. Go to <a href="https://ucc.instructure.com/profile/settings" target="_blank" class="text-decoration-none">UCC Canvas Profile Settings</a><br>
-							2. Scroll down to "Approved Integrations"<br>
-							3. Click "+ New Access Token"<br>
-							4. Give it a name (e.g., "Task Manager")<br>
-							5. Put it too 120 days expiry date <br>
-							6. Click "Generate Token"<br>
-							7. Copy the token and paste it here
-						</div>
-						
-						<button type="submit" class="btn btn-primary">
-							<i class="bi bi-save"></i> Save Canvas Token
-						</button>
-						
-						{% if current_user.canvas_api_token %}
-							<a href="{{ url_for('sync_canvas') }}" class="btn btn-success ms-2">
-								<i class="bi bi-arrow-repeat"></i> Sync Canvas Assignments
-							</a>
-						{% endif %}
-					</form>
-				</div>
-			</div>
+<style>
+    .profile-page {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+    
+    /* Header */
+    .profile-header {
+        text-align: center;
+        margin-bottom: 2.5rem;
+    }
+    
+    .profile-header h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+    
+    .profile-header .subtitle {
+        color: #6c757d;
+        font-size: 1rem;
+    }
+    
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #6c757d;
+        text-decoration: none;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+        transition: color 0.2s;
+    }
+    
+    .back-link:hover {
+        color: #4361ee;
+    }
+    
+    /* Avatar section */
+    .avatar-section {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    .avatar-circle {
+        width: 100px;
+        height: 100px;
+        background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1rem;
+        font-size: 2.5rem;
+        color: white;
+        font-weight: 700;
+    }
+    
+    .avatar-name {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        margin-bottom: 0.25rem;
+    }
+    
+    .avatar-email {
+        color: #6c757d;
+        font-size: 0.95rem;
+    }
+    
+    /* Alert */
+    .alert-custom {
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .alert-success-custom {
+        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+        border: 1px solid #a7f3d0;
+        color: #065f46;
+    }
+    
+    .alert-error-custom {
+        background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+        border: 1px solid #fecaca;
+        color: #991b1b;
+    }
+    
+    /* Cards */
+    .profile-card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+    
+    .profile-card-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #f0f0f0;
+        background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+    }
+    
+    .profile-card-header h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1a1a2e;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .profile-card-body {
+        padding: 1.5rem;
+    }
+    
+    /* Info rows */
+    .info-row {
+        display: flex;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .info-row:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    
+    .info-row:first-child {
+        padding-top: 0;
+    }
+    
+    .info-label {
+        flex: 0 0 140px;
+        font-weight: 500;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .info-value {
+        flex: 1;
+        color: #1a1a2e;
+        font-size: 0.95rem;
+    }
+    
+    .info-value .badge {
+        padding: 0.35rem 0.65rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    
+    .badge-id {
+        background: #f3f4f6;
+        color: #6c757d;
+    }
+    
+    /* Form styling */
+    .form-label {
+        font-weight: 500;
+        color: #495057;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-control {
+        border-radius: 10px;
+        border: 1px solid #e0e0e0;
+        padding: 0.65rem 1rem;
+        font-size: 0.95rem;
+        transition: all 0.2s;
+    }
+    
+    .form-control:focus {
+        border-color: #4361ee;
+        box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+    }
+    
+    .form-text {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-top: 0.4rem;
+    }
+    
+    .token-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.3rem 0.6rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .token-status.connected {
+        background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+        color: #166534;
+    }
+    
+    .token-status.disconnected {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        color: #92400e;
+    }
+    
+    /* Info box */
+    .info-box {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border: 1px solid #93c5fd;
+        border-radius: 10px;
+        padding: 1rem;
+        font-size: 0.85rem;
+        color: #1e40af;
+        line-height: 1.6;
+        margin-bottom: 1rem;
+    }
+    
+    .info-box strong {
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Checkbox */
+    .checkbox-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+        margin-bottom: 0.75rem;
+        transition: background 0.2s;
+    }
+    
+    .checkbox-item:hover {
+        background: #f1f5f9;
+    }
+    
+    .checkbox-item input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        margin-top: 2px;
+        accent-color: #4361ee;
+        cursor: pointer;
+    }
+    
+    .checkbox-item label {
+        cursor: pointer;
+        flex: 1;
+    }
+    
+    .checkbox-item .checkbox-title {
+        font-weight: 500;
+        color: #1a1a2e;
+        font-size: 0.95rem;
+    }
+    
+    .checkbox-item .checkbox-desc {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-top: 0.15rem;
+    }
+    
+    /* Buttons */
+    .btn-primary-custom {
+        background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);
+        border: none;
+        color: white;
+        padding: 0.65rem 1.25rem;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(67, 97, 238, 0.25);
+    }
+    
+    .btn-primary-custom:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(67, 97, 238, 0.35);
+        color: white;
+    }
+    
+    .btn-success-custom {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        border: none;
+        color: white;
+        padding: 0.65rem 1.25rem;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+    }
+    
+    .btn-success-custom:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+        color: white;
+    }
+    
+    .btn-secondary-custom {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        color: #495057;
+        padding: 0.55rem 1rem;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 0.85rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+    
+    .btn-secondary-custom:hover {
+        background: #f8f9fa;
+        border-color: #d0d0d0;
+        color: #1a1a2e;
+    }
+    
+    .btn-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 1rem;
+    }
+    
+    /* Security section */
+    .coming-soon {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        color: #6c757d;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+    }
+    
+    .coming-soon-icon {
+        font-size: 1.5rem;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .profile-page {
+            padding: 1rem;
+        }
+        
+        .profile-header h1 {
+            font-size: 1.5rem;
+        }
+        
+        .info-row {
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        
+        .info-label {
+            flex: none;
+        }
+        
+        .btn-row {
+            flex-direction: column;
+        }
+    }
+</style>
 
-			<!-- Email Notifications -->
-			<!-- Reference: ChatGPT (OpenAI) - Email Preferences UI Copy
-			     Date: 2026-01-22
-			     Prompt: "I want clear checkbox labels for email notifications and a
-			     call-to-action for sending a daily summary. Can you suggest UI wording?"
-			     ChatGPT provided the UI copy guidance for this section. -->
-			<div class="card mb-4">
-				<div class="card-header">
-					<h5 class="mb-0">📬 Email Notifications</h5>
-				</div>
-				<div class="card-body">
-					<form method="POST" action="{{ url_for('update_email_preferences') }}">
-						<div class="form-check mb-2">
-							<input class="form-check-input" type="checkbox" id="email_notifications_enabled" name="email_notifications_enabled" value="1"
-								{% if current_user.email_notifications_enabled %}checked{% endif %}>
-							<label class="form-check-label" for="email_notifications_enabled">
-								Enable deadline reminder emails
-							</label>
-						</div>
-						<div class="form-check mb-3">
-							<input class="form-check-input" type="checkbox" id="email_daily_summary_enabled" name="email_daily_summary_enabled" value="1"
-								{% if current_user.email_daily_summary_enabled %}checked{% endif %}>
-							<label class="form-check-label" for="email_daily_summary_enabled">
-								Send daily study summary email
-							</label>
-						</div>
-						<button type="submit" class="btn btn-primary">Save Email Preferences</button>
-					</form>
-					<div class="mt-3 d-flex flex-wrap gap-2">
-						<form method="POST" action="{{ url_for('send_test_email') }}">
-							<button type="submit" class="btn btn-outline-secondary">Send Test Email</button>
-						</form>
-						<form method="POST" action="{{ url_for('send_daily_summary') }}">
-							<button type="submit" class="btn btn-outline-secondary">Send Daily Summary Now</button>
-						</form>
-					</div>
-				</div>
-			</div>
-			
-			<!-- Password Change (Future Feature) -->
-			<div class="card mb-4">
-				<div class="card-header">
-					<h5 class="mb-0">🔒 Security</h5>
-				</div>
-				<div class="card-body">
-					<p class="text-muted mb-0">
-						<i class="bi bi-info-circle"></i> Password change functionality coming soon!
-					</p>
-				</div>
-			</div>
-			
-			<!-- Back Button -->
-			<div class="mb-4">
-				<a href="{{ url_for('index') }}" class="btn btn-secondary">
-					<i class="bi bi-arrow-left"></i> Back to Dashboard
-				</a>
-			</div>
-		</div>
-	</div>
+<div class="profile-page">
+    <a href="/" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Back to Dashboard
+    </a>
+    
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert-custom {% if category == 'success' %}alert-success-custom{% else %}alert-error-custom{% endif %}">
+                    {% if category == 'success' %}✅{% else %}⚠️{% endif %}
+                    <span>{{ message }}</span>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <!-- Avatar Section -->
+    <div class="avatar-section page-header-card">
+        <div class="avatar-circle">
+            {{ current_user.name[0]|upper if current_user.name else 'U' }}
+        </div>
+        <div class="avatar-name">{{ current_user.name }}</div>
+        <div class="avatar-email">{{ current_user.email }}</div>
+    </div>
+    
+    <!-- Account Information -->
+    <div class="profile-card">
+        <div class="profile-card-header">
+            <h3>📋 Account Information</h3>
+        </div>
+        <div class="profile-card-body">
+            <div class="info-row">
+                <div class="info-label">Name</div>
+                <div class="info-value">{{ current_user.name }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Email</div>
+                <div class="info-value">{{ current_user.email }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Student Number</div>
+                <div class="info-value">{{ current_user.student_number or "Not set" }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Student ID</div>
+                <div class="info-value"><span class="badge badge-id">#{{ current_user.id }}</span></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Canvas Integration -->
+    <div class="profile-card">
+        <div class="profile-card-header">
+            <h3>🎓 Canvas LMS Integration</h3>
+        </div>
+        <div class="profile-card-body">
+            <form method="POST" action="{{ url_for('update_profile') }}">
+                <div class="mb-4">
+                    <label for="student_number" class="form-label">Student Number</label>
+                    <input type="text" class="form-control" id="student_number" name="student_number"
+                           value="{{ current_user.student_number or '' }}"
+                           placeholder="e.g., 122753729">
+                    <p class="form-text">Used to sign off lecturer emails</p>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="canvas_api_token" class="form-label">Canvas API Token</label>
+                    <input type="text" class="form-control" id="canvas_api_token" name="canvas_api_token" 
+                           value="{{ current_user.canvas_api_token or '' }}" 
+                           placeholder="Paste your UCC Canvas API token">
+                    <div class="form-text">
+                        {% if current_user.canvas_api_token %}
+                        <span class="token-status connected">✓ Token Configured</span>
+                        {% else %}
+                        <span class="token-status disconnected">⚠️ No Token Set</span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="info-box">
+                    <strong>📖 How to get your Canvas API token:</strong>
+                    1. Go to <a href="https://ucc.instructure.com/profile/settings" target="_blank">UCC Canvas Profile Settings</a><br>
+                    2. Scroll to "Approved Integrations"<br>
+                    3. Click "+ New Access Token"<br>
+                    4. Name it "Task Manager" with 120 days expiry<br>
+                    5. Copy and paste the token here
+                </div>
+                
+                <div class="btn-row">
+                    <button type="submit" class="btn-primary-custom">
+                        💾 Save Settings
+                    </button>
+                    {% if current_user.canvas_api_token %}
+                    <a href="{{ url_for('sync_canvas') }}" class="btn-success-custom">
+                        🔄 Sync Canvas
+                    </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Email Notifications -->
+    <div class="profile-card">
+        <div class="profile-card-header">
+            <h3>📬 Email Notifications</h3>
+        </div>
+        <div class="profile-card-body">
+            <form method="POST" action="{{ url_for('update_email_preferences') }}">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="email_notifications_enabled" name="email_notifications_enabled" value="1"
+                        {% if current_user.email_notifications_enabled %}checked{% endif %}>
+                    <label for="email_notifications_enabled">
+                        <div class="checkbox-title">Deadline Reminders</div>
+                        <div class="checkbox-desc">Receive email reminders before assignment deadlines</div>
+                    </label>
+                </div>
+                
+                <div class="checkbox-item">
+                    <input type="checkbox" id="email_daily_summary_enabled" name="email_daily_summary_enabled" value="1"
+                        {% if current_user.email_daily_summary_enabled %}checked{% endif %}>
+                    <label for="email_daily_summary_enabled">
+                        <div class="checkbox-title">Daily Study Summary</div>
+                        <div class="checkbox-desc">Get a daily email with your upcoming tasks and schedule</div>
+                    </label>
+                </div>
+                
+                <div class="btn-row">
+                    <button type="submit" class="btn-primary-custom">
+                        💾 Save Preferences
+                    </button>
+                </div>
+            </form>
+            
+            <div class="btn-row" style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #f0f0f0;">
+                <form method="POST" action="{{ url_for('send_test_email') }}" style="display: contents;">
+                    <button type="submit" class="btn-secondary-custom">
+                        📧 Send Test Email
+                    </button>
+                </form>
+                <form method="POST" action="{{ url_for('send_daily_summary') }}" style="display: contents;">
+                    <button type="submit" class="btn-secondary-custom">
+                        📋 Send Daily Summary Now
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Security -->
+    <div class="profile-card">
+        <div class="profile-card-header">
+            <h3>🔒 Security</h3>
+        </div>
+        <div class="profile-card-body">
+            <div class="coming-soon">
+                <span class="coming-soon-icon">🔐</span>
+                <div>
+                    <div style="font-weight: 500; color: #1a1a2e;">Password Change</div>
+                    <div style="font-size: 0.85rem;">Coming soon in a future update</div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
-

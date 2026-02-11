@@ -100,8 +100,8 @@ def sync_canvas_assignments(canvas_url: str, api_token: str, student_id: int, db
                         recent_past = [a for a in past_assignments if hasattr(a, 'due_at') and a.due_at and datetime.fromisoformat(a.due_at.replace('Z', '+00:00')) > cutoff]
                         assignments.extend(recent_past)
                     
-                    # Also fetch assignments we already have in the database for this course to update grades
-                    # This ensures we get grades for assignments that might be older than 180 days
+                    # Also fetch assignments already in the database for this course to update grades
+                    # This ensures  grades for assignments that might be older than 180 days
                     existing_assignments = db_fetch_all(
                         """SELECT canvas_assignment_id FROM tasks 
                            WHERE student_id = :student_id 
@@ -192,7 +192,7 @@ def sync_canvas_assignments(canvas_url: str, api_token: str, student_id: int, db
 
                         if existing_task:
                             # Always update grades even if other fields haven't changed
-                            # This ensures we get the latest grades from Canvas
+                            # This ensures the latest grades from Canvas
                             db_execute(
                                 """UPDATE tasks 
                                    SET title = :title,

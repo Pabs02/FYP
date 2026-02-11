@@ -1,49 +1,500 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-	<h2>🧩 Microtasks</h2>
-	<a href="/" class="btn btn-outline-secondary">← Back to Dashboard</a>
+<style>
+    .microtasks-page {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+    
+    /* Header */
+    .microtasks-header {
+        text-align: center;
+        margin-bottom: 2.5rem;
+    }
+    
+    .microtasks-header h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+    
+    .microtasks-header .subtitle {
+        color: #6c757d;
+        font-size: 1rem;
+        max-width: 600px;
+        margin: 0 auto;
+        line-height: 1.6;
+    }
+    
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #6c757d;
+        text-decoration: none;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+        transition: color 0.2s;
+    }
+    
+    .back-link:hover {
+        color: #4361ee;
+    }
+    
+    /* Stats bar */
+    .stats-bar {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+    
+    .stat-card {
+        flex: 1;
+        min-width: 140px;
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 1.25rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        text-align: center;
+    }
+    
+    .stat-card.completed {
+        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+        border-color: #a7f3d0;
+    }
+    
+    .stat-card.pending {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border-color: #fcd34d;
+    }
+    
+    .stat-card.total {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border-color: #93c5fd;
+    }
+    
+    .stat-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #1a1a2e;
+    }
+    
+    .stat-label {
+        font-size: 0.8rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-top: 0.25rem;
+    }
+    
+    /* Card */
+    .microtasks-card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        overflow: hidden;
+    }
+    
+    .microtasks-card-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #f0f0f0;
+        background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .microtasks-card-header h2 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1a1a2e;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .microtasks-card-body {
+        padding: 0;
+    }
+    
+    /* Task item */
+    .task-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #f0f0f0;
+        transition: background 0.2s;
+    }
+    
+    .task-item:last-child {
+        border-bottom: none;
+    }
+    
+    .task-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .task-checkbox {
+        flex-shrink: 0;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 2px;
+    }
+    
+    .task-checkbox.completed {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+    }
+    
+    .task-checkbox.pending {
+        background: #f3f4f6;
+        border: 2px solid #d1d5db;
+    }
+    
+    .task-content {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .task-title {
+        font-weight: 600;
+        color: #1a1a2e;
+        margin-bottom: 0.25rem;
+    }
+    
+    .task-item.completed .task-title {
+        color: #6c757d;
+        text-decoration: line-through;
+    }
+    
+    .task-parent {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+    
+    .task-parent .module-badge {
+        background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+        color: #4338ca;
+        padding: 0.15rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .task-description {
+        font-size: 0.9rem;
+        color: #4b5563;
+        margin-bottom: 0.5rem;
+        line-height: 1.5;
+    }
+    
+    .task-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        font-size: 0.8rem;
+        color: #9ca3af;
+    }
+    
+    .task-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+    
+    .task-status {
+        flex-shrink: 0;
+    }
+    
+    .status-badge {
+        padding: 0.4rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .status-badge.completed {
+        background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+        color: #166534;
+    }
+    
+    .status-badge.pending {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        color: #92400e;
+    }
+    
+    /* Empty state */
+    .empty-state {
+        text-align: center;
+        padding: 4rem 1.5rem;
+        color: #6c757d;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.4;
+    }
+    
+    .empty-state-title {
+        font-weight: 600;
+        font-size: 1.25rem;
+        color: #1a1a2e;
+        margin-bottom: 0.5rem;
+    }
+    
+    .empty-state-text {
+        max-width: 400px;
+        margin: 0 auto 1.5rem;
+    }
+    
+    .btn-generate {
+        background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);
+        border: none;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
+    }
+    
+    .btn-generate:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
+        color: white;
+    }
+    
+    /* Pagination */
+    .pagination-wrapper {
+        padding: 1.25rem 1.5rem;
+        background: #f8f9fa;
+        border-top: 1px solid #f0f0f0;
+        display: flex;
+        justify-content: center;
+    }
+    
+    .pagination-custom {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .page-btn {
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+    
+    .page-btn.prev,
+    .page-btn.next {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        color: #374151;
+    }
+    
+    .page-btn.prev:hover:not(.disabled),
+    .page-btn.next:hover:not(.disabled) {
+        background: #f3f4f6;
+        border-color: #d1d5db;
+        color: #1f2937;
+    }
+    
+    .page-btn.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+    
+    .page-info {
+        padding: 0.5rem 1rem;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .microtasks-page {
+            padding: 1rem;
+        }
+        
+        .microtasks-header h1 {
+            font-size: 1.5rem;
+        }
+        
+        .stats-bar {
+            gap: 0.75rem;
+        }
+        
+        .stat-card {
+            min-width: 100px;
+            padding: 1rem;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+        }
+        
+        .task-item {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .task-status {
+            align-self: flex-start;
+        }
+    }
+</style>
+
+<div class="microtasks-page">
+    <a href="/" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Back to Dashboard
+    </a>
+    
+    <div class="microtasks-header page-header-card">
+        <h1>
+            <span>🧩</span>
+            Microtasks
+        </h1>
+        <p class="subtitle">
+            Track and manage your AI-generated micro-tasks broken down from larger assignments.
+        </p>
+    </div>
+    
+    {% if subtasks %}
+    <!-- Stats -->
+    {% set completed_count = subtasks | selectattr('is_completed') | list | length %}
+    {% set pending_count = subtasks | rejectattr('is_completed') | list | length %}
+    <div class="stats-bar">
+        <div class="stat-card total">
+            <div class="stat-value">{{ subtasks|length }}</div>
+            <div class="stat-label">Total Tasks</div>
+        </div>
+        <div class="stat-card completed">
+            <div class="stat-value">{{ completed_count }}</div>
+            <div class="stat-label">Completed</div>
+        </div>
+        <div class="stat-card pending">
+            <div class="stat-value">{{ pending_count }}</div>
+            <div class="stat-label">Pending</div>
+        </div>
+    </div>
+    
+    <div class="microtasks-card">
+        <div class="microtasks-card-header">
+            <h2>📋 All Microtasks</h2>
+            <span style="color: #6c757d; font-size: 0.85rem;">Page {{ page }} of {{ total_pages }}</span>
+        </div>
+        <div class="microtasks-card-body">
+            {% for item in subtasks %}
+            <div class="task-item {% if item.is_completed %}completed{% endif %}">
+                <div class="task-checkbox {% if item.is_completed %}completed{% else %}pending{% endif %}">
+                    {% if item.is_completed %}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    {% endif %}
+                </div>
+                <div class="task-content">
+                    <div class="task-title">{{ item.title }}</div>
+                    <div class="task-parent">
+                        🔗 {{ item.task_title }}
+                        {% if item.module_code %}
+                        <span class="module-badge">{{ item.module_code }}</span>
+                        {% endif %}
+                    </div>
+                    {% if item.description %}
+                    <p class="task-description">{{ item.description }}</p>
+                    {% endif %}
+                    <div class="task-meta">
+                        {% if item.planned_start %}
+                        <span class="task-meta-item">
+                            📅 Start: {{ item.planned_start }}
+                        </span>
+                        {% endif %}
+                        {% if item.planned_end %}
+                        <span class="task-meta-item">
+                            🏁 End: {{ item.planned_end }}
+                        </span>
+                        {% endif %}
+                        {% if item.estimated_hours %}
+                        <span class="task-meta-item">
+                            ⏱️ {{ item.estimated_hours }}h estimated
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="task-status">
+                    <span class="status-badge {% if item.is_completed %}completed{% else %}pending{% endif %}">
+                        {{ "✓ Done" if item.is_completed else "○ Pending" }}
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        {% if total_pages > 1 %}
+        <div class="pagination-wrapper">
+            <div class="pagination-custom">
+                <a href="?page={{ page - 1 }}" class="page-btn prev {% if page <= 1 %}disabled{% endif %}">
+                    ← Previous
+                </a>
+                <span class="page-info">Page {{ page }} of {{ total_pages }}</span>
+                <a href="?page={{ page + 1 }}" class="page-btn next {% if page >= total_pages %}disabled{% endif %}">
+                    Next →
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    {% else %}
+    <div class="microtasks-card">
+        <div class="microtasks-card-body">
+            <div class="empty-state">
+                <div class="empty-state-icon">🧩</div>
+                <div class="empty-state-title">No microtasks yet</div>
+                <p class="empty-state-text">
+                    Generate a task breakdown using the AI Workspace to create microtasks that will appear here.
+                </p>
+                <a href="/ai-workspace" class="btn-generate">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                    Go to AI Workspace
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
-
-{% if subtasks %}
-	{% for item in subtasks %}
-	<div class="border rounded p-3 mb-3">
-		<div class="d-flex justify-content-between align-items-start mb-2">
-			<div>
-				<h6 class="mb-1">{{ item.title }}</h6>
-				<small class="text-muted">
-					Task: {{ item.task_title }}{% if item.module_code %} ({{ item.module_code }}){% endif %}
-				</small>
-			</div>
-			<span class="badge {% if item.is_completed %}text-bg-success{% else %}text-bg-secondary{% endif %}">
-				{{ "Completed" if item.is_completed else "Pending" }}
-			</span>
-		</div>
-		{% if item.description %}
-			<p class="mb-2">{{ item.description }}</p>
-		{% endif %}
-		<div class="small text-muted">
-			{% if item.planned_start %}Start: {{ item.planned_start }}{% endif %}
-			{% if item.planned_end %} · End: {{ item.planned_end }}{% endif %}
-			{% if item.estimated_hours %} · Est: {{ item.estimated_hours }}h{% endif %}
-		</div>
-	</div>
-	{% endfor %}
-
-	<nav class="mt-3">
-		<ul class="pagination">
-			<li class="page-item {% if page <= 1 %}disabled{% endif %}">
-				<a class="page-link" href="?page={{ page - 1 }}">Previous</a>
-			</li>
-			<li class="page-item disabled">
-				<span class="page-link">Page {{ page }} of {{ total_pages }}</span>
-			</li>
-			<li class="page-item {% if page >= total_pages %}disabled{% endif %}">
-				<a class="page-link" href="?page={{ page + 1 }}">Next</a>
-			</li>
-		</ul>
-	</nav>
-{% else %}
-	<p class="text-muted">No microtasks found yet. Generate a breakdown to see items here.</p>
-{% endif %}
 {% endblock %}
