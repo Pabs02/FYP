@@ -41,8 +41,9 @@ app = Flask(__name__, static_folder="static", template_folder="templates")
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-only-change-me")
 app.config["OPENAI_API_KEY"] = get_openai_api_key()
 app.config["OPENAI_MODEL_NAME"] = get_openai_model_name()
-# During local development  skip the manual login form to speed up testing.
-_SKIP_LOGIN_FOR_TESTING = True
+# During local development, optionally auto-login to speed up testing.
+# Keep disabled by default so production logout/auth works as expected.
+_SKIP_LOGIN_FOR_TESTING = os.getenv("AUTO_LOGIN_FOR_TESTING", "0") in {"1", "true", "True"}
 
 # Reference: Flask-Login Documentation - Initializing Extension
 # https://flask-login.readthedocs.io/en/latest/#flask_login.LoginManager.init_app
