@@ -1686,6 +1686,13 @@ def _send_reminder_email(*, to_email: str, subject: str, body: str) -> Optional[
 	smtp_config = get_smtp_config()
 	if not smtp_config:
 		return "SMTP is not configured"
+	# Render free instances can block/timeout outbound SMTP sockets.
+	# Allow explicitly disabling SMTP attempts so invite/task actions
+	# complete without hanging the request worker.
+	disable_outbound_email = os.getenv("DISABLE_OUTBOUND_EMAIL", "").strip()
+	is_render = os.getenv("RENDER", "").strip().lower() in {"1", "true", "yes"}
+	if disable_outbound_email in {"1", "true", "True"} or (is_render and disable_outbound_email == ""):
+		return "Outbound email is disabled by configuration (DISABLE_OUTBOUND_EMAIL=1)."
 	try:
 		# Reference: ChatGPT (OpenAI) - SMTP Fail-Fast Timeout Guard
 		# Date: 2026-02-12
