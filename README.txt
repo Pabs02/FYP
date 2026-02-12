@@ -681,6 +681,13 @@ Reference:
     selected date range. Can you provide practical aggregation queries and safe
     defaults?"
     ChatGPT provided the aggregation/query pattern used in `active_semester()`.
+  - ChatGPT (OpenAI). Resend API Email Sender Fallback.
+    Date: 2026-02-12
+    Prompt: "I need a Flask email helper that sends via Resend API first when
+    RESEND_API_KEY is configured, then falls back to SMTP. It should return an
+    error string instead of raising and use request timeouts."
+    ChatGPT provided the provider-priority + graceful-fallback pattern used in
+    `_send_reminder_email()`.
 
 ICS Calendar Export Route
 Reference:

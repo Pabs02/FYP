@@ -1683,9 +1683,49 @@ def _send_reminder_email(*, to_email: str, subject: str, body: str) -> Optional[
 	# Prompt: "Can you help me build a simple SMTP email sender that supports TLS and
 	# optional login credentials, returning errors as strings?"
 	# ChatGPT provided the SMTP send pattern used here.
+	# Reference: ChatGPT (OpenAI) - Resend API Email Sender Fallback
+	# Date: 2026-02-12
+	# Prompt: "I need a Flask email helper that sends via Resend API first when
+	# RESEND_API_KEY is configured, then falls back to SMTP. It should return
+	# an error string instead of raising and use request timeouts."
+	# ChatGPT provided the provider-priority + graceful-fallback pattern below.
+	resend_api_key = (os.getenv("RESEND_API_KEY") or "").strip()
+	resend_from_email = (os.getenv("RESEND_FROM_EMAIL") or "").strip()
+	if resend_api_key:
+		if not resend_from_email:
+			return "RESEND_FROM_EMAIL is required when RESEND_API_KEY is set."
+		try:
+			html_body = "<br>".join(
+				line.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+				for line in body.splitlines()
+			) or body
+			response = requests.post(
+				"https://api.resend.com/emails",
+				headers={
+					"Authorization": f"Bearer {resend_api_key}",
+					"Content-Type": "application/json",
+				},
+				json={
+					"from": resend_from_email,
+					"to": [to_email],
+					"subject": subject,
+					"html": f"<p>{html_body}</p>",
+				},
+				timeout=8,
+			)
+			if response.status_code in {200, 201, 202}:
+				return None
+			try:
+				error_payload = response.json()
+			except Exception:
+				error_payload = response.text
+			return f"Resend API error ({response.status_code}): {error_payload}"
+		except Exception as exc:
+			return f"Resend API request failed: {exc}"
+
 	smtp_config = get_smtp_config()
 	if not smtp_config:
-		return "SMTP is not configured"
+		return "SMTP is not configured and RESEND_API_KEY is missing."
 	# Render free instances can block/timeout outbound SMTP sockets.
 	# Allow explicitly disabling SMTP attempts so invite/task actions
 	# complete without hanging the request worker.
