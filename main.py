@@ -1687,15 +1687,32 @@ def _send_reminder_email(*, to_email: str, subject: str, body: str) -> Optional[
 	if not smtp_config:
 		return "SMTP is not configured"
 	try:
+		# Reference: ChatGPT (OpenAI) - SMTP Fail-Fast Timeout Guard
+		# Date: 2026-02-12
+		# Prompt: "My Flask request can timeout when SMTP host is slow/unreachable.
+		# I need a fail-fast timeout strategy so email attempts return quickly instead
+		# of blocking the web worker. Can you provide a practical pattern?"
+		# ChatGPT recommended using a short, bounded timeout for all SMTP socket ops.
+		timeout_raw = (os.getenv("SMTP_TIMEOUT_SECONDS", "4") or "4").strip()
+		try:
+			smtp_timeout = float(timeout_raw)
+		except ValueError:
+			smtp_timeout = 4.0
+		smtp_timeout = max(2.0, min(smtp_timeout, 8.0))
+
 		message = EmailMessage()
 		message["Subject"] = subject
 		message["From"] = smtp_config.from_email
 		message["To"] = to_email
 		message.set_content(body)
 
-		with smtplib.SMTP(smtp_config.host, smtp_config.port, timeout=10) as server:
+		with smtplib.SMTP(smtp_config.host, smtp_config.port, timeout=smtp_timeout) as server:
+			# Ensure TLS/login/send use the same bounded timeout.
+			server.sock.settimeout(smtp_timeout)
 			if smtp_config.use_tls:
 				server.starttls()
+				if server.sock:
+					server.sock.settimeout(smtp_timeout)
 			if smtp_config.username and smtp_config.password:
 				server.login(smtp_config.username, smtp_config.password)
 			server.send_message(message)
