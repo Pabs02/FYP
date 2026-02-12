@@ -172,6 +172,12 @@
     .stat-card.activity {
         border-top: 4px solid #0ea5e9;
     }
+    .stat-card.group-projects {
+        border-top: 4px solid #8b5cf6;
+    }
+    .stat-card.attendance {
+        border-top: 4px solid #14b8a6;
+    }
     
     .stat-icon {
         font-size: 1.5rem;
@@ -486,6 +492,83 @@
             <div class="stat-value">{{ total_activity }}</div>
             <div class="stat-label">Activity Logs</div>
             <div class="stat-sub">Actions in range</div>
+        </div>
+        <div class="stat-card group-projects">
+            <div class="stat-icon">👥</div>
+            <div class="stat-value">{{ total_group_projects }}</div>
+            <div class="stat-label">Group Projects</div>
+            <div class="stat-sub">{{ completed_group_tasks }}/{{ total_group_tasks }} tasks done</div>
+        </div>
+        <div class="stat-card attendance">
+            <div class="stat-icon">🎓</div>
+            <div class="stat-value">{{ lecture_attendance_rate }}%</div>
+            <div class="stat-label">Lecture Attendance</div>
+            <div class="stat-sub">{{ attended_lectures }}/{{ total_lectures }} attended</div>
+        </div>
+    </div>
+
+    <div class="content-grid">
+        <div class="content-card">
+            <div class="content-card-header">
+                <h3>👥 Group Project Progress</h3>
+                <span class="count">{{ group_project_progress|length }}</span>
+            </div>
+            <div class="content-card-body">
+                {% if group_project_progress %}
+                    {% for gp in group_project_progress %}
+                    <a href="{{ url_for('group_workspace') }}" class="list-item clickable">
+                        <div class="list-item-title">
+                            {{ gp.title }}
+                            <span class="view-link">View →</span>
+                        </div>
+                        <div class="list-item-meta">
+                            <span>{{ gp.completed_tasks }}/{{ gp.total_tasks }} tasks completed</span>
+                            <span class="separator">·</span>
+                            <span>{{ gp.completion_rate }}%</span>
+                        </div>
+                    </a>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <div class="empty-state-icon">👥</div>
+                        <div class="empty-state-text">No group project activity in this date range</div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="content-card">
+            <div class="content-card-header">
+                <h3>🎓 Attendance Statistics</h3>
+                <span class="count">{{ total_lectures }}</span>
+            </div>
+            <div class="content-card-body">
+                <div class="list-item">
+                    <div class="list-item-title">Semester Lecture Attendance</div>
+                    <div class="list-item-meta">
+                        <span>Attended {{ attended_lectures }} / {{ total_lectures }} lectures</span>
+                        <span class="separator">·</span>
+                        <span>{{ lecture_attendance_rate }}%</span>
+                    </div>
+                </div>
+                <div class="list-item">
+                    <div class="list-item-title">Missed Lectures</div>
+                    <div class="list-item-meta">
+                        <span>{{ total_lectures - attended_lectures }} missed</span>
+                        <span class="separator">·</span>
+                        <span>{{ (100 - lecture_attendance_rate)|round(1) if total_lectures > 0 else 0.0 }}%</span>
+                    </div>
+                </div>
+                <a href="{{ url_for('analytics') }}" class="list-item clickable">
+                    <div class="list-item-title">
+                        Open Attendance Check-in
+                        <span class="view-link">View →</span>
+                    </div>
+                    <div class="list-item-meta">
+                        <span>Mark attended lectures from your analytics page</span>
+                    </div>
+                </a>
+            </div>
         </div>
     </div>
     

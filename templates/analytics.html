@@ -343,6 +343,126 @@
 			</div>
 		</div>
 	</div>
+
+	<div class="row g-4 mb-4">
+		<div class="col-lg-4">
+			<div class="analytics-card">
+				<div class="analytics-card-header">
+					<h3>🩺 Health Score</h3>
+				</div>
+				<div class="analytics-card-body">
+					<div style="font-size: 2rem; font-weight: 700; color: #4338ca;">
+						{{ analytics.health_score.score }}%
+					</div>
+					<p class="mb-2 text-muted small">
+						Based on task completion, on-time delivery, and lecture attendance.
+					</p>
+					<span class="grade-badge {% if analytics.health_score.label == 'on_track' %}excellent{% elif analytics.health_score.label == 'watch' %}average{% else %}low{% endif %}">
+						{{ analytics.health_score.label | replace('_', ' ') | title }}
+					</span>
+					<div class="mt-3 small text-muted">
+						Task completion: {{ analytics.task_completion_rate if analytics.task_completion_rate is not none else '—' }}%<br>
+						On-time: {{ analytics.completion_stats.on_time_percentage if analytics.completion_stats and analytics.completion_stats.on_time_percentage is defined else '—' }}%<br>
+						Lecture attendance: {{ analytics.lecture_attendance.attendance_rate if analytics.lecture_attendance.attendance_rate is not none else '—' }}%
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-8">
+			<div class="analytics-card">
+				<div class="analytics-card-header">
+					<h3>🎓 Lecture Attendance</h3>
+				</div>
+				<div class="analytics-card-body">
+					<div class="d-flex justify-content-between align-items-center mb-3">
+						<div>
+							<div style="font-size: 1.6rem; font-weight: 700; color: #0f766e;">
+								{{ analytics.lecture_attendance.attended_lectures }}/{{ analytics.lecture_attendance.total_lectures }}
+							</div>
+							<div class="small text-muted">Attended / total lecture sessions</div>
+						</div>
+						<div style="font-size: 1.2rem; font-weight: 700; color: #0f766e;">
+							{% if analytics.lecture_attendance.attendance_rate is not none %}
+								{{ analytics.lecture_attendance.attendance_rate }}%
+							{% else %}
+								—
+							{% endif %}
+						</div>
+					</div>
+					{% if analytics.module_attendance %}
+						<div class="table-responsive">
+							<table class="clean-table">
+								<thead>
+									<tr>
+										<th>Module</th>
+										<th>Attended</th>
+										<th>Total</th>
+										<th>Rate</th>
+									</tr>
+								</thead>
+								<tbody>
+									{% for row in analytics.module_attendance %}
+										<tr>
+											<td>{{ row.module_code }}</td>
+											<td>{{ row.attended_lectures }}</td>
+											<td>{{ row.total_lectures }}</td>
+											<td>{{ row.attendance_rate }}%</td>
+										</tr>
+									{% endfor %}
+								</tbody>
+							</table>
+						</div>
+					{% else %}
+						<p class="text-muted small mb-0">No lecture sessions available yet.</p>
+					{% endif %}
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="analytics-card mb-4">
+		<div class="analytics-card-header">
+			<h3>✅ Lecture Check-in (click when attended)</h3>
+			<span style="font-size: 0.75rem; color: #64748b;">Last 8 weeks + next 2 weeks</span>
+		</div>
+		<div class="analytics-card-body p-0">
+			{% if analytics.lecture_sessions_recent %}
+				<div class="table-responsive">
+					<table class="clean-table">
+						<thead>
+							<tr>
+								<th>Lecture</th>
+								<th>Module</th>
+								<th>Week/Date</th>
+								<th>Attended</th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for lec in analytics.lecture_sessions_recent %}
+								<tr>
+									<td>{{ lec.title }}</td>
+									<td>{{ lec.module_code or '-' }}</td>
+									<td>{{ lec.start_at | irish_datetime if lec.start_at else '-' }}</td>
+									<td>
+										<form method="POST" action="{{ url_for('toggle_lecture_attendance', event_id=lec.id) }}">
+											<input type="hidden" name="next" value="{{ url_for('analytics') }}">
+											<button type="submit" class="btn btn-sm {% if lec.attended %}btn-success{% else %}btn-outline-secondary{% endif %}">
+												{% if lec.attended %}Attended{% else %}Mark Attended{% endif %}
+											</button>
+										</form>
+									</td>
+								</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+			{% else %}
+				<div class="p-3">
+					<p class="text-muted mb-0">No lecture sessions found. Sync Canvas calendar events first.</p>
+				</div>
+			{% endif %}
+		</div>
+	</div>
 	
 	<!-- Actionable Insights -->
 	{% if analytics.focus_module or analytics.at_risk_assignments or analytics.overdue_by_module %}

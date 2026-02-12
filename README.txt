@@ -563,6 +563,13 @@ Reference:
     pattern?"
     ChatGPT provided the response-contract + intent dispatch pattern now used in
     `/voice-command`.
+  - ChatGPT (OpenAI). Reusable Voice Command Widget (Frontend).
+    Date: 2026-02-11
+    Prompt: "I need a lightweight browser voice widget that records speech and
+    sends transcript to a Flask /voice-command endpoint, then renders result
+    feedback. Can you provide a reusable JS pattern?"
+    ChatGPT provided the start/stop + fetch/render pattern used in
+    `index.html`, `calendar.html`, and `subtasks_history.html`.
 
 Group Workspace (US 21)
 Reference:
@@ -627,6 +634,53 @@ Reference:
     statements with IF NOT EXISTS patterns?"
     ChatGPT provided the incremental migration approach used in
     `scripts/add_group_workspace_extras.sql`.
+
+Lecture Attendance + Health Score (Iteration 5)
+Reference:
+  - ChatGPT (OpenAI). Attendance Toggle Upsert Pattern.
+    Date: 2026-02-11
+    Prompt: "I need a Flask route that toggles lecture attendance for a given
+    calendar event (event belongs to current user). It should insert if missing
+    and flip attended true/false if existing."
+    ChatGPT provided the ownership-check + insert/update toggle flow used in
+    `/events/<event_id>/attendance-toggle`.
+  - ChatGPT (OpenAI). Lecture Attendance Analytics Queries.
+    Date: 2026-02-11
+    Prompt: "I need SQL for lecture attendance analytics: overall attendance %,
+    module-level attendance %, and a recent lecture session list with attended
+    flags for clickable toggles. Can you provide PostgreSQL queries?"
+    ChatGPT provided the query patterns used in `analytics()` and module routes.
+  - ChatGPT (OpenAI). Module Fallback Matching from Event Title.
+    Date: 2026-02-11
+    Prompt: "Some Canvas lecture events may not have module_id populated, but
+    the module code appears in the event title (e.g., IS4408 ...). I need SQL
+    fallback logic so module attendance still aggregates correctly. Can you
+    provide a safe PostgreSQL pattern?"
+    ChatGPT provided the regex extraction fallback used in module attendance
+    subqueries.
+  - ChatGPT (OpenAI). Weighted Health Score Calculation.
+    Date: 2026-02-11
+    Prompt: "I need a student 'health score' that combines completion rate,
+    on-time completion percentage, and lecture attendance. Some components may be
+    missing. Can you provide a weighted scoring pattern that renormalizes
+    weights?"
+    ChatGPT provided the weighted-average normalization pattern used in
+    `_calculate_health_score()`.
+  - ChatGPT (OpenAI). Lecture Attendance Tracking Schema.
+    Date: 2026-02-11
+    Prompt: "I need a PostgreSQL table to track lecture attendance per student
+    per calendar event, with an attended flag and timestamp. It should prevent
+    duplicate attendance rows for the same student/event and include useful
+    indexes."
+    ChatGPT provided the schema pattern used in
+    `scripts/add_lecture_attendance_table.sql`.
+  - ChatGPT (OpenAI). Semester Group Progress + Attendance Aggregation.
+    Date: 2026-02-11
+    Prompt: "In a semester overview page, I need SQL summaries for (1) group
+    project progress and (2) lecture attendance stats constrained to the
+    selected date range. Can you provide practical aggregation queries and safe
+    defaults?"
+    ChatGPT provided the aggregation/query pattern used in `active_semester()`.
 
 ICS Calendar Export Route
 Reference:

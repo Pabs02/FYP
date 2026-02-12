@@ -6,7 +6,7 @@
 	.back-link { font-size: 0.85rem; color: #6366f1; text-decoration: none; font-weight: 500; }
 	.back-link:hover { text-decoration: underline; }
 	.stat-row {
-		display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; margin: 1.5rem 0;
+		display: grid; grid-template-columns: repeat(6, 1fr); gap: 1rem; margin: 1.5rem 0;
 	}
 	@media (max-width: 768px) { .stat-row { grid-template-columns: repeat(2, 1fr); } }
 	.scard {
@@ -20,6 +20,7 @@
 	.scard.amber .val { color: #f59e0b; }
 	.scard.blue .val { color: #3b82f6; }
 	.scard.teal .val { color: #0d9488; }
+	.scard.indigo .val { color: #4338ca; }
 	.mod-card {
 		background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; margin-bottom: 1.5rem;
 	}
@@ -90,6 +91,10 @@
 			<div class="val">{% if avg_grade is not none %}{{ avg_grade }}%{% else %}—{% endif %}</div>
 			<div class="lbl">Avg Grade</div>
 		</div>
+		<div class="scard indigo">
+			<div class="val">{% if module_attendance_rate is not none %}{{ module_attendance_rate }}%{% else %}—{% endif %}</div>
+			<div class="lbl">Lecture Attendance</div>
+		</div>
 	</div>
 
 	<!-- Progress bar -->
@@ -121,6 +126,51 @@
 					{% endif %}
 				</div>
 			</div>
+		</div>
+	</div>
+
+	<div class="mod-card">
+		<div class="mod-card-header">🎓 Lecture Attendance</div>
+		<div class="mod-card-body">
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<span style="font-size: 0.85rem; color: #334155; font-weight: 500;">
+					Attended {{ module_attended_lectures }} / {{ module_total_lectures }} lectures
+				</span>
+				<span style="font-size: 1.05rem; font-weight: 700; color: #4338ca;">
+					{% if module_attendance_rate is not none %}{{ module_attendance_rate }}%{% else %}—{% endif %}
+				</span>
+			</div>
+			{% if module_lecture_sessions %}
+				<div class="table-responsive">
+					<table class="task-table">
+						<thead>
+							<tr>
+								<th>Lecture</th>
+								<th>Week</th>
+								<th>Attendance</th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for lec in module_lecture_sessions %}
+								<tr>
+									<td>{{ lec.title }}</td>
+									<td>{{ lec.start_at | irish_datetime if lec.start_at else '-' }}</td>
+									<td>
+										<form method="POST" action="{{ url_for('toggle_lecture_attendance', event_id=lec.id) }}">
+											<input type="hidden" name="next" value="{{ url_for('module_detail', module_id=module.id) }}">
+											<button type="submit" class="btn btn-sm {% if lec.attended %}btn-success{% else %}btn-outline-secondary{% endif %}">
+												{% if lec.attended %}Attended{% else %}Mark Attended{% endif %}
+											</button>
+										</form>
+									</td>
+								</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+			{% else %}
+				<p class="text-muted mb-0">No lecture sessions found for this module yet.</p>
+			{% endif %}
 		</div>
 	</div>
 

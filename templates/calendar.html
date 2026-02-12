@@ -23,6 +23,21 @@
 		</div>
 	</div>
 
+	<div class="card table-card mb-4">
+		<div class="card-header d-flex justify-content-between align-items-center">
+			<span>🎙️ Voice Quick Actions</span>
+			<span id="voiceStatusCalendar" class="small text-muted">Ready</span>
+		</div>
+		<div class="card-body">
+			<textarea id="voiceTranscriptCalendar" class="form-control mb-2" rows="2" placeholder="Try: Add lecture revision every Tuesday 6pm to 8pm until May"></textarea>
+			<div class="d-flex gap-2 flex-wrap mb-2">
+				<button id="voiceCaptureBtnCalendar" type="button" class="btn btn-sm btn-outline-success">Start Recording</button>
+				<button id="voiceCommandBtnCalendar" type="button" class="btn btn-sm btn-outline-primary">Run Voice Command</button>
+			</div>
+			<div id="voiceResultCalendar" class="small text-muted"></div>
+		</div>
+	</div>
+
 	<div class="alert alert-info" role="alert" id="noEventsHint" style="display:none;">
 		No timed lecture events found. If lectures are on your Canvas calendar:
 		<ol class="mb-0">
@@ -301,6 +316,84 @@
 <script id="calendar-data" type="application/json">{{ events | tojson | safe }}</script>
 
 <script>
+	// Reference: ChatGPT (OpenAI) - Reusable Voice Command Widget (Frontend)
+	// Date: 2026-02-11
+	// Prompt: "I need a lightweight browser voice widget that records speech and sends
+	// transcript to a Flask /voice-command endpoint, then renders result feedback.
+	// Can you provide a reusable JS pattern?"
+	// ChatGPT provided the start/stop + fetch/render interaction pattern below.
+	(function initCalendarVoiceWidget() {
+		const captureBtn = document.getElementById('voiceCaptureBtnCalendar');
+		const commandBtn = document.getElementById('voiceCommandBtnCalendar');
+		const transcriptEl = document.getElementById('voiceTranscriptCalendar');
+		const statusEl = document.getElementById('voiceStatusCalendar');
+		const resultEl = document.getElementById('voiceResultCalendar');
+		if (!captureBtn || !commandBtn || !transcriptEl || !statusEl || !resultEl) return;
+		const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+		let recognition = null;
+		let isListening = false;
+
+		if (SpeechRecognition) {
+			recognition = new SpeechRecognition();
+			recognition.lang = 'en-IE';
+			recognition.interimResults = true;
+			recognition.continuous = false;
+			recognition.onstart = () => {
+				isListening = true;
+				captureBtn.textContent = 'Stop Recording';
+				statusEl.textContent = 'Listening...';
+			};
+			recognition.onresult = (event) => {
+				let combined = '';
+				for (let i = event.resultIndex; i < event.results.length; i += 1) {
+					combined += event.results[i][0].transcript;
+				}
+				transcriptEl.value = `${transcriptEl.value} ${combined}`.trim();
+			};
+			recognition.onerror = () => { statusEl.textContent = 'Voice input failed.'; };
+			recognition.onend = () => {
+				isListening = false;
+				captureBtn.textContent = 'Start Recording';
+				if (!statusEl.textContent.includes('failed')) statusEl.textContent = 'Ready';
+			};
+		} else {
+			captureBtn.disabled = true;
+			statusEl.textContent = 'Speech API not supported in this browser.';
+		}
+
+		captureBtn.addEventListener('click', () => {
+			if (!recognition) return;
+			if (isListening) recognition.stop();
+			else recognition.start();
+		});
+
+		commandBtn.addEventListener('click', async () => {
+			const transcript = (transcriptEl.value || '').trim();
+			if (!transcript) {
+				resultEl.textContent = 'Please add or record a transcript first.';
+				return;
+			}
+			commandBtn.disabled = true;
+			commandBtn.textContent = 'Running...';
+			resultEl.textContent = 'Running voice command...';
+			try {
+				const response = await fetch('/voice-command', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ transcript }),
+				});
+				const data = await response.json();
+				if (!response.ok || !data.ok) throw new Error(data.error || 'Voice command failed');
+				resultEl.textContent = data.message || 'Voice command completed.';
+			} catch (error) {
+				resultEl.textContent = `Voice command failed: ${error.message}`;
+			} finally {
+				commandBtn.disabled = false;
+				commandBtn.textContent = 'Run Voice Command';
+			}
+		});
+	})();
+
 	document.addEventListener('DOMContentLoaded', function() {
 		const dataEl = document.getElementById('calendar-data');
 		let calendarEvents = [];

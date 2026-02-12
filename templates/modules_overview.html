@@ -43,7 +43,7 @@
 	}
 	.module-stats {
 		display: grid;
-		grid-template-columns: repeat(3, 1fr);
+		grid-template-columns: repeat(4, 1fr);
 		gap: 0.75rem;
 		margin-bottom: 1rem;
 	}
@@ -114,12 +114,27 @@
 					</div>
 					<div class="lbl">Avg Grade</div>
 				</div>
+				<div class="module-stat">
+					<div class="val">
+						{% if m.attendance_rate is not none %}
+						<span class="module-grade {% if m.attendance_rate >= 80 %}excellent{% elif m.attendance_rate >= 60 %}average{% elif m.attendance_rate > 0 %}low{% else %}none{% endif %}">
+							{{ "%.0f"|format(m.attendance_rate) }}%
+						</span>
+						{% else %}
+						<span class="module-grade none">—</span>
+						{% endif %}
+					</div>
+					<div class="lbl">Attendance</div>
+				</div>
 			</div>
 			<div class="module-progress">
 				<div class="module-progress-fill" style="width: {{ m.completion_rate or 0 }}%"></div>
 			</div>
 			<div class="d-flex justify-content-between align-items-center mt-2">
-				<span style="font-size: 0.75rem; color: #64748b;">{{ m.completion_rate or 0 }}% complete</span>
+				<span style="font-size: 0.75rem; color: #64748b;">
+					{{ m.completion_rate or 0 }}% complete ·
+					{{ m.attended_lectures or 0 }}/{{ m.lecture_sessions or 0 }} lectures
+				</span>
 				<span style="font-size: 0.75rem; color: #6366f1; font-weight: 600;">View →</span>
 			</div>
 		</a>

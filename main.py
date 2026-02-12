@@ -38,7 +38,7 @@ SUPABASE_URL = get_supabase_database_url()
 # Reference: Flask Documentation - Application Setup
 # https://flask.palletsprojects.com/en/3.0.x/quickstart/#a-minimal-application
 app = Flask(__name__, static_folder="static", template_folder="templates")
-app.secret_key = "your-secret-key-change-this-in-production"
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-only-change-me")
 app.config["OPENAI_API_KEY"] = get_openai_api_key()
 app.config["OPENAI_MODEL_NAME"] = get_openai_model_name()
 # During local development  skip the manual login form to speed up testing.
@@ -51,6 +51,11 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Please log in to access this page.'
+
+
+@app.get("/healthz")
+def healthz():
+	return "ok", 200
 
 
 @app.before_request
@@ -152,6 +157,7 @@ def _format_activity_title(item: Dict[str, Any]) -> str:
 		"group_workspace": "Group Workspace",
 		"group_workspace_invite": "Group Invite",
 		"group_workspace_download_file": "Group File Download",
+		"toggle_lecture_attendance": "Lecture Attendance",
 	}
 
 	base_title = endpoint_map.get(endpoint)
@@ -1016,6 +1022,84 @@ def active_semester():
 	total_tasks = sum(status_counts.values())
 	completed_subtasks = sum(1 for s in subtasks if s.get("is_completed"))
 
+	# Reference: ChatGPT (OpenAI) - Semester Group Progress + Attendance Aggregation
+	# Date: 2026-02-11
+	# Prompt: "In a semester overview page, I need SQL summaries for (1) group project
+	# progress and (2) lecture attendance stats constrained to the selected date range.
+	# Can you provide practical aggregation queries and safe defaults?"
+	# ChatGPT provided the aggregation/query pattern below.
+	try:
+		group_project_progress = sb_fetch_all(
+			"""
+			SELECT gp.id, gp.title,
+			       COUNT(gt.id) AS total_tasks,
+			       SUM(CASE WHEN gt.status = 'done' THEN 1 ELSE 0 END) AS completed_tasks
+			FROM group_projects gp
+			LEFT JOIN group_project_tasks gt
+			       ON gt.project_id = gp.id
+			      AND (
+			          (gt.due_date IS NOT NULL AND gt.due_date BETWEEN :start_date AND :end_date)
+			          OR gt.created_at BETWEEN :start_dt AND :end_dt
+			      )
+			WHERE gp.owner_student_id = :student_id
+			  AND (
+			      gp.created_at BETWEEN :start_dt AND :end_dt
+			      OR (gp.due_date IS NOT NULL AND gp.due_date BETWEEN :start_date AND :end_date)
+			      OR EXISTS (
+			          SELECT 1
+			          FROM group_project_tasks gt2
+			          WHERE gt2.project_id = gp.id
+			            AND (
+			                (gt2.due_date IS NOT NULL AND gt2.due_date BETWEEN :start_date AND :end_date)
+			                OR gt2.created_at BETWEEN :start_dt AND :end_dt
+			            )
+			      )
+			  )
+			GROUP BY gp.id, gp.title
+			ORDER BY gp.title
+			""",
+			{
+				"student_id": current_user.id,
+				"start_date": start_date,
+				"end_date": end_date,
+				"start_dt": start_dt,
+				"end_dt": end_dt,
+			},
+		)
+	except Exception:
+		group_project_progress = []
+
+	total_group_projects = len(group_project_progress)
+	total_group_tasks = sum(int(item.get("total_tasks") or 0) for item in group_project_progress)
+	completed_group_tasks = sum(int(item.get("completed_tasks") or 0) for item in group_project_progress)
+	group_completion_rate = round((completed_group_tasks * 100.0 / total_group_tasks), 1) if total_group_tasks else 0.0
+	for item in group_project_progress:
+		total = int(item.get("total_tasks") or 0)
+		done = int(item.get("completed_tasks") or 0)
+		item["completion_rate"] = round((done * 100.0 / total), 1) if total else 0.0
+
+	try:
+		lecture_attendance_summary = sb_fetch_one(
+			"""
+			SELECT
+				COUNT(e.id) AS total_lectures,
+				SUM(CASE WHEN COALESCE(la.attended, FALSE) THEN 1 ELSE 0 END) AS attended_lectures
+			FROM events e
+			LEFT JOIN lecture_attendance la
+			       ON la.event_id = e.id
+			      AND la.student_id = :student_id
+			WHERE e.student_id = :student_id
+			  AND e.canvas_event_id IS NOT NULL
+			  AND e.start_at BETWEEN :start_dt AND LEAST(:end_dt, NOW())
+			""",
+			{"student_id": current_user.id, "start_dt": start_dt, "end_dt": end_dt},
+		) or {"total_lectures": 0, "attended_lectures": 0}
+	except Exception:
+		lecture_attendance_summary = {"total_lectures": 0, "attended_lectures": 0}
+	total_lectures = int(lecture_attendance_summary.get("total_lectures") or 0)
+	attended_lectures = int(lecture_attendance_summary.get("attended_lectures") or 0)
+	lecture_attendance_rate = round((attended_lectures * 100.0 / total_lectures), 1) if total_lectures else 0.0
+
 	return render_template(
 		"semester.html",
 		start_date=start_date,
@@ -1033,6 +1117,14 @@ def active_semester():
 		completed_subtasks=completed_subtasks,
 		total_activity=total_activity,
 		activity_logs=activity_logs,
+		group_project_progress=group_project_progress,
+		total_group_projects=total_group_projects,
+		total_group_tasks=total_group_tasks,
+		completed_group_tasks=completed_group_tasks,
+		group_completion_rate=group_completion_rate,
+		total_lectures=total_lectures,
+		attended_lectures=attended_lectures,
+		lecture_attendance_rate=lecture_attendance_rate,
 	)
 
 
@@ -4640,6 +4732,93 @@ def debug_events():
 		return jsonify({"ok": False, "error": str(exc)}), 500
 
 
+# Reference: ChatGPT (OpenAI) - Weighted Health Score Calculation
+# Date: 2026-02-11
+# Prompt: "I need a student 'health score' that combines completion rate,
+# on-time completion percentage, and lecture attendance. Some components may be
+# missing. Can you provide a weighted scoring pattern that renormalizes weights?"
+# ChatGPT provided the weighted-average + fallback normalization pattern below.
+def _calculate_health_score(
+	*,
+	task_completion_rate: Optional[float],
+	on_time_rate: Optional[float],
+	lecture_attendance_rate: Optional[float]
+) -> Dict[str, Any]:
+	parts: List[Tuple[float, float]] = []
+	if task_completion_rate is not None:
+		parts.append((float(task_completion_rate), 0.40))
+	if on_time_rate is not None:
+		parts.append((float(on_time_rate), 0.30))
+	if lecture_attendance_rate is not None:
+		parts.append((float(lecture_attendance_rate), 0.30))
+	if not parts:
+		return {"score": 0.0, "label": "no_data"}
+	total_weight = sum(weight for _, weight in parts)
+	score = round(sum(value * weight for value, weight in parts) / total_weight, 1)
+	if score >= 80:
+		label = "on_track"
+	elif score >= 60:
+		label = "watch"
+	else:
+		label = "at_risk"
+	return {"score": score, "label": label}
+
+
+@app.route("/events/<int:event_id>/attendance-toggle", methods=["POST"])
+@login_required
+def toggle_lecture_attendance(event_id: int):
+	# Reference: ChatGPT (OpenAI) - Attendance Toggle Upsert Pattern
+	# Date: 2026-02-11
+	# Prompt: "I need a Flask route that toggles lecture attendance for a given
+	# calendar event (event belongs to current user). It should insert if missing
+	# and flip attended true/false if existing."
+	# ChatGPT provided the ownership-check + insert/update toggle flow below.
+	next_url = request.form.get("next") or request.referrer or url_for("analytics")
+	event = sb_fetch_one(
+		"""
+		SELECT id
+		FROM events
+		WHERE id = :event_id AND student_id = :student_id
+		""",
+		{"event_id": event_id, "student_id": current_user.id},
+	)
+	if not event:
+		flash("Lecture event not found.", "warning")
+		return redirect(next_url)
+	try:
+		row = sb_fetch_one(
+			"""
+			SELECT id, attended
+			FROM lecture_attendance
+			WHERE event_id = :event_id AND student_id = :student_id
+			""",
+			{"event_id": event_id, "student_id": current_user.id},
+		)
+		if row:
+			new_attended = not bool(row.get("attended"))
+			sb_execute(
+				"""
+				UPDATE lecture_attendance
+				SET attended = :attended,
+				    attended_at = CASE WHEN :attended THEN NOW() ELSE NULL END
+				WHERE id = :id
+				""",
+				{"attended": new_attended, "id": row.get("id")},
+			)
+		else:
+			sb_execute(
+				"""
+				INSERT INTO lecture_attendance (student_id, event_id, attended, attended_at)
+				VALUES (:student_id, :event_id, TRUE, NOW())
+				""",
+				{"student_id": current_user.id, "event_id": event_id},
+			)
+	except Exception as exc:
+		print(f"[attendance] toggle failed user={current_user.id} event={event_id} err={exc}")
+		flash("Failed to update lecture attendance.", "error")
+	return redirect(next_url)
+
+
 @app.route("/analytics")
 @login_required
 def analytics():
@@ -4711,6 +4890,84 @@ def analytics():
 			late_percentage = round((completion_stats['late'] / completion_stats['total_completed']) * 100, 1)
 			completion_stats['on_time_percentage'] = on_time_percentage
 			completion_stats['late_percentage'] = late_percentage
+		else:
+			on_time_percentage = None
+
+		# Reference: ChatGPT (OpenAI) - Lecture Attendance Analytics Queries
+		# Date: 2026-02-11
+		# Prompt: "I need SQL for lecture attendance analytics: overall attendance %,
+		# module-level attendance %, and a recent lecture session list with attended
+		# flags for clickable toggles. Can you provide PostgreSQL queries?"
+		# ChatGPT provided the query patterns below.
+		lecture_overview = sb_fetch_one(
+			"""
+			SELECT
+				COUNT(e.id) AS total_lectures,
+				SUM(CASE WHEN COALESCE(la.attended, FALSE) THEN 1 ELSE 0 END) AS attended_lectures
+			FROM events e
+			LEFT JOIN lecture_attendance la
+			       ON la.event_id = e.id
+			      AND la.student_id = :student_id
+			WHERE e.student_id = :student_id
+			  AND e.canvas_event_id IS NOT NULL
+			  AND e.start_at <= NOW()
+			""",
+			{"student_id": current_user.id},
+		) or {"total_lectures": 0, "attended_lectures": 0}
+		total_lectures = int(lecture_overview.get("total_lectures") or 0)
+		attended_lectures = int(lecture_overview.get("attended_lectures") or 0)
+		lecture_attendance_rate = round((attended_lectures * 100.0 / total_lectures), 1) if total_lectures else None
+
+		lecture_sessions_recent = sb_fetch_all(
+			"""
+			SELECT e.id, e.title, e.start_at, e.end_at, e.module_id, m.code AS module_code,
+			       COALESCE(la.attended, FALSE) AS attended
+			FROM events e
+			LEFT JOIN lecture_attendance la
+			       ON la.event_id = e.id
+			      AND la.student_id = :student_id
+			LEFT JOIN modules m ON m.id = e.module_id
+			WHERE e.student_id = :student_id
+			  AND e.canvas_event_id IS NOT NULL
+			  AND e.start_at >= NOW() - INTERVAL '8 weeks'
+			  AND e.start_at <= NOW() + INTERVAL '2 weeks'
+			ORDER BY e.start_at DESC
+			LIMIT 80
+			""",
+			{"student_id": current_user.id},
+		)
+
+		module_attendance = sb_fetch_all(
+			"""
+			SELECT m.id AS module_id, m.code AS module_code,
+			       COUNT(e.id) AS total_lectures,
+			       SUM(CASE WHEN COALESCE(la.attended, FALSE) THEN 1 ELSE 0 END) AS attended_lectures
+			FROM modules m
+			LEFT JOIN events e
+			       ON e.module_id = m.id
+			      AND e.student_id = :student_id
+			      AND e.canvas_event_id IS NOT NULL
+			      AND e.start_at <= NOW()
+			LEFT JOIN lecture_attendance la
+			       ON la.event_id = e.id
+			      AND la.student_id = :student_id
+			GROUP BY m.id, m.code
+			HAVING COUNT(e.id) > 0
+			ORDER BY m.code
+			""",
+			{"student_id": current_user.id},
+		)
+		for row in module_attendance:
+			total_for_module = int(row.get("total_lectures") or 0)
+			attended_for_module = int(row.get("attended_lectures") or 0)
+			row["attendance_rate"] = round((attended_for_module * 100.0 / total_for_module), 1) if total_for_module else 0.0
+
+		task_completion_rate = round((completed_tasks * 100.0 / total_tasks), 1) if total_tasks else None
+		health_score = _calculate_health_score(
+			task_completion_rate=task_completion_rate,
+			on_time_rate=on_time_percentage,
+			lecture_attendance_rate=lecture_attendance_rate,
+		)
 		
 		# Reference: ChatGPT (OpenAI) - Module Performance Analytics with NULLIF
 		# Date: 2025-10-18
@@ -5020,6 +5277,15 @@ def analytics():
 			# Extra Visuals (US 18)
 			'daily_task_density': daily_task_density,
 			'cumulative_completions': cumulative_completions,
+			'lecture_attendance': {
+				'total_lectures': total_lectures,
+				'attended_lectures': attended_lectures,
+				'attendance_rate': lecture_attendance_rate,
+			},
+			'lecture_sessions_recent': lecture_sessions_recent,
+			'module_attendance': module_attendance,
+			'task_completion_rate': task_completion_rate,
+			'health_score': health_score,
 		}
 		
 	except Exception as e:
@@ -5046,6 +5312,15 @@ def analytics():
 			'overdue_by_module': [],
 			'daily_task_density': [],
 			'cumulative_completions': [],
+			'lecture_attendance': {
+				'total_lectures': 0,
+				'attended_lectures': 0,
+				'attendance_rate': None,
+			},
+			'lecture_sessions_recent': [],
+			'module_attendance': [],
+			'task_completion_rate': None,
+			'health_score': {'score': 0.0, 'label': 'no_data'},
 		}
 
 	return render_template("analytics.html", analytics=analytics_data)
@@ -5063,6 +5338,13 @@ def analytics():
 @login_required
 def modules_overview():
 	"""List all modules with summary stats."""
+	# Reference: ChatGPT (OpenAI) - Module Fallback Matching from Event Title
+	# Date: 2026-02-11
+	# Prompt: "Some Canvas lecture events may not have module_id populated, but the
+	# module code appears in the event title (e.g., IS4408 ...). I need SQL fallback
+	# logic so module attendance still aggregates correctly. Can you provide a safe
+	# PostgreSQL pattern?"
+	# ChatGPT provided the regex extraction fallback used in attendance subqueries.
 	try:
 		modules = sb_fetch_all("""
 			SELECT m.id, m.code,
@@ -5080,6 +5362,44 @@ def modules_overview():
 			               THEN t.canvas_score
 			           END
 			       ), 1) AS avg_grade
+			       ,
+			       COALESCE((
+			           SELECT COUNT(*)
+			           FROM events e
+			           WHERE (
+			               e.module_id = m.id
+			               OR (
+			                   e.module_id IS NULL
+			                   AND (
+			                       UPPER(e.title) LIKE '%' || UPPER(m.code) || '%'
+			                       OR UPPER(e.title) LIKE '%' || UPPER(REGEXP_REPLACE(m.code, '^[0-9]{4}-', '')) || '%'
+			                   )
+			               )
+			           )
+			             AND e.student_id = :sid
+			             AND e.canvas_event_id IS NOT NULL
+			             AND e.start_at <= NOW()
+			       ), 0) AS lecture_sessions,
+			       COALESCE((
+			           SELECT COUNT(*)
+			           FROM lecture_attendance la
+			           JOIN events e2 ON e2.id = la.event_id
+			           WHERE la.student_id = :sid
+			             AND la.attended = TRUE
+			             AND (
+			                 e2.module_id = m.id
+			                 OR (
+			                     e2.module_id IS NULL
+			                     AND (
+			                         UPPER(e2.title) LIKE '%' || UPPER(m.code) || '%'
+			                         OR UPPER(e2.title) LIKE '%' || UPPER(REGEXP_REPLACE(m.code, '^[0-9]{4}-', '')) || '%'
+			                     )
+			                 )
+			             )
+			             AND e2.student_id = :sid
+			             AND e2.canvas_event_id IS NOT NULL
+			             AND e2.start_at <= NOW()
+			       ), 0) AS attended_lectures
 			FROM modules m
 			LEFT JOIN tasks t ON t.module_id = m.id AND t.student_id = :sid
 			GROUP BY m.id, m.code
@@ -5087,7 +5407,37 @@ def modules_overview():
 		""", {"sid": current_user.id})
 	except Exception as exc:
 		print(f"[modules] overview error: {exc}")
-		modules = []
+		try:
+			# Fallback if lecture_attendance table is not migrated yet.
+			modules = sb_fetch_all("""
+				SELECT m.id, m.code,
+				       COUNT(t.id) AS total_tasks,
+				       SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) AS completed,
+				       ROUND(
+				           SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) * 100.0
+				           / NULLIF(COUNT(t.id), 0), 1
+				       ) AS completion_rate,
+				       ROUND(AVG(
+				           CASE
+				               WHEN t.canvas_score IS NOT NULL AND t.canvas_possible > 0
+				               THEN (t.canvas_score / t.canvas_possible) * 100
+				               WHEN t.canvas_score IS NOT NULL AND (t.canvas_possible IS NULL OR t.canvas_possible = 0)
+				               THEN t.canvas_score
+				           END
+				       ), 1) AS avg_grade,
+				       0 AS lecture_sessions,
+				       0 AS attended_lectures
+				FROM modules m
+				LEFT JOIN tasks t ON t.module_id = m.id AND t.student_id = :sid
+				GROUP BY m.id, m.code
+				ORDER BY m.code
+			""", {"sid": current_user.id})
+		except Exception:
+			modules = []
+	for item in modules:
+		total_lectures = int(item.get("lecture_sessions") or 0)
+		attended_lectures = int(item.get("attended_lectures") or 0)
+		item["attendance_rate"] = round((attended_lectures * 100.0 / total_lectures), 1) if total_lectures else None
 	return render_template("modules_overview.html", modules=modules)
 
 
@@ -5144,11 +5494,93 @@ def module_detail(module_id):
 	except Exception:
 		weekly = []
 
+	module_code_value = (module.get("code") or "").strip()
+	module_code_short = re.sub(r"^[0-9]{4}-", "", module_code_value).strip() or module_code_value
+
+	try:
+		module_lecture_summary = sb_fetch_one(
+			"""
+			SELECT
+				COUNT(e.id) AS total_lectures,
+				SUM(CASE WHEN COALESCE(la.attended, FALSE) THEN 1 ELSE 0 END) AS attended_lectures
+			FROM events e
+			LEFT JOIN lecture_attendance la
+			       ON la.event_id = e.id
+			      AND la.student_id = :sid
+			WHERE e.student_id = :sid
+			  AND (
+			      e.module_id = :mid
+			      OR (
+			          e.module_id IS NULL
+			          AND (
+			              UPPER(e.title) LIKE '%' || UPPER(:module_code) || '%'
+			              OR UPPER(e.title) LIKE '%' || UPPER(:module_code_short) || '%'
+			          )
+			      )
+			  )
+			  AND e.canvas_event_id IS NOT NULL
+			  AND e.start_at <= NOW()
+			""",
+			{
+				"sid": current_user.id,
+				"mid": module_id,
+				"module_code": module_code_value,
+				"module_code_short": module_code_short,
+			},
+		) or {"total_lectures": 0, "attended_lectures": 0}
+	except Exception:
+		module_lecture_summary = {"total_lectures": 0, "attended_lectures": 0}
+
+	try:
+		module_lecture_sessions = sb_fetch_all(
+			"""
+			SELECT e.id, e.title, e.start_at,
+			       COALESCE(la.attended, FALSE) AS attended
+			FROM events e
+			LEFT JOIN lecture_attendance la
+			       ON la.event_id = e.id
+			      AND la.student_id = :sid
+			WHERE e.student_id = :sid
+			  AND (
+			      e.module_id = :mid
+			      OR (
+			          e.module_id IS NULL
+			          AND (
+			              UPPER(e.title) LIKE '%' || UPPER(:module_code) || '%'
+			              OR UPPER(e.title) LIKE '%' || UPPER(:module_code_short) || '%'
+			          )
+			      )
+			  )
+			  AND e.canvas_event_id IS NOT NULL
+			  AND e.start_at >= NOW() - INTERVAL '8 weeks'
+			  AND e.start_at <= NOW() + INTERVAL '2 weeks'
+			ORDER BY e.start_at DESC
+			LIMIT 40
+			""",
+			{
+				"sid": current_user.id,
+				"mid": module_id,
+				"module_code": module_code_value,
+				"module_code_short": module_code_short,
+			},
+		)
+	except Exception:
+		module_lecture_sessions = []
+
+	module_total_lectures = int(module_lecture_summary.get("total_lectures") or 0)
+	module_attended_lectures = int(module_lecture_summary.get("attended_lectures") or 0)
+	module_attendance_rate = round((module_attended_lectures * 100.0 / module_total_lectures), 1) if module_total_lectures else None
+
 	return render_template("module_detail.html",
 		module=module, tasks=tasks,
 		total=total, completed=completed, in_progress=in_progress, pending=pending,
 		completion_rate=completion_rate, graded_count=len(graded),
-		avg_grade=avg_grade, weekly=weekly)
+		avg_grade=avg_grade, weekly=weekly,
+		module_total_lectures=module_total_lectures,
+		module_attended_lectures=module_attended_lectures,
+		module_attendance_rate=module_attendance_rate,
+		module_lecture_sessions=module_lecture_sessions,
+	)
 
 
 @app.route("/study-planner", methods=["GET", "POST"])

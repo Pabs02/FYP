@@ -33,6 +33,21 @@
 	</div>
 </div>
 
+<div class="card dashboard-card mb-4">
+	<div class="card-header d-flex justify-content-between align-items-center">
+		<span>🎙️ Voice Quick Actions</span>
+		<span id="voiceStatusHome" class="small text-muted">Ready</span>
+	</div>
+	<div class="card-body">
+		<textarea id="voiceTranscriptHome" class="form-control mb-2" rows="2" placeholder="Try: What is due this week? | Any overdue tasks? | Add revision every Tuesday 6pm to 8pm until May"></textarea>
+		<div class="d-flex flex-wrap gap-2 mb-2">
+			<button id="voiceCaptureBtnHome" type="button" class="btn btn-sm btn-outline-success">Start Recording</button>
+			<button id="voiceCommandBtnHome" type="button" class="btn btn-sm btn-outline-primary">Run Voice Command</button>
+		</div>
+		<div id="voiceResultHome" class="small text-muted"></div>
+	</div>
+</div>
+
 <!-- Top Row: Progress Overview + Next Assignments -->
 <div class="row g-4 mb-4">
 	<div class="col-lg-4 col-md-5">
@@ -274,4 +289,86 @@
 	</div>
 </div>
 </div>
+<script>
+// Reference: ChatGPT (OpenAI) - Reusable Voice Command Widget (Frontend)
+// Date: 2026-02-11
+// Prompt: "I need a lightweight browser voice widget that records speech and sends
+// transcript to a Flask /voice-command endpoint, then renders result feedback.
+// Can you provide a reusable JS pattern?"
+// ChatGPT provided the start/stop + fetch/render interaction pattern below.
+document.addEventListener('DOMContentLoaded', () => {
+	const captureBtn = document.getElementById('voiceCaptureBtnHome');
+	const commandBtn = document.getElementById('voiceCommandBtnHome');
+	const transcriptEl = document.getElementById('voiceTranscriptHome');
+	const statusEl = document.getElementById('voiceStatusHome');
+	const resultEl = document.getElementById('voiceResultHome');
+	const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+	let recognition = null;
+	let isListening = false;
+
+	if (SpeechRecognition) {
+		recognition = new SpeechRecognition();
+		recognition.lang = 'en-IE';
+		recognition.interimResults = true;
+		recognition.continuous = false;
+		recognition.onstart = () => {
+			isListening = true;
+			captureBtn.textContent = 'Stop Recording';
+			statusEl.textContent = 'Listening...';
+		};
+		recognition.onresult = (event) => {
+			let combined = '';
+			for (let i = event.resultIndex; i < event.results.length; i += 1) {
+				combined += event.results[i][0].transcript;
+			}
+			transcriptEl.value = `${transcriptEl.value} ${combined}`.trim();
+		};
+		recognition.onerror = () => {
+			statusEl.textContent = 'Voice input failed.';
+		};
+		recognition.onend = () => {
+			isListening = false;
+			captureBtn.textContent = 'Start Recording';
+			if (!statusEl.textContent.includes('failed')) statusEl.textContent = 'Ready';
+		};
+	} else {
+		captureBtn.disabled = true;
+		statusEl.textContent = 'Speech API not supported in this browser.';
+	}
+
+	captureBtn?.addEventListener('click', () => {
+		if (!recognition) return;
+		if (isListening) recognition.stop();
+		else recognition.start();
+	});
+
+	commandBtn?.addEventListener('click', async () => {
+		const transcript = (transcriptEl.value || '').trim();
+		if (!transcript) {
+			resultEl.textContent = 'Please add or record a transcript first.';
+			return;
+		}
+		commandBtn.disabled = true;
+		commandBtn.textContent = 'Running...';
+		resultEl.textContent = 'Running voice command...';
+		try {
+			const response = await fetch('/voice-command', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ transcript }),
+			});
+			const data = await response.json();
+			if (!response.ok || !data.ok) {
+				throw new Error(data.error || 'Voice command failed');
+			}
+			resultEl.textContent = data.message || 'Voice command completed.';
+		} catch (error) {
+			resultEl.textContent = `Voice command failed: ${error.message}`;
+		} finally {
+			commandBtn.disabled = false;
+			commandBtn.textContent = 'Run Voice Command';
+		}
+	});
+});
+</script>
 {% endblock %}
