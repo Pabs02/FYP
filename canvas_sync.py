@@ -43,6 +43,9 @@ def sync_canvas_assignments(canvas_url: str, api_token: str, student_id: int, db
     }
     
     try:
+        # Limit historical sync to the most recent 6 months.
+        # Future assignments remain unbounded.
+        past_cutoff_utc = datetime.now(pytz.UTC) - timedelta(days=180)
         # Reference: canvasapi Documentation - Getting Started
         # https://canvasapi.readthedocs.io/en/stable/getting_started.html
         # Connection pattern from canvasapi library examples
@@ -95,9 +98,21 @@ def sync_canvas_assignments(canvas_url: str, api_token: str, student_id: int, db
                     if not assignments:
                         assignments = list(course.get_assignments(bucket="upcoming"))
                         past_assignments = list(course.get_assignments(bucket="past"))
-                        # Include past assignments from last 180 days (wider window to catch graded assignments)
-                        cutoff = datetime.now() - timedelta(days=180)
-                        recent_past = [a for a in past_assignments if hasattr(a, 'due_at') and a.due_at and datetime.fromisoformat(a.due_at.replace('Z', '+00:00')) > cutoff]
+                        # Include past assignments from last 180 days only.
+                        recent_past = []
+                        for a in past_assignments:
+                            if not hasattr(a, 'due_at') or not a.due_at:
+                                continue
+                            try:
+                                due_past = datetime.fromisoformat(a.due_at.replace('Z', '+00:00'))
+                                if due_past.tzinfo is None:
+                                    due_past = pytz.UTC.localize(due_past)
+                                else:
+                                    due_past = due_past.astimezone(pytz.UTC)
+                                if due_past >= past_cutoff_utc:
+                                    recent_past.append(a)
+                            except Exception:
+                                continue
                         assignments.extend(recent_past)
                     
                     # Also fetch assignments already in the database for this course to update grades
@@ -152,6 +167,16 @@ def sync_canvas_assignments(canvas_url: str, api_token: str, student_id: int, db
                         except Exception:
                             due_date_str = assignment.due_at.split('T')[0]
                             due_dt = datetime.strptime(due_date_str, '%Y-%m-%d')
+                        if due_dt.tzinfo is None:
+                            due_dt = pytz.UTC.localize(due_dt)
+                        else:
+                            due_dt = due_dt.astimezone(pytz.UTC)
+
+                        # Apply the 6-month historical cap globally.
+                        if due_dt < past_cutoff_utc:
+                            stats['assignments_skipped'] += 1
+                            continue
+
                         due_date = due_dt.date()
 
                         assignment_description = getattr(assignment, 'description', None)
