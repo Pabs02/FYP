@@ -2919,6 +2919,30 @@ def _get_owned_group_project(project_id: int, student_id: int) -> Optional[Dict[
 	)
 
 
+def _get_group_membership_project(project_id: int, student_id: int, student_email: Optional[str]) -> Optional[Dict[str, Any]]:
+	email = (student_email or "").strip().lower()
+	return sb_fetch_one(
+		"""
+		SELECT p.id, p.owner_student_id, p.title, p.module_code, p.description, p.due_date, p.created_at
+		FROM group_projects p
+		JOIN group_project_members m ON m.project_id = p.id
+		WHERE p.id = :project_id
+		  AND m.project_id = :project_id
+		  AND m.invite_status = 'accepted'
+		  AND LOWER(m.member_email) = :member_email
+		LIMIT 1
+		""",
+		{"project_id": project_id, "member_email": email},
+	)
+
+
+def _get_accessible_group_project(project_id: int, student_id: int, student_email: Optional[str]) -> Optional[Dict[str, Any]]:
+	owned = _get_owned_group_project(project_id, student_id)
+	if owned:
+		return owned
+	return _get_group_membership_project(project_id, student_id, student_email)
+
+
 def _group_invite_url(invite_token: Optional[str]) -> Optional[str]:
 	if not invite_token:
 		return None
@@ -2984,10 +3008,31 @@ def group_workspace():
 		if not project_id:
 			flash("Please select a project first.", "warning")
 			return redirect(url_for("group_workspace"))
-		project = _get_owned_group_project(project_id, current_user.id)
+		project = _get_accessible_group_project(project_id, current_user.id, current_user.email)
 		if not project:
 			flash("Project not found or permission denied.", "error")
 			return redirect(url_for("group_workspace"))
+		can_manage_project = int(project.get("owner_student_id") or 0) == int(current_user.id)
+		owner_only_actions = {
+			"add_member",
+			"add_task",
+			"generate_ai_tasks",
+			"update_task",
+			"delete_task",
+			"email_task",
+			"email_all_assignments",
+			"resend_invite",
+			"add_milestone",
+			"toggle_milestone",
+			"upload_task_file",
+			"delete_task_file",
+			"upload_project_file",
+			"delete_project_file",
+			"post_message",
+		}
+		if action in owner_only_actions and not can_manage_project:
+			flash("This project is view-only for members. Use the invite portal to update your assigned tasks.", "warning")
+			return redirect(url_for("group_workspace", project_id=project_id))
 
 		if action == "add_member":
 			member_name = (request.form.get("member_name") or "").strip()
@@ -3648,12 +3693,21 @@ def group_workspace():
 	try:
 		projects = sb_fetch_all(
 			"""
-			SELECT id, title, module_code, due_date, created_at
-			FROM group_projects
-			WHERE owner_student_id = :student_id
+			SELECT p.id, p.title, p.module_code, p.due_date, p.created_at, p.owner_student_id
+			FROM group_projects p
+			WHERE p.owner_student_id = :student_id
+
+			UNION
+
+			SELECT p.id, p.title, p.module_code, p.due_date, p.created_at, p.owner_student_id
+			FROM group_projects p
+			JOIN group_project_members m ON m.project_id = p.id
+			WHERE m.invite_status = 'accepted'
+			  AND LOWER(m.member_email) = :member_email
+
 			ORDER BY created_at DESC, id DESC
 			""",
-			{"student_id": current_user.id},
+			{"student_id": current_user.id, "member_email": (current_user.email or "").strip().lower()},
 		)
 	except Exception as exc:
 		print(f"[group-workspace] project list failed user={current_user.id} err={exc}")
@@ -3663,9 +3717,9 @@ def group_workspace():
 	if selected_project_id:
 		pid = _coerce_int(selected_project_id)
 		if pid:
-			selected_project = _get_owned_group_project(pid, current_user.id)
+			selected_project = _get_accessible_group_project(pid, current_user.id, current_user.email)
 	if not selected_project and projects:
-		selected_project = _get_owned_group_project(projects[0].get("id"), current_user.id)
+		selected_project = _get_accessible_group_project(projects[0].get("id"), current_user.id, current_user.email)
 
 	members: List[Dict[str, Any]] = []
 	tasks: List[Dict[str, Any]] = []
