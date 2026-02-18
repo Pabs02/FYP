@@ -6906,6 +6906,12 @@ def _voice_detect_intent(transcript: str) -> str:
 		return "dashboard_query"
 	if "break" in text and "into" in text and any(word in text for word in ["steps", "microtasks", "subtasks"]):
 		return "create_microtasks"
+	if any(word in text for word in ["mark", "set", "update"]) and any(word in text for word in ["done", "completed", "in progress", "pending"]):
+		return "update_task_status"
+	if any(word in text for word in ["move", "reschedule"]) and any(word in text for word in ["today", "tomorrow", "next ", " on ", " at ", ":"]):
+		return "reschedule_task"
+	if any(word in text for word in ["weight", "percent", "priority"]) and any(word in text for word in ["set", "update", "change", "make"]):
+		return "set_task_weight"
 	if any(word in text for word in ["add", "create", "schedule"]) and "every" in text:
 		return "create_recurring_event"
 	return "unknown"
@@ -6918,6 +6924,183 @@ def _voice_match_module(modules: List[Dict[str, Any]], transcript: str) -> Tuple
 		if code and re.search(rf"\b{re.escape(code)}\b", upper_text):
 			return module.get("id"), code
 	return None, None
+
+
+# Reference: ChatGPT (OpenAI) - Voice Task Lifecycle Command Handlers
+# Date: 2026-02-18
+# Prompt: "Extend voice commands to handle task lifecycle actions in Flask:
+# mark task status (done/in-progress/pending), reschedule due date/time, and
+# update weighting/priority. I need task title extraction + fuzzy matching and
+# safe DB update patterns. Can you provide helper functions and intent hooks?"
+# ChatGPT provided the normalization, task matching, and update handler pattern
+# adapted below for this codebase.
+def _voice_normalize_title(value: str) -> str:
+	return re.sub(r"[^a-z0-9]+", " ", (value or "").lower()).strip()
+
+
+def _voice_extract_task_phrase(transcript: str) -> Optional[str]:
+	text = (transcript or "").strip()
+	patterns = [
+		r"(?:mark|set|update|change|move|reschedule|make)\s+(.+?)\s+(?:as\s+)?(?:done|completed|in progress|pending|todo)\b",
+		r"(?:move|reschedule|set|change)\s+(.+?)\s+(?:to|for|on)\b",
+		r"(?:set|update|change|make)\s+(.+?)\s+(?:weight|priority)\b",
+	]
+	for pattern in patterns:
+		match = re.search(pattern, text, flags=re.IGNORECASE)
+		if match:
+			candidate = (match.group(1) or "").strip(" ,.-")
+			if candidate:
+				return candidate
+	return None
+
+
+def _voice_find_task_for_command(transcript: str, student_id: int) -> Optional[Dict[str, Any]]:
+	modules = sb_fetch_all("SELECT id, code FROM modules ORDER BY code")
+	module_id, _ = _voice_match_module(modules, transcript)
+	candidate = _voice_extract_task_phrase(transcript) or transcript
+	candidate_norm = _voice_normalize_title(candidate)
+	if not candidate_norm:
+		return None
+	rows = sb_fetch_all(
+		"""
+		SELECT t.id, t.title, t.status, t.due_date, t.due_at, t.weight_percentage, m.code AS module_code
+		FROM tasks t
+		LEFT JOIN modules m ON m.id = t.module_id
+		WHERE t.student_id = :student_id
+		  AND (:module_id IS NULL OR t.module_id = :module_id)
+		ORDER BY COALESCE(t.due_at, t.due_date::timestamp) ASC NULLS LAST, t.id DESC
+		LIMIT 300
+		""",
+		{"student_id": student_id, "module_id": module_id},
+	)
+	best_row = None
+	best_score = 0
+	candidate_tokens = {t for t in candidate_norm.split() if len(t) > 2}
+	for row in rows:
+		title_norm = _voice_normalize_title(row.get("title") or "")
+		if not title_norm:
+			continue
+		score = 0
+		if candidate_norm == title_norm:
+			score += 100
+		if candidate_norm in title_norm:
+			score += 60
+		elif title_norm in candidate_norm:
+			score += 45
+		title_tokens = {t for t in title_norm.split() if len(t) > 2}
+		overlap = len(candidate_tokens & title_tokens)
+		score += overlap * 8
+		if score > best_score:
+			best_score = score
+			best_row = row
+	return best_row if best_score >= 16 else None
+
+
+def _voice_update_task_status(transcript: str, student_id: int) -> Dict[str, Any]:
+	text = transcript.lower()
+	new_status = "pending"
+	if "in progress" in text:
+		new_status = "in_progress"
+	elif "done" in text or "completed" in text or "finish" in text:
+		new_status = "completed"
+	elif "pending" in text or "todo" in text or "to do" in text:
+		new_status = "pending"
+	task = _voice_find_task_for_command(transcript, student_id)
+	if not task:
+		raise ValueError("Could not match a task title in that command.")
+	sb_execute(
+		"""
+		UPDATE tasks
+		SET status = :status,
+		    completed_at = CASE
+		        WHEN :status = 'completed' THEN COALESCE(completed_at, NOW())
+		        ELSE NULL
+		    END
+		WHERE id = :task_id
+		  AND student_id = :student_id
+		""",
+		{"status": new_status, "task_id": task.get("id"), "student_id": student_id},
+	)
+	return {
+		"task_id": task.get("id"),
+		"title": task.get("title"),
+		"status": new_status,
+	}
+
+
+def _voice_reschedule_task(transcript: str, student_id: int) -> Dict[str, Any]:
+	base_date = datetime.now().date()
+	due_date_str = _voice_parse_due_date(transcript, base_date)
+	due_time_str = _voice_parse_due_time(transcript)
+	if not due_date_str:
+		raise ValueError("Please include a new due date, e.g. 'move database lab to next Friday'.")
+	task = _voice_find_task_for_command(transcript, student_id)
+	if not task:
+		raise ValueError("Could not match a task title in that command.")
+	due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
+	due_at = None
+	if due_time_str:
+		due_at = datetime.fromisoformat(f"{due_date_str}T{due_time_str}")
+	elif task.get("due_at"):
+		existing_dt = task.get("due_at")
+		if hasattr(existing_dt, "hour") and hasattr(existing_dt, "minute"):
+			due_at = datetime.combine(due_date, time(existing_dt.hour, existing_dt.minute))
+	sb_execute(
+		"""
+		UPDATE tasks
+		SET due_date = :due_date,
+		    due_at = :due_at
+		WHERE id = :task_id
+		  AND student_id = :student_id
+		""",
+		{
+			"due_date": due_date,
+			"due_at": due_at,
+			"task_id": task.get("id"),
+			"student_id": student_id,
+		},
+	)
+	return {
+		"task_id": task.get("id"),
+		"title": task.get("title"),
+		"due_date": due_date_str,
+		"due_time": due_time_str,
+	}
+
+
+def _voice_set_task_weight(transcript: str, student_id: int) -> Dict[str, Any]:
+	text = transcript.lower()
+	weight = None
+	percent_match = re.search(r"(\d{1,3}(?:\.\d+)?)\s*(?:%|percent)\b", text)
+	if percent_match:
+		weight = float(percent_match.group(1))
+	else:
+		if "high" in text:
+			weight = 25.0
+		elif "medium" in text:
+			weight = 15.0
+		elif "low" in text:
+			weight = 5.0
+	if weight is None:
+		raise ValueError("Please include a weight like '20 percent' or priority high/medium/low.")
+	weight = max(0.0, min(100.0, weight))
+	task = _voice_find_task_for_command(transcript, student_id)
+	if not task:
+		raise ValueError("Could not match a task title in that command.")
+	sb_execute(
+		"""
+		UPDATE tasks
+		SET weight_percentage = :weight
+		WHERE id = :task_id
+		  AND student_id = :student_id
+		""",
+		{"weight": weight, "task_id": task.get("id"), "student_id": student_id},
+	)
+	return {
+		"task_id": task.get("id"),
+		"title": task.get("title"),
+		"weight_percentage": round(weight, 1),
+	}
 
 
 def _voice_dashboard_query(student_id: int) -> Dict[str, Any]:
@@ -7280,10 +7463,38 @@ def voice_command():
 				"data": data,
 			}), 200
 
+		if intent == "update_task_status":
+			data = _voice_update_task_status(transcript, current_user.id)
+			return jsonify({
+				"ok": True,
+				"intent": intent,
+				"message": f"Updated '{data['title']}' to {data['status'].replace('_', ' ')}.",
+				"data": data,
+			}), 200
+
+		if intent == "reschedule_task":
+			data = _voice_reschedule_task(transcript, current_user.id)
+			time_part = f" at {data['due_time']}" if data.get("due_time") else ""
+			return jsonify({
+				"ok": True,
+				"intent": intent,
+				"message": f"Rescheduled '{data['title']}' to {data['due_date']}{time_part}.",
+				"data": data,
+			}), 200
+
+		if intent == "set_task_weight":
+			data = _voice_set_task_weight(transcript, current_user.id)
+			return jsonify({
+				"ok": True,
+				"intent": intent,
+				"message": f"Set weighting for '{data['title']}' to {data['weight_percentage']}%.",
+				"data": data,
+			}), 200
+
 		return jsonify({
 			"ok": False,
 			"intent": "unknown",
-			"error": "I could not detect a supported command. Try: 'What is due this week?', 'Add revision every Tuesday 6pm to 8pm until May', or 'Break IS4416 database report into 5 steps due next Thursday'.",
+			"error": "I could not detect a supported command. Try: 'Mark database report as done', 'Move IS4416 lab to next Friday 3pm', 'Set strategy essay to 20 percent', 'What is due this week?', or 'Break IS4416 database report into 5 steps due next Thursday'.",
 		}), 400
 	except Exception as exc:
 		print(f"[voice-command] failed user={current_user.id} intent={intent} err={exc}")

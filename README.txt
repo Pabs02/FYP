@@ -570,6 +570,14 @@ Reference:
     feedback. Can you provide a reusable JS pattern?"
     ChatGPT provided the start/stop + fetch/render pattern used in
     `index.html`, `calendar.html`, and `subtasks_history.html`.
+  - ChatGPT (OpenAI). Voice Task Lifecycle Command Handlers.
+    Date: 2026-02-18
+    Prompt: "Extend voice commands to handle task lifecycle actions in Flask:
+    mark task status (done/in-progress/pending), reschedule due date/time, and
+    update weighting/priority. I need task title extraction + fuzzy matching and
+    safe DB update patterns. Can you provide helper functions and intent hooks?"
+    ChatGPT provided the normalization + task-matching helper pattern used in
+    `main.py` for new voice lifecycle intents.
 
 Group Workspace (US 21)
 Reference:
