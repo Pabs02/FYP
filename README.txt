@@ -666,6 +666,13 @@ Reference:
     size/type validation and sanitization?"
     ChatGPT provided the upload-parse-combine pattern adapted in
     `group_workspace` AI task generation.
+  - ChatGPT (OpenAI). Bounded AI Worker Timeout in Flask.
+    Date: 2026-02-18
+    Prompt: "My hosted Flask request can time out when AI generation is
+    slow/cold-starting. I need a thread+queue timeout guard so UI gets a
+    controlled warning instead of a worker crash. Can you provide a pattern?"
+    ChatGPT provided the background-worker timeout pattern used in
+    `group_workspace` AI task generation.
 
 Lecture Attendance + Health Score (Iteration 5)
 Reference:

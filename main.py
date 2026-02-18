@@ -3251,20 +3251,52 @@ def group_workspace():
 						{"project_id": project_id},
 					)
 					member_labels = ", ".join(m.get("member_name") for m in members if m.get("member_name")) or "No members yet"
-					service = get_chatgpt_service()
-					breakdown = service.breakdown_task(
-						task_title=f"{project.get('title')} (Group Project)",
-						module_code=project.get("module_code"),
-						due_date=project.get("due_date").isoformat() if getattr(project.get("due_date"), "isoformat", None) else None,
-						due_at=None,
-						status="in_progress",
-						description=combined_brief,
-						additional_context=(
-							f"Group members: {member_labels}. "
-							f"Return {task_count} concrete tasks suitable for assignment."
-						),
-						schedule_context=None,
-					)
+					# Reference: ChatGPT (OpenAI) - Bounded AI Worker Timeout in Flask
+					# Date: 2026-02-18
+					# Prompt: "My hosted Flask request can time out when AI generation is
+					# slow/cold-starting. I need a thread+queue timeout guard so UI gets a
+					# controlled warning instead of a worker crash. Can you provide a pattern?"
+					# ChatGPT provided the background-worker timeout pattern adapted below.
+					import threading
+					import queue
+
+					result_queue = queue.Queue()
+
+					def ai_worker():
+						try:
+							service = get_chatgpt_service()
+							result = service.breakdown_task(
+								task_title=f"{project.get('title')} (Group Project)",
+								module_code=project.get("module_code"),
+								due_date=project.get("due_date").isoformat() if getattr(project.get("due_date"), "isoformat", None) else None,
+								due_at=None,
+								status="in_progress",
+								description=combined_brief,
+								additional_context=(
+									f"Group members: {member_labels}. "
+									f"Return {task_count} concrete tasks suitable for assignment."
+								),
+								schedule_context=None,
+							)
+							result_queue.put(("success", result))
+						except Exception as worker_exc:
+							result_queue.put(("error", worker_exc))
+
+					thread = threading.Thread(target=ai_worker, daemon=True)
+					thread.start()
+					thread.join(timeout=20)
+					if thread.is_alive():
+						flash("AI breakdown is taking too long right now. Please try again in a moment.", "warning")
+						return redirect(url_for("group_workspace", project_id=project_id))
+					if result_queue.empty():
+						flash("AI breakdown returned no result. Please try again.", "warning")
+						return redirect(url_for("group_workspace", project_id=project_id))
+					status, result = result_queue.get()
+					if status != "success":
+						if isinstance(result, ChatGPTClientError):
+							raise result
+						raise Exception(str(result))
+					breakdown = result
 					if replace_ai:
 						sb_execute(
 							"DELETE FROM group_project_tasks WHERE project_id = :project_id AND ai_generated = TRUE",
