@@ -7225,7 +7225,20 @@ def _voice_extract_task_phrase(transcript: str) -> Optional[str]:
 def _voice_find_task_for_command(transcript: str, student_id: int) -> Optional[Dict[str, Any]]:
 	# I convert number words to digits first so "iteration five" matches "Iteration 5".
 	transcript = _voice_words_to_digits(transcript)
-	modules = sb_fetch_all("SELECT id, code FROM modules ORDER BY code")
+	# I only fetch this student's modules so the module filter stays scoped correctly.
+	try:
+		modules = sb_fetch_all(
+			"""
+			SELECT DISTINCT m.id, m.code
+			FROM modules m
+			JOIN tasks t ON t.module_id = m.id
+			WHERE t.student_id = :student_id
+			ORDER BY m.code
+			""",
+			{"student_id": student_id},
+		)
+	except Exception:
+		modules = []
 	module_id, _ = _voice_match_module(modules, transcript)
 	candidate = _voice_extract_task_phrase(transcript) or transcript
 	candidate_norm = _voice_normalize_title(candidate)
@@ -7383,12 +7396,40 @@ def _voice_set_task_weight(transcript: str, student_id: int) -> Dict[str, Any]:
 def _voice_navigation_target(transcript: str, student_id: int) -> Optional[Dict[str, str]]:
 	text = transcript.lower()
 
-	# Prefer specific module navigation when a module code is present.
+	# I only look at modules that belong to this student (via their tasks)
+	# so a match always leads to a valid module detail page for this user.
 	try:
-		modules = sb_fetch_all("SELECT id, code FROM modules ORDER BY code")
+		modules = sb_fetch_all(
+			"""
+			SELECT DISTINCT m.id, m.code
+			FROM modules m
+			JOIN tasks t ON t.module_id = m.id
+			WHERE t.student_id = :student_id
+			ORDER BY m.code
+			""",
+			{"student_id": student_id},
+		)
 	except Exception:
 		modules = []
+
 	module_id, module_code = _voice_match_module(modules, transcript)
+
+	# Fallback: if standard matching missed, scan the transcript for any token
+	# that looks like a module code (2-3 letters + 3-4 digits, e.g. IS4408).
+	# This catches cases where speech recognition produces "IS4408" but word
+	# boundaries differ, or minor spacing variations.
+	if not module_id:
+		code_candidates = re.findall(r"\b[A-Z]{2,3}[0-9]{3,4}\b", transcript.upper())
+		for candidate in code_candidates:
+			for mod in modules:
+				stored = (mod.get("code") or "").upper().strip()
+				if stored == candidate or stored.endswith(candidate) or candidate in stored:
+					module_id = mod.get("id")
+					module_code = stored
+					break
+			if module_id:
+				break
+
 	if module_id and "module" in text:
 		return {
 			"redirect_url": url_for("module_detail", module_id=module_id),
@@ -7567,7 +7608,19 @@ def _voice_create_recurring_event(transcript: str, student_id: int) -> Dict[str,
 
 def _voice_create_microtasks(transcript: str, student_id: int) -> Dict[str, Any]:
 	text = transcript.lower()
-	modules = sb_fetch_all("SELECT id, code FROM modules ORDER BY code")
+	try:
+		modules = sb_fetch_all(
+			"""
+			SELECT DISTINCT m.id, m.code
+			FROM modules m
+			JOIN tasks t ON t.module_id = m.id
+			WHERE t.student_id = :student_id
+			ORDER BY m.code
+			""",
+			{"student_id": student_id},
+		)
+	except Exception:
+		modules = []
 	module_id, module_code = _voice_match_module(modules, transcript)
 
 	step_match = re.search(r"\binto\s+(\d{1,2})\s+(?:steps|microtasks|subtasks)\b", text)
@@ -7668,7 +7721,16 @@ def voice_parse():
 		return jsonify({"ok": False, "error": "Transcript is required."}), 400
 
 	try:
-		modules = sb_fetch_all("SELECT id, code FROM modules ORDER BY code")
+		modules = sb_fetch_all(
+			"""
+			SELECT DISTINCT m.id, m.code
+			FROM modules m
+			JOIN tasks t ON t.module_id = m.id
+			WHERE t.student_id = :student_id
+			ORDER BY m.code
+			""",
+			{"student_id": current_user.id},
+		)
 	except Exception:
 		modules = []
 
