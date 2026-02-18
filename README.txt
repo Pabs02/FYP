@@ -650,6 +650,14 @@ Reference:
     statements with IF NOT EXISTS patterns?"
     ChatGPT provided the incremental migration approach used in
     `scripts/add_group_workspace_extras.sql`.
+  - ChatGPT (OpenAI). Group Workspace Member-Safe Access Mode.
+    Date: 2026-02-18
+    Prompt: "I need accepted group members to use /group-workspace safely:
+    see assigned tasks, update only their own progress, and read team thread,
+    while owner-only project controls remain restricted. Can you provide
+    backend guard + template branching patterns?"
+    ChatGPT provided the member-access guard + member-view branching pattern
+    used in `main.py` and `group_workspace.html`.
 
 Lecture Attendance + Health Score (Iteration 5)
 Reference:

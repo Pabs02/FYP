@@ -114,6 +114,7 @@
 					</div>
 				</div>
 			{% else %}
+				{% if is_project_owner %}
 				<div class="card dashboard-card mb-4">
 					<div class="card-header d-flex justify-content-between align-items-center">
 						<span>Group Members</span>
@@ -536,6 +537,100 @@
 						{% endif %}
 					</div>
 				</div>
+				{% else %}
+				<div class="card dashboard-card mb-4">
+					<div class="card-header">My Member Workspace</div>
+					<div class="card-body">
+						{% if current_member %}
+							<p class="mb-2">
+								You are signed in as <strong>{{ current_member.member_name }}</strong> for
+								<strong>{{ selected_project.title }}</strong>.
+							</p>
+							<p class="small text-muted mb-0">You can update only tasks assigned to you. Owner-only controls are hidden.</p>
+						{% else %}
+							<p class="text-muted mb-0">Your member access details could not be loaded for this project.</p>
+						{% endif %}
+					</div>
+				</div>
+
+				<div class="card dashboard-card mb-4">
+					<div class="card-header">My Assigned Tasks</div>
+					<div class="card-body p-0">
+						{% if member_assigned_tasks %}
+							<div class="table-responsive">
+								<table class="table table-hover align-middle mb-0">
+									<thead>
+										<tr>
+											<th style="min-width: 220px;">Task</th>
+											<th>Status</th>
+											<th>Progress</th>
+											<th>Due</th>
+											<th>Update</th>
+										</tr>
+									</thead>
+									<tbody>
+										{% for task in member_assigned_tasks %}
+											<tr>
+												<td>
+													<div class="fw-semibold">{{ task.title }}</div>
+													<div class="small text-muted">{{ task.description or "No description" }}</div>
+												</td>
+												<td style="min-width: 150px;">
+													<select class="form-select form-select-sm" name="status" form="member-task-{{ task.id }}">
+														<option value="todo" {% if task.status == "todo" %}selected{% endif %}>To do</option>
+														<option value="in_progress" {% if task.status == "in_progress" %}selected{% endif %}>In progress</option>
+														<option value="review" {% if task.status == "review" %}selected{% endif %}>Review</option>
+														<option value="done" {% if task.status == "done" %}selected{% endif %}>Done</option>
+													</select>
+												</td>
+												<td style="min-width: 120px;">
+													<input type="number" class="form-control form-control-sm" min="0" max="100" name="progress_percent" value="{{ task.progress_percent or 0 }}" form="member-task-{{ task.id }}">
+												</td>
+												<td style="min-width: 140px;">{{ task.due_date or "-" }}</td>
+												<td>
+													<form method="POST" action="{{ url_for('group_workspace') }}" id="member-task-{{ task.id }}" class="d-inline">
+														<input type="hidden" name="action" value="update_my_task">
+														<input type="hidden" name="project_id" value="{{ selected_project.id }}">
+														<input type="hidden" name="task_id" value="{{ task.id }}">
+														<button type="submit" class="btn btn-sm btn-outline-primary">Save</button>
+													</form>
+												</td>
+											</tr>
+										{% endfor %}
+									</tbody>
+								</table>
+							</div>
+						{% else %}
+							<div class="p-3">
+								<p class="text-muted mb-0">No tasks are currently assigned to you in this project.</p>
+							</div>
+						{% endif %}
+					</div>
+				</div>
+
+				<div class="card dashboard-card">
+					<div class="card-header">Team Messaging Thread</div>
+					<div class="card-body">
+						{% if project_messages %}
+							<div class="dashboard-scroll" style="max-height: 260px;">
+								<div class="list-group list-group-flush">
+									{% for msg in project_messages %}
+										<div class="list-group-item px-0 py-2">
+											<div class="d-flex justify-content-between align-items-start">
+												<strong class="small">{{ msg.sender_name }}</strong>
+												<small class="text-muted">{{ msg.created_at | irish_datetime if msg.created_at else '' }}</small>
+											</div>
+											<div class="small mt-1" style="white-space: pre-wrap;">{{ msg.message }}</div>
+										</div>
+									{% endfor %}
+								</div>
+							</div>
+						{% else %}
+							<p class="text-muted mb-0">No team messages yet.</p>
+						{% endif %}
+					</div>
+				</div>
+				{% endif %}
 			{% endif %}
 		</div>
 	</div>

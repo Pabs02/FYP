@@ -2936,6 +2936,23 @@ def _get_group_membership_project(project_id: int, student_id: int, student_emai
 	)
 
 
+def _get_group_membership(project_id: int, student_email: Optional[str]) -> Optional[Dict[str, Any]]:
+	email = (student_email or "").strip().lower()
+	if not email:
+		return None
+	return sb_fetch_one(
+		"""
+		SELECT id, project_id, member_name, member_email, member_role, invite_status, accepted_at
+		FROM group_project_members
+		WHERE project_id = :project_id
+		  AND invite_status = 'accepted'
+		  AND LOWER(member_email) = :member_email
+		LIMIT 1
+		""",
+		{"project_id": project_id, "member_email": email},
+	)
+
+
 def _get_accessible_group_project(project_id: int, student_id: int, student_email: Optional[str]) -> Optional[Dict[str, Any]]:
 	owned = _get_owned_group_project(project_id, student_id)
 	if owned:
@@ -3013,6 +3030,7 @@ def group_workspace():
 			flash("Project not found or permission denied.", "error")
 			return redirect(url_for("group_workspace"))
 		can_manage_project = int(project.get("owner_student_id") or 0) == int(current_user.id)
+		member_access = _get_group_membership(project_id, current_user.email) if not can_manage_project else None
 		owner_only_actions = {
 			"add_member",
 			"add_task",
@@ -3032,6 +3050,66 @@ def group_workspace():
 		}
 		if action in owner_only_actions and not can_manage_project:
 			flash("This project is view-only for members. Use the invite portal to update your assigned tasks.", "warning")
+			return redirect(url_for("group_workspace", project_id=project_id))
+
+		if action == "update_my_task":
+			if can_manage_project:
+				flash("Use the owner task controls for updates.", "warning")
+				return redirect(url_for("group_workspace", project_id=project_id))
+			if not member_access:
+				flash("Member access not found for this project.", "error")
+				return redirect(url_for("group_workspace", project_id=project_id))
+			task_id = _coerce_int(request.form.get("task_id"))
+			if not task_id:
+				flash("Invalid task.", "error")
+				return redirect(url_for("group_workspace", project_id=project_id))
+			status = (request.form.get("status") or "todo").strip()
+			if status not in {"todo", "in_progress", "review", "done"}:
+				status = "todo"
+			progress_raw = _coerce_int(request.form.get("progress_percent"))
+			progress_percent = max(0, min(100, progress_raw if progress_raw is not None else 0))
+			if status == "done":
+				progress_percent = 100
+			task = sb_fetch_one(
+				"""
+				SELECT id
+				FROM group_project_tasks
+				WHERE id = :task_id
+				  AND project_id = :project_id
+				  AND assigned_member_id = :member_id
+				""",
+				{
+					"task_id": task_id,
+					"project_id": project_id,
+					"member_id": member_access.get("id"),
+				},
+			)
+			if not task:
+				flash("Task not found or not assigned to you.", "error")
+				return redirect(url_for("group_workspace", project_id=project_id))
+			try:
+				sb_execute(
+					"""
+					UPDATE group_project_tasks
+					SET status = :status,
+					    progress_percent = :progress_percent,
+					    updated_at = NOW()
+					WHERE id = :task_id
+					  AND project_id = :project_id
+					  AND assigned_member_id = :member_id
+					""",
+					{
+						"status": status,
+						"progress_percent": progress_percent,
+						"task_id": task_id,
+						"project_id": project_id,
+						"member_id": member_access.get("id"),
+					},
+				)
+				flash("Your task progress was updated.", "success")
+			except Exception as exc:
+				print(f"[group-workspace] member update failed user={current_user.id} task={task_id} err={exc}")
+				flash("Failed to update your task.", "error")
 			return redirect(url_for("group_workspace", project_id=project_id))
 
 		if action == "add_member":
@@ -3728,6 +3806,9 @@ def group_workspace():
 	task_files_map: Dict[int, List[Dict[str, Any]]] = {}
 	project_files: List[Dict[str, Any]] = []
 	project_messages: List[Dict[str, Any]] = []
+	member_assigned_tasks: List[Dict[str, Any]] = []
+	current_member = None
+	is_project_owner = False
 	progress = {
 		"total": 0,
 		"todo": 0,
@@ -3739,6 +3820,9 @@ def group_workspace():
 	}
 	if selected_project:
 		project_id = selected_project.get("id")
+		is_project_owner = int(selected_project.get("owner_student_id") or 0) == int(current_user.id)
+		if not is_project_owner:
+			current_member = _get_group_membership(project_id, current_user.email)
 		try:
 			members = sb_fetch_all(
 				"""
@@ -3867,6 +3951,9 @@ def group_workspace():
 			total = item.get("assigned") or 0
 			item["completion_percent"] = round(((item.get("done") or 0) / total) * 100) if total else 0
 		member_stats.sort(key=lambda x: (-(x.get("assigned") or 0), x.get("name") or ""))
+		if current_member:
+			current_member_id = current_member.get("id")
+			member_assigned_tasks = [t for t in tasks if t.get("assigned_member_id") == current_member_id]
 
 	return render_template(
 		"group_workspace.html",
@@ -3879,6 +3966,9 @@ def group_workspace():
 		project_files=project_files,
 		project_messages=project_messages,
 		member_stats=member_stats,
+		member_assigned_tasks=member_assigned_tasks,
+		current_member=current_member,
+		is_project_owner=is_project_owner,
 		progress=progress,
 		invite_base_url=request.host_url.rstrip("/"),
 	)
