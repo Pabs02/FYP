@@ -7154,8 +7154,18 @@ def _voice_detect_intent(transcript: str) -> str:
 	return "unknown"
 
 
+def _voice_normalise_transcript(transcript: str) -> str:
+	"""I fix common speech-recognition mis-hearings before any module matching.
+	E.g. 'iOS' is routinely produced instead of 'IS' for Irish module codes."""
+	text = transcript.upper()
+	# 'iOS' / 'IOS' → 'IS'  (speech recognition hears "IS" as Apple's "iOS")
+	text = re.sub(r"\bIOS\b", "IS", text)
+	return text
+
+
 def _voice_match_module(modules: List[Dict[str, Any]], transcript: str) -> Tuple[Optional[int], Optional[str]]:
-	upper_text = transcript.upper()
+	# I normalise before matching so "iOS4408" is treated as "IS4408".
+	upper_text = _voice_normalise_transcript(transcript)
 	# I also build a compacted version with spaces removed between alphanumeric
 	# characters, so speech recognition output like "IS 4408" matches code "IS4408".
 	# Apply twice to collapse multi-space gaps (e.g. "I S 4 4 0 8").
@@ -7419,7 +7429,7 @@ def _voice_navigation_target(transcript: str, student_id: int) -> Optional[Dict[
 	# This catches cases where speech recognition produces "IS4408" but word
 	# boundaries differ, or minor spacing variations.
 	if not module_id:
-		code_candidates = re.findall(r"\b[A-Z]{2,3}[0-9]{3,4}\b", transcript.upper())
+		code_candidates = re.findall(r"\b[A-Z]{2,3}[0-9]{3,4}\b", _voice_normalise_transcript(transcript))
 		for candidate in code_candidates:
 			for mod in modules:
 				stored = (mod.get("code") or "").upper().strip()
