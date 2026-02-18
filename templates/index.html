@@ -39,7 +39,7 @@
 		<span id="voiceStatusHome" class="small text-muted">Ready</span>
 	</div>
 	<div class="card-body">
-		<textarea id="voiceTranscriptHome" class="form-control mb-2" rows="2" placeholder="Try: Mark IS4416 report as done | Move database lab to next Friday 3pm | Set strategy essay to 20 percent"></textarea>
+		<textarea id="voiceTranscriptHome" class="form-control mb-2" rows="2" placeholder="Try: Open modules | Open module IS4408 | Go to analytics | Mark IS4416 report as done"></textarea>
 		<div class="d-flex flex-wrap gap-2 mb-2">
 			<button id="voiceCaptureBtnHome" type="button" class="btn btn-sm btn-outline-success">Start Recording</button>
 			<button id="voiceCommandBtnHome" type="button" class="btn btn-sm btn-outline-primary">Run Voice Command</button>
@@ -362,6 +362,10 @@ document.addEventListener('DOMContentLoaded', () => {
 				throw new Error(data.error || 'Voice command failed');
 			}
 			resultEl.textContent = data.message || 'Voice command completed.';
+			if (data.data && data.data.redirect_url) {
+				window.location.href = data.data.redirect_url;
+				return;
+			}
 		} catch (error) {
 			resultEl.textContent = `Voice command failed: ${error.message}`;
 		} finally {

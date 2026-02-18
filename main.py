@@ -6912,6 +6912,10 @@ def _voice_detect_intent(transcript: str) -> str:
 		return "reschedule_task"
 	if any(word in text for word in ["weight", "percent", "priority"]) and any(word in text for word in ["set", "update", "change", "make"]):
 		return "set_task_weight"
+	if any(phrase in text for phrase in ["open ", "go to ", "navigate", "take me to", "show me "]) and any(
+		keyword in text for keyword in ["module", "modules", "analytics", "calendar", "group workspace", "tasks", "semester", "dashboard", "profile"]
+	):
+		return "navigate"
 	if any(word in text for word in ["add", "create", "schedule"]) and "every" in text:
 		return "create_recurring_event"
 	return "unknown"
@@ -7101,6 +7105,48 @@ def _voice_set_task_weight(transcript: str, student_id: int) -> Dict[str, Any]:
 		"title": task.get("title"),
 		"weight_percentage": round(weight, 1),
 	}
+
+
+# Reference: ChatGPT (OpenAI) - Voice Navigation Intent Routing
+# Date: 2026-02-18
+# Prompt: "I want voice commands to navigate pages (open modules, calendar,
+# analytics) and also open specific module detail pages when a module code is
+# spoken (e.g., 'open module IS4408'). Can you provide a Flask helper that
+# returns redirect targets for the frontend?"
+# ChatGPT provided the destination mapping + module-code routing pattern below.
+def _voice_navigation_target(transcript: str, student_id: int) -> Optional[Dict[str, str]]:
+	text = transcript.lower()
+
+	# Prefer specific module navigation when a module code is present.
+	try:
+		modules = sb_fetch_all("SELECT id, code FROM modules ORDER BY code")
+	except Exception:
+		modules = []
+	module_id, module_code = _voice_match_module(modules, transcript)
+	if module_id and "module" in text:
+		return {
+			"redirect_url": url_for("module_detail", module_id=module_id),
+			"label": f"module {module_code}",
+		}
+
+	destinations = [
+		(["modules", "module dashboard"], ("modules_overview", {}), "modules"),
+		(["analytics", "insights"], ("analytics", {}), "analytics"),
+		(["calendar"], ("calendar_view", {}), "calendar"),
+		(["group workspace", "group project"], ("group_workspace", {}), "group workspace"),
+		(["semester", "semester overview"], ("active_semester", {}), "semester overview"),
+		(["tasks", "task list"], ("tasks", {}), "tasks"),
+		(["profile"], ("profile", {}), "profile"),
+		(["dashboard", "home"], ("index", {}), "dashboard"),
+	]
+	for phrases, (endpoint, kwargs), label in destinations:
+		if any(phrase in text for phrase in phrases):
+			return {"redirect_url": url_for(endpoint, **kwargs), "label": label}
+
+	# If user asks for a module without code, open module dashboard.
+	if "module" in text:
+		return {"redirect_url": url_for("modules_overview"), "label": "modules"}
+	return None
 
 
 def _voice_dashboard_query(student_id: int) -> Dict[str, Any]:
@@ -7491,10 +7537,25 @@ def voice_command():
 				"data": data,
 			}), 200
 
+		if intent == "navigate":
+			data = _voice_navigation_target(transcript, current_user.id)
+			if not data:
+				return jsonify({
+					"ok": False,
+					"intent": intent,
+					"error": "I could not find a destination. Try: 'Open modules', 'Go to analytics', or 'Open module IS4408'.",
+				}), 400
+			return jsonify({
+				"ok": True,
+				"intent": intent,
+				"message": f"Opening {data.get('label') or 'requested section'}...",
+				"data": data,
+			}), 200
+
 		return jsonify({
 			"ok": False,
 			"intent": "unknown",
-			"error": "I could not detect a supported command. Try: 'Mark database report as done', 'Move IS4416 lab to next Friday 3pm', 'Set strategy essay to 20 percent', 'What is due this week?', or 'Break IS4416 database report into 5 steps due next Thursday'.",
+			"error": "I could not detect a supported command. Try: 'Open modules', 'Open module IS4408', 'Mark database report as done', 'Move IS4416 lab to next Friday 3pm', 'Set strategy essay to 20 percent', or 'What is due this week?'.",
 		}), 400
 	except Exception as exc:
 		print(f"[voice-command] failed user={current_user.id} intent={intent} err={exc}")

@@ -29,7 +29,7 @@
 			<span id="voiceStatusCalendar" class="small text-muted">Ready</span>
 		</div>
 		<div class="card-body">
-			<textarea id="voiceTranscriptCalendar" class="form-control mb-2" rows="2" placeholder="Try: Add lecture revision every Tuesday 6pm to 8pm until May | Move IS4408 lab to next Thursday 2pm"></textarea>
+			<textarea id="voiceTranscriptCalendar" class="form-control mb-2" rows="2" placeholder="Try: Open calendar | Open modules | Open module IS4408 | Add lecture revision every Tuesday 6pm to 8pm until May"></textarea>
 			<div class="d-flex gap-2 flex-wrap mb-2">
 				<button id="voiceCaptureBtnCalendar" type="button" class="btn btn-sm btn-outline-success">Start Recording</button>
 				<button id="voiceCommandBtnCalendar" type="button" class="btn btn-sm btn-outline-primary">Run Voice Command</button>
@@ -385,6 +385,10 @@
 				const data = await response.json();
 				if (!response.ok || !data.ok) throw new Error(data.error || 'Voice command failed');
 				resultEl.textContent = data.message || 'Voice command completed.';
+				if (data.data && data.data.redirect_url) {
+					window.location.href = data.data.redirect_url;
+					return;
+				}
 			} catch (error) {
 				resultEl.textContent = `Voice command failed: ${error.message}`;
 			} finally {

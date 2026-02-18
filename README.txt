@@ -578,6 +578,14 @@ Reference:
     safe DB update patterns. Can you provide helper functions and intent hooks?"
     ChatGPT provided the normalization + task-matching helper pattern used in
     `main.py` for new voice lifecycle intents.
+  - ChatGPT (OpenAI). Voice Navigation Intent Routing.
+    Date: 2026-02-18
+    Prompt: "I want voice commands to navigate pages (open modules, calendar,
+    analytics) and also open specific module detail pages when a module code is
+    spoken (e.g., 'open module IS4408'). Can you provide a Flask helper that
+    returns redirect targets for the frontend?"
+    ChatGPT provided the destination mapping + module-code routing pattern used
+    in `main.py` and frontend voice widgets.
 
 Group Workspace (US 21)
 Reference:

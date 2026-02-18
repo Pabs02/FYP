@@ -430,7 +430,7 @@
                             <button id="voiceParseBtn" type="button" class="btn btn-sm btn-success">Parse & Autofill</button>
                             <button id="voiceCommandBtn" type="button" class="btn btn-sm btn-outline-dark">Run Voice Command</button>
                         </div>
-                        <p id="voiceHint" class="voice-assist-hint">Try commands: "Mark IS4416 report as done", "Move database lab to next Friday 3pm", "Set strategy essay to 20 percent", "What is due this week?", "Add lecture revision every Tuesday 6pm to 8pm until May", or "Break IS4416 database report into 5 steps due next Thursday".</p>
+                        <p id="voiceHint" class="voice-assist-hint">Try commands: "Open modules", "Open module IS4408", "Go to analytics", "Mark IS4416 report as done", "Move database lab to next Friday 3pm", "Set strategy essay to 20 percent", or "Break IS4416 database report into 5 steps due next Thursday".</p>
                         <div id="voiceCommandResult" class="voice-command-result"></div>
                     </div>
 
@@ -700,6 +700,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             renderCommandResult(data, false);
             hintEl.textContent = data.message || 'Voice command complete.';
+            if (data.data && data.data.redirect_url) {
+                window.location.href = data.data.redirect_url;
+                return;
+            }
         } catch (error) {
             hintEl.textContent = `Voice command failed: ${error.message}`;
         } finally {

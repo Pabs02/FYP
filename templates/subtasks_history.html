@@ -404,7 +404,7 @@
             <strong>🎙️ Voice Quick Actions</strong>
             <span id="voiceStatusMicrotasks" class="small text-muted">Ready</span>
         </div>
-        <textarea id="voiceTranscriptMicrotasks" class="form-control mb-2" rows="2" placeholder="Try: Break IS4416 database report into 5 steps due next Thursday | Mark database report as done"></textarea>
+        <textarea id="voiceTranscriptMicrotasks" class="form-control mb-2" rows="2" placeholder="Try: Open modules | Open module IS4408 | Break IS4416 database report into 5 steps due next Thursday"></textarea>
         <div class="d-flex gap-2 flex-wrap mb-2">
             <button id="voiceCaptureBtnMicrotasks" type="button" class="btn btn-sm btn-outline-success">Start Recording</button>
             <button id="voiceCommandBtnMicrotasks" type="button" class="btn btn-sm btn-outline-primary">Run Voice Command</button>
@@ -588,6 +588,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             if (!response.ok || !data.ok) throw new Error(data.error || 'Voice command failed');
             resultEl.textContent = data.message || 'Voice command completed.';
+            if (data.data && data.data.redirect_url) {
+                window.location.href = data.data.redirect_url;
+                return;
+            }
         } catch (error) {
             resultEl.textContent = `Voice command failed: ${error.message}`;
         } finally {
