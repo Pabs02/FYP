@@ -680,6 +680,14 @@ Reference:
     completion reliability without removing functionality?"
     ChatGPT provided the brief summarization + configurable timeout approach used
     in group AI generation.
+  - ChatGPT (OpenAI). Group Report Section Split Heuristic.
+    Date: 2026-02-18
+    Prompt: "My AI sometimes creates a generic task like 'Draft Individual
+    Sections' for group reports. I need a deterministic fallback to expand that
+    into section-specific tasks assigned across members. Can you suggest a clean
+    post-processing pattern in Python?"
+    ChatGPT provided the post-processing expansion pattern used in
+    `group_workspace` AI generation flow.
 
 Lecture Attendance + Health Score (Iteration 5)
 Reference:

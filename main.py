@@ -31,7 +31,7 @@ from config import (
 	get_imap_config,
 )
 from db_supabase import fetch_all as sb_fetch_all, fetch_one as sb_fetch_one, execute as sb_execute  # type: ignore
-from services.chatgpt_client import ChatGPTTaskBreakdownService, ChatGPTClientError, AssignmentReviewResponse
+from services.chatgpt_client import ChatGPTTaskBreakdownService, ChatGPTClientError, AssignmentReviewResponse, BreakdownItem
 from services.analytics import upcoming_tasks_with_priority, assess_progress, normalise_due_datetime
 SUPABASE_URL = get_supabase_database_url()
 
@@ -3277,7 +3277,10 @@ def group_workspace():
 								description=combined_brief,
 								additional_context=(
 									f"Group members: {member_labels}. "
-									f"Return {task_count} concrete tasks suitable for assignment."
+									f"Return {task_count} concrete tasks suitable for assignment. "
+									"Do not use a generic task like 'Draft Individual Sections'. "
+									"If this is a report, split writing work into explicit section tasks "
+									"such as Introduction, Main Analysis, Recommendations, and Conclusion."
 								),
 								schedule_context=None,
 							)
@@ -3307,6 +3310,53 @@ def group_workspace():
 							raise result
 						raise Exception(str(result))
 					breakdown = result
+
+					# Reference: ChatGPT (OpenAI) - Group Report Section Split Heuristic
+					# Date: 2026-02-18
+					# Prompt: "My AI sometimes creates a generic task like 'Draft Individual
+					# Sections' for group reports. I need a deterministic fallback to expand
+					# that into section-specific tasks assigned across members. Can you suggest
+					# a clean post-processing pattern in Python?"
+					# ChatGPT provided the post-processing expansion pattern below.
+					expanded_subtasks: List[Tuple[BreakdownItem, Optional[int]]] = []
+					section_names = [
+						"Introduction",
+						"Background and Context",
+						"Main Analysis",
+						"Recommendations",
+						"Conclusion",
+					]
+					for item in breakdown.subtasks:
+						title_lower = (item.title or "").lower()
+						is_generic_section_task = (
+							"draft individual sections" in title_lower
+							or ("draft" in title_lower and "section" in title_lower and "individual" in title_lower)
+						)
+						if is_generic_section_task and members:
+							for idx_member, member in enumerate(members):
+								member_name = (member.get("member_name") or "Team Member").strip()
+								member_id = member.get("id")
+								section = section_names[idx_member % len(section_names)]
+								expanded_subtasks.append((
+									BreakdownItem(
+										sequence=item.sequence,
+										title=f"Draft {section} Section",
+										description=(
+											f"Section owner: {member_name}. "
+											f"{item.description or 'Draft and refine this section for the final report.'}"
+										).strip(),
+										estimated_hours=item.estimated_hours,
+										planned_start=item.planned_start,
+										planned_end=item.planned_end,
+										focus=item.focus,
+									),
+									member_id,
+								))
+						else:
+							expanded_subtasks.append((item, None))
+					if not expanded_subtasks:
+						expanded_subtasks = [(item, None) for item in breakdown.subtasks]
+
 					if replace_ai:
 						sb_execute(
 							"DELETE FROM group_project_tasks WHERE project_id = :project_id AND ai_generated = TRUE",
@@ -3314,9 +3364,10 @@ def group_workspace():
 						)
 
 					created = 0
-					for idx, item in enumerate(breakdown.subtasks[:task_count], start=1):
-						assigned_member_id = None
-						if members:
+					for idx, pair in enumerate(expanded_subtasks[:task_count], start=1):
+						item, forced_member_id = pair
+						assigned_member_id = forced_member_id
+						if not assigned_member_id and members:
 							assigned_member_id = members[(idx - 1) % len(members)].get("id")
 						due_hint = _parse_iso_date_value(item.planned_end) or _parse_iso_date_value(item.planned_start)
 						if not due_hint and project.get("due_date"):
