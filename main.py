@@ -3237,6 +3237,9 @@ def group_workspace():
 					(_sanitize_prompt_text(file_text) or "").strip(),
 				] if part
 			).strip()
+			# Keep prompt size bounded so hosted AI calls complete faster.
+			if combined_brief:
+				combined_brief = _summarize_text(combined_brief, max_len=1800) or combined_brief[:1800]
 			if not combined_brief:
 				flash("Provide a project brief for AI breakdown.", "error")
 			else:
@@ -3284,9 +3287,16 @@ def group_workspace():
 
 					thread = threading.Thread(target=ai_worker, daemon=True)
 					thread.start()
-					thread.join(timeout=20)
+					timeout_raw = (os.getenv("GROUP_AI_TIMEOUT_SECONDS", "28") or "28").strip()
+					try:
+						ai_timeout = float(timeout_raw)
+					except ValueError:
+						ai_timeout = 28.0
+					# Keep below common Gunicorn worker timeout defaults.
+					ai_timeout = max(10.0, min(ai_timeout, 29.0))
+					thread.join(timeout=ai_timeout)
 					if thread.is_alive():
-						flash("AI breakdown is taking too long right now. Please try again in a moment.", "warning")
+						flash("AI breakdown timed out. Try shorter brief text or fewer tasks, then try again.", "warning")
 						return redirect(url_for("group_workspace", project_id=project_id))
 					if result_queue.empty():
 						flash("AI breakdown returned no result. Please try again.", "warning")

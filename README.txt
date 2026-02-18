@@ -673,6 +673,13 @@ Reference:
     controlled warning instead of a worker crash. Can you provide a pattern?"
     ChatGPT provided the background-worker timeout pattern used in
     `group_workspace` AI task generation.
+  - ChatGPT (OpenAI). Prompt Bounding for Hosted AI Latency.
+    Date: 2026-02-18
+    Prompt: "My hosted AI request still times out with long user briefs. Can you
+    suggest a bounded-summary approach and timeout tuning that improves
+    completion reliability without removing functionality?"
+    ChatGPT provided the brief summarization + configurable timeout approach used
+    in group AI generation.
 
 Lecture Attendance + Health Score (Iteration 5)
 Reference:
