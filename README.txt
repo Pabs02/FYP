@@ -343,6 +343,17 @@ Reference:
     that groups tasks into overdue, due in 24h, and due in 72h?"
   ChatGPT provided the SMTP pattern and the summary grouping format.
 
+SMTP Fail-Fast Timeout Guard
+Reference:
+  - ChatGPT (OpenAI). SMTP Fail-Fast Timeout Guard.
+    Date: 2026-02-12
+    Prompt: "My Flask request can timeout when SMTP host is slow/unreachable. I need a
+    fail-fast timeout strategy so email attempts return quickly instead of blocking
+    the web worker. Can you provide a practical pattern?"
+    ChatGPT recommended using a short, bounded timeout (2–8s, default 4s) for all SMTP
+    socket operations. Used in _send_reminder_email() to prevent SMTP from blocking
+    Gunicorn workers on hosted environments like Render.
+
 Lines 883-1007: AI Assignment Review Flow
 Reference:
   - ChatGPT (OpenAI). Assignment Review Orchestration.
@@ -498,6 +509,17 @@ Reference:
     Prompt: "I want activity logs to show friendly titles instead of raw paths.
     Can you map endpoints/paths to readable labels and add action verbs by method?"
     ChatGPT provided the mapping approach with method-based verbs.
+
+Per-Module Dashboard Routes (US 17)
+Reference:
+  - ChatGPT (OpenAI). Per-Module Dashboard Routes.
+    Date: 2026-02-10
+    Prompt: "I need a modules overview page showing all modules with task count,
+    completion %, and average grade, plus a detail page for a single module showing
+    all tasks, grade breakdown, and progress chart. Can you provide the Flask routes
+    and SQL queries?"
+    ChatGPT provided the route structure and SQL queries used in modules_overview()
+    and module_detail() in main.py.
 
 Analytics Visualisation Queries (Daily Density + Cumulative Progress)
 Reference:
@@ -1130,6 +1152,17 @@ Reference:
     ChatGPT provided the selectPrintView, printTimetable functions, and
     the event filtering by title prefix pattern.
 
+FullCalendar All-Day End Date (Exclusive)
+Reference:
+  - ChatGPT (OpenAI). FullCalendar All-Day End Date (Exclusive).
+    Date: 2026-02-11
+    Prompt: "FullCalendar treats all-day event end dates as exclusive. If I set
+    end == start for an all-day event, it can render oddly. How should I set the
+    end date for an all-day deadline so it displays on the correct day?"
+    ChatGPT recommended using end = start + 1 day for all-day events. Used in
+    the calendar events endpoint in main.py when formatting task deadlines that
+    have a due_date but no due_at time.
+
 Lines 80-106: Ordinal Date Formatter
 Reference:
   - ChatGPT (OpenAI). Ordinal Date Formatter.
@@ -1384,6 +1417,25 @@ Reference:
 
 All database migration scripts were created with ChatGPT assistance to ensure proper 
 PostgreSQL syntax, indexing strategies, and constraint definitions.
+
+================================================================================
+DOMAIN REGISTRAR
+================================================================================
+
+Domain Registration (Production Deployment)
+Reference:
+  - Namecheap. Domain Name Registrar.
+    URL: https://www.namecheap.com
+  I purchased the custom domain used for production email sending through
+  Namecheap. After registration, I configured DNS records (DKIM, SPF, MX) at
+  Namecheap to verify the domain with Resend and enable outbound email delivery
+  from the deployed application on Render.
+
+  - Namecheap. How to Add DNS Records.
+    URL: https://www.namecheap.com/support/knowledgebase/article.aspx/434/2237/how-do-i-set-up-host-records-for-a-domain/
+  Used to configure the required TXT (DKIM, SPF) and MX records in Namecheap's
+  Advanced DNS panel so Resend could verify domain ownership and send emails on
+  behalf of the custom domain.
 
 ================================================================================
 END OF REFERENCES

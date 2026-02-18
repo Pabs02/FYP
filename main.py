@@ -4723,7 +4723,7 @@ def calendar_view():
 		user_events = []
 
 	# Detect recurring patterns by grouping events with same title + day + time
-	# This works for both explicitly marked recurring events AND Canvas lectures
+	# I use this to detect recurring patterns for both explicitly marked events and Canvas lectures
 	pattern_groups = {}
 	
 	for event in user_events:
@@ -7156,9 +7156,19 @@ def _voice_detect_intent(transcript: str) -> str:
 
 def _voice_match_module(modules: List[Dict[str, Any]], transcript: str) -> Tuple[Optional[int], Optional[str]]:
 	upper_text = transcript.upper()
+	# I also build a compacted version with spaces removed between alphanumeric
+	# characters, so speech recognition output like "IS 4408" matches code "IS4408".
+	# Apply twice to collapse multi-space gaps (e.g. "I S 4 4 0 8").
+	compact_text = re.sub(r"([A-Z0-9])\s+([A-Z0-9])", r"\1\2", upper_text)
+	compact_text = re.sub(r"([A-Z0-9])\s+([A-Z0-9])", r"\1\2", compact_text)
 	for module in modules:
 		code = (module.get("code") or "").upper().strip()
-		if code and re.search(rf"\b{re.escape(code)}\b", upper_text):
+		if not code:
+			continue
+		# Try exact boundary match first, then against compacted text.
+		if re.search(rf"\b{re.escape(code)}\b", upper_text):
+			return module.get("id"), code
+		if re.search(rf"\b{re.escape(code)}\b", compact_text):
 			return module.get("id"), code
 	return None, None
 
@@ -7175,10 +7185,31 @@ def _voice_normalize_title(value: str) -> str:
 	return re.sub(r"[^a-z0-9]+", " ", (value or "").lower()).strip()
 
 
+# I map spoken number words to digits so voice commands like "iteration five"
+# match task titles stored as "Iteration 5".
+_VOICE_WORD_TO_NUM: Dict[str, str] = {
+	"one": "1", "two": "2", "three": "3", "four": "4", "five": "5",
+	"six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10",
+	"eleven": "11", "twelve": "12", "thirteen": "13", "fourteen": "14",
+	"fifteen": "15", "sixteen": "16", "seventeen": "17", "eighteen": "18",
+	"nineteen": "19", "twenty": "20",
+}
+
+
+def _voice_words_to_digits(text: str) -> str:
+	"""Replace spoken number words with digits so 'iteration five' matches 'iteration 5'."""
+	for word, digit in _VOICE_WORD_TO_NUM.items():
+		text = re.sub(rf"\b{word}\b", digit, text, flags=re.IGNORECASE)
+	return text
+
+
 def _voice_extract_task_phrase(transcript: str) -> Optional[str]:
-	text = (transcript or "").strip()
+	# I also convert number words to digits before matching so spoken numbers
+	# like "five" match task titles that use digits like "5".
+	text = _voice_words_to_digits((transcript or "").strip())
 	patterns = [
-		r"(?:mark|set|update|change|move|reschedule|make)\s+(.+?)\s+(?:as\s+)?(?:done|completed|in progress|pending|todo)\b",
+		# Handles "mark X as done", "mark X as being done", "mark X done"
+		r"(?:mark|set|update|change|move|reschedule|make)\s+(.+?)\s+(?:as\s+(?:being\s+)?)?(?:done|completed|in progress|pending|todo)\b",
 		r"(?:move|reschedule|set|change)\s+(.+?)\s+(?:to|for|on)\b",
 		r"(?:set|update|change|make)\s+(.+?)\s+(?:weight|priority)\b",
 	]
@@ -7192,6 +7223,8 @@ def _voice_extract_task_phrase(transcript: str) -> Optional[str]:
 
 
 def _voice_find_task_for_command(transcript: str, student_id: int) -> Optional[Dict[str, Any]]:
+	# I convert number words to digits first so "iteration five" matches "Iteration 5".
+	transcript = _voice_words_to_digits(transcript)
 	modules = sb_fetch_all("SELECT id, code FROM modules ORDER BY code")
 	module_id, _ = _voice_match_module(modules, transcript)
 	candidate = _voice_extract_task_phrase(transcript) or transcript
