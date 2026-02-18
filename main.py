@@ -3031,6 +3031,12 @@ def group_workspace():
 			return redirect(url_for("group_workspace"))
 		can_manage_project = int(project.get("owner_student_id") or 0) == int(current_user.id)
 		member_access = _get_group_membership(project_id, current_user.email) if not can_manage_project else None
+		# Reference: ChatGPT (OpenAI) - Member-Safe Group Workspace Permissions
+		# Date: 2026-02-18
+		# Prompt: "I need a single group workspace route where owners keep full control,
+		# while accepted members can only update their own assigned tasks and collaborate
+		# safely (thread + own file uploads). Can you suggest guard patterns?"
+		# ChatGPT provided the owner-only action set + member-safe action checks pattern.
 		owner_only_actions = {
 			"add_member",
 			"add_task",
@@ -3042,11 +3048,8 @@ def group_workspace():
 			"resend_invite",
 			"add_milestone",
 			"toggle_milestone",
-			"upload_task_file",
-			"delete_task_file",
 			"upload_project_file",
 			"delete_project_file",
-			"post_message",
 		}
 		if action in owner_only_actions and not can_manage_project:
 			flash("This project is view-only for members. Use the invite portal to update your assigned tasks.", "warning")
@@ -3586,11 +3589,15 @@ def group_workspace():
 			task_row = None
 			if task_id:
 				task_row = sb_fetch_one(
-					"SELECT id, title FROM group_project_tasks WHERE id = :task_id AND project_id = :project_id",
+					"SELECT id, title, assigned_member_id FROM group_project_tasks WHERE id = :task_id AND project_id = :project_id",
 					{"task_id": task_id, "project_id": project_id},
 				)
 			if not task_row:
 				flash("Task not found.", "error")
+			elif not can_manage_project:
+				if not member_access or int(task_row.get("assigned_member_id") or 0) != int(member_access.get("id") or 0):
+					flash("You can only upload files for tasks assigned to you.", "warning")
+					return redirect(url_for("group_workspace", project_id=project_id))
 			elif not file_storage or not file_storage.filename:
 				flash("Please choose a file to upload.", "warning")
 			else:
@@ -3640,13 +3647,23 @@ def group_workspace():
 				try:
 					row = sb_fetch_one(
 						"""
-						SELECT id, filepath
-						FROM group_project_task_files
-						WHERE id = :file_id AND project_id = :project_id
+						SELECT f.id, f.filepath, f.uploaded_by_student_id, t.assigned_member_id
+						FROM group_project_task_files f
+						LEFT JOIN group_project_tasks t ON t.id = f.task_id
+						WHERE f.id = :file_id AND f.project_id = :project_id
 						""",
 						{"file_id": file_id, "project_id": project_id},
 					)
 					if row:
+						if not can_manage_project:
+							if not member_access:
+								flash("You do not have permission to remove this attachment.", "warning")
+								return redirect(url_for("group_workspace", project_id=project_id))
+							uploaded_by = int(row.get("uploaded_by_student_id") or 0)
+							assigned_member_id = int(row.get("assigned_member_id") or 0)
+							if uploaded_by != int(current_user.id) or assigned_member_id != int(member_access.get("id") or 0):
+								flash("You can only remove files you uploaded for your own tasks.", "warning")
+								return redirect(url_for("group_workspace", project_id=project_id))
 						sb_execute(
 							"DELETE FROM group_project_task_files WHERE id = :file_id AND project_id = :project_id",
 							{"file_id": file_id, "project_id": project_id},
@@ -3746,6 +3763,9 @@ def group_workspace():
 				flash("Message cannot be empty.", "warning")
 			else:
 				try:
+					sender_name = current_user.name or "Team Member"
+					if not can_manage_project and member_access and member_access.get("member_name"):
+						sender_name = member_access.get("member_name")
 					sb_execute(
 						"""
 						INSERT INTO group_project_messages (
@@ -3757,7 +3777,7 @@ def group_workspace():
 						{
 							"project_id": project_id,
 							"sender_student_id": current_user.id,
-							"sender_name": current_user.name or "Project Owner",
+							"sender_name": sender_name,
 							"message": message_text[:2000],
 						},
 					)
@@ -3868,7 +3888,7 @@ def group_workspace():
 		try:
 			file_rows = sb_fetch_all(
 				"""
-				SELECT id, task_id, filename, file_size_bytes, uploaded_at
+				SELECT id, task_id, filename, file_size_bytes, uploaded_at, uploaded_by_student_id
 				FROM group_project_task_files
 				WHERE project_id = :project_id
 				ORDER BY uploaded_at DESC, id DESC
@@ -4101,16 +4121,23 @@ def group_workspace_invite(invite_token: str):
 def group_workspace_download_file(file_id: int):
 	row = sb_fetch_one(
 		"""
-		SELECT f.id, f.filename, f.filepath
+		SELECT f.id, f.filename, f.filepath, f.project_id,
+		       p.owner_student_id, t.assigned_member_id
 		FROM group_project_task_files f
+		LEFT JOIN group_project_tasks t ON t.id = f.task_id
 		JOIN group_projects p ON p.id = f.project_id
 		WHERE f.id = :file_id
-		  AND p.owner_student_id = :student_id
 		""",
-		{"file_id": file_id, "student_id": current_user.id},
+		{"file_id": file_id},
 	)
 	if not row:
 		abort(404)
+	is_owner = int(row.get("owner_student_id") or 0) == int(current_user.id)
+	if not is_owner:
+		member = _get_group_membership(int(row.get("project_id")), current_user.email)
+		assigned_member_id = int(row.get("assigned_member_id") or 0)
+		if not member or assigned_member_id != int(member.get("id") or 0):
+			abort(404)
 	filepath = row.get("filepath")
 	if not filepath or not os.path.exists(filepath):
 		abort(404)

@@ -596,6 +596,38 @@
 													</form>
 												</td>
 											</tr>
+											<tr class="bg-light">
+												<td colspan="5" class="pt-2 pb-2">
+													<div class="d-flex flex-wrap align-items-center gap-2">
+														<form method="POST" action="{{ url_for('group_workspace') }}" enctype="multipart/form-data" class="d-flex flex-wrap align-items-center gap-2">
+															<input type="hidden" name="action" value="upload_task_file">
+															<input type="hidden" name="project_id" value="{{ selected_project.id }}">
+															<input type="hidden" name="task_id" value="{{ task.id }}">
+															<input type="file" name="task_file" class="form-control form-control-sm" style="max-width: 260px;" required>
+															<button type="submit" class="btn btn-sm btn-outline-dark">Upload My File</button>
+														</form>
+														{% set files_for_task = task_files_map.get(task.id, []) %}
+														{% if files_for_task %}
+															<div class="small">
+																<strong>Files:</strong>
+																{% for file in files_for_task %}
+																	<a class="me-2" href="{{ url_for('group_workspace_download_file', file_id=file.id) }}">{{ file.filename }}</a>
+																	{% if file.uploaded_by_student_id == current_user.id %}
+																		<form method="POST" action="{{ url_for('group_workspace') }}" class="d-inline me-2">
+																			<input type="hidden" name="action" value="delete_task_file">
+																			<input type="hidden" name="project_id" value="{{ selected_project.id }}">
+																			<input type="hidden" name="file_id" value="{{ file.id }}">
+																			<button type="submit" class="btn btn-sm btn-link text-danger p-0">remove</button>
+																		</form>
+																	{% endif %}
+																{% endfor %}
+															</div>
+														{% else %}
+															<div class="small text-muted">No attachments yet.</div>
+														{% endif %}
+													</div>
+												</td>
+											</tr>
 										{% endfor %}
 									</tbody>
 								</table>
@@ -611,6 +643,14 @@
 				<div class="card dashboard-card">
 					<div class="card-header">Team Messaging Thread</div>
 					<div class="card-body">
+						<form method="POST" action="{{ url_for('group_workspace') }}" class="mb-3">
+							<input type="hidden" name="action" value="post_message">
+							<input type="hidden" name="project_id" value="{{ selected_project.id }}">
+							<div class="input-group">
+								<textarea class="form-control" name="message_text" rows="2" placeholder="Post an update for your team..." required></textarea>
+								<button type="submit" class="btn btn-outline-primary">Post</button>
+							</div>
+						</form>
 						{% if project_messages %}
 							<div class="dashboard-scroll" style="max-height: 260px;">
 								<div class="list-group list-group-flush">
