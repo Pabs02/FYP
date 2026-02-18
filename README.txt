@@ -658,6 +658,14 @@ Reference:
     backend guard + template branching patterns?"
     ChatGPT provided the member-access guard + member-view branching pattern
     used in `main.py` and `group_workspace.html`.
+  - ChatGPT (OpenAI). Group Workspace AI Brief File Ingestion.
+    Date: 2026-02-18
+    Prompt: "In the group workspace AI breakdown form, I want users to optionally
+    upload a brief file (txt/md/docx/pdf) and combine it with typed brief text
+    before generating tasks. Can you provide a safe Flask parsing pattern with
+    size/type validation and sanitization?"
+    ChatGPT provided the upload-parse-combine pattern adapted in
+    `group_workspace` AI task generation.
 
 Lecture Attendance + Health Score (Iteration 5)
 Reference:

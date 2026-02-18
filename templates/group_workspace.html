@@ -195,11 +195,13 @@
 					<div class="card-body">
 						<div class="row g-3">
 							<div class="col-md-6">
-								<form method="POST" action="{{ url_for('group_workspace') }}">
+								<form method="POST" action="{{ url_for('group_workspace') }}" enctype="multipart/form-data">
 									<input type="hidden" name="action" value="generate_ai_tasks">
 									<input type="hidden" name="project_id" value="{{ selected_project.id }}">
 									<label class="form-label">AI Project Brief</label>
-									<textarea name="ai_brief" class="form-control mb-2" rows="4" placeholder="Paste rubric, deliverables, and constraints..." required></textarea>
+									<textarea name="ai_brief" class="form-control mb-2" rows="4" placeholder="Paste rubric, deliverables, and constraints..."></textarea>
+									<input type="file" name="ai_brief_file" class="form-control mb-2" accept=".txt,.md,.markdown,.docx,.pdf">
+									<div class="small text-muted mb-2">Optional: upload a project brief file (.txt, .md, .docx, .pdf, max 4 MB).</div>
 									<div class="row g-2 mb-2">
 										<div class="col-sm-6">
 											<label class="form-label small">Task count</label>

@@ -3211,10 +3211,33 @@ def group_workspace():
 
 		elif action == "generate_ai_tasks":
 			brief = (request.form.get("ai_brief") or "").strip()
+			brief_file = request.files.get("ai_brief_file")
 			task_count = _coerce_int(request.form.get("ai_task_count")) or 6
 			task_count = max(3, min(15, task_count))
 			replace_ai = request.form.get("replace_ai_tasks") == "on"
-			if not brief:
+			file_text = ""
+			if brief_file and brief_file.filename:
+				try:
+					payload = brief_file.read()
+					if not payload:
+						raise ValueError("The uploaded AI brief file was empty.")
+					if len(payload) > _AI_MAX_UPLOAD_BYTES:
+						raise ValueError("AI brief file is larger than 4 MB.")
+					file_text = _extract_text_from_brief(brief_file.filename, payload).strip()
+				except ValueError as exc:
+					flash(str(exc), "error")
+					return redirect(url_for("group_workspace", project_id=project_id))
+				except Exception as exc:
+					print(f"[group-workspace] ai brief file parse failed user={current_user.id} project={project_id} err={exc}")
+					flash("Failed to read uploaded AI brief file.", "error")
+					return redirect(url_for("group_workspace", project_id=project_id))
+			combined_brief = "\n\n".join(
+				part for part in [
+					(_sanitize_prompt_text(brief) or "").strip(),
+					(_sanitize_prompt_text(file_text) or "").strip(),
+				] if part
+			).strip()
+			if not combined_brief:
 				flash("Provide a project brief for AI breakdown.", "error")
 			else:
 				try:
@@ -3235,7 +3258,7 @@ def group_workspace():
 						due_date=project.get("due_date").isoformat() if getattr(project.get("due_date"), "isoformat", None) else None,
 						due_at=None,
 						status="in_progress",
-						description=brief,
+						description=combined_brief,
 						additional_context=(
 							f"Group members: {member_labels}. "
 							f"Return {task_count} concrete tasks suitable for assignment."
