@@ -2593,8 +2593,12 @@ def _list_student_module_codes(student_id: int) -> List[str]:
 def _spotify_redirect_uri() -> str:
 	explicit = (os.getenv("SPOTIFY_REDIRECT_URI") or "").strip()
 	if explicit:
-		return explicit
-	return url_for("spotify_callback", _external=True)
+		return explicit.rstrip("/")
+	derived = url_for("spotify_callback", _external=True)
+	# I force HTTPS for hosted deployments so OAuth redirect URI matches provider config.
+	if ".onrender.com" in derived and derived.startswith("http://"):
+		derived = "https://" + derived[len("http://"):]
+	return derived.rstrip("/")
 
 
 def _spotify_access_token() -> Optional[str]:
@@ -4555,11 +4559,13 @@ def spotify_auth():
 		return redirect(url_for("focus_music"))
 	state = secrets.token_urlsafe(24)
 	session["spotify_oauth_state"] = state
+	redirect_uri = _spotify_redirect_uri()
+	print(f"[spotify] auth redirect_uri={redirect_uri} client_id={client_id[:8]}...")
 	params = {
 		"response_type": "code",
 		"client_id": client_id,
 		"scope": "playlist-read-private streaming user-read-playback-state",
-		"redirect_uri": _spotify_redirect_uri(),
+		"redirect_uri": redirect_uri,
 		"state": state,
 	}
 	return redirect(f"https://accounts.spotify.com/authorize?{urlencode(params)}")
