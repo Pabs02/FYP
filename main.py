@@ -4785,7 +4785,7 @@ def focus_music():
 		try:
 			search_resp = requests.get(
 				"https://api.spotify.com/v1/search",
-				params={"q": search_query, "type": "playlist", "limit": 12},
+				params={"q": search_query, "type": "playlist", "limit": 10},
 				headers={"Authorization": f"Bearer {token}"},
 				timeout=10,
 			)
@@ -4806,7 +4806,7 @@ def focus_music():
 					fallback_query = "focus study playlist"
 					fallback_resp = requests.get(
 						"https://api.spotify.com/v1/search",
-						params={"q": fallback_query, "type": "playlist", "limit": 8},
+						params={"q": fallback_query, "type": "playlist", "limit": 5},
 						headers={"Authorization": f"Bearer {token}"},
 						timeout=10,
 					)
