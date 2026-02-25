@@ -6422,6 +6422,52 @@ def study_groups():
 				except Exception as exc:
 					print(f"[study-groups] resource add failed user={current_user.id} group={group_id} err={exc}")
 					flash("Could not add the resource.", "error")
+		elif action == "add_room_booking":
+			room_name = (request.form.get("room_name") or "").strip()
+			booked_for_raw = (request.form.get("booked_for_at") or "").strip()
+			duration_raw = (request.form.get("duration_minutes") or "").strip()
+			notes = (request.form.get("notes") or "").strip()
+			if not is_member:
+				flash("Join the study group before adding room bookings.", "warning")
+			elif not room_name or not booked_for_raw:
+				flash("Room name and booking date/time are required.", "warning")
+			else:
+				try:
+					booked_for_at = datetime.fromisoformat(booked_for_raw)
+				except ValueError:
+					booked_for_at = None
+				try:
+					duration_minutes = int(duration_raw) if duration_raw else 60
+				except ValueError:
+					duration_minutes = 60
+				duration_minutes = max(15, min(240, duration_minutes))
+				if not booked_for_at:
+					flash("Invalid booking date/time.", "error")
+				else:
+					try:
+						sb_execute(
+							"""
+							INSERT INTO study_group_room_bookings (
+								group_id, booked_by_student_id, room_name,
+								booked_for_at, duration_minutes, notes, created_at
+							) VALUES (
+								:group_id, :booked_by_student_id, :room_name,
+								:booked_for_at, :duration_minutes, :notes, NOW()
+							)
+							""",
+							{
+								"group_id": group_id,
+								"booked_by_student_id": current_user.id,
+								"room_name": room_name[:255],
+								"booked_for_at": booked_for_at,
+								"duration_minutes": duration_minutes,
+								"notes": notes[:2000] if notes else None,
+							},
+						)
+						flash("Study room booking saved for this module group.", "success")
+					except Exception as exc:
+						print(f"[study-groups] room booking failed user={current_user.id} group={group_id} err={exc}")
+						flash("Could not save room booking.", "error")
 		return redirect(url_for("study_groups", module_code=module_code))
 
 	module_codes = _list_student_module_codes(current_user.id)
@@ -6454,6 +6500,7 @@ def study_groups():
 	members: List[Dict[str, Any]] = []
 	messages: List[Dict[str, Any]] = []
 	resources: List[Dict[str, Any]] = []
+	room_bookings: List[Dict[str, Any]] = []
 	is_member = False
 	member_count = 0
 	if selected_module_code:
@@ -6518,6 +6565,22 @@ def study_groups():
 				)
 			except Exception:
 				resources = []
+			try:
+				room_bookings = sb_fetch_all(
+					"""
+					SELECT
+						b.id, b.room_name, b.booked_for_at, b.duration_minutes, b.notes, b.created_at,
+						COALESCE(s.name, 'Student') AS booked_by_name
+					FROM study_group_room_bookings b
+					LEFT JOIN students s ON s.id = b.booked_by_student_id
+					WHERE b.group_id = :group_id
+					ORDER BY b.booked_for_at ASC, b.id DESC
+					LIMIT 100
+					""",
+					{"group_id": group_id},
+				)
+			except Exception:
+				room_bookings = []
 
 	return render_template(
 		"study_groups.html",
@@ -6529,6 +6592,7 @@ def study_groups():
 		members=members,
 		messages=messages,
 		resources=resources,
+		room_bookings=room_bookings,
 	)
 
 

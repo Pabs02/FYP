@@ -173,6 +173,74 @@
 						{% endfor %}
 					</div>
 				</div>
+
+				<div class="border rounded p-3 mt-3">
+					<div class="d-flex justify-content-between align-items-center mb-2">
+						<div class="fw-semibold">Module Study Room Booking</div>
+						<a
+							href="https://libcal.ucc.ie/reserve/librarygrouprooms"
+							target="_blank"
+							rel="noopener noreferrer"
+							class="btn btn-sm btn-outline-primary"
+						>
+							Book in UCC Library
+						</a>
+					</div>
+
+					{% if is_member %}
+						<form method="POST" action="{{ url_for('study_groups', module_code=selected_module_code) }}" class="row g-2 mb-3">
+							<input type="hidden" name="action" value="add_room_booking">
+							<input type="hidden" name="module_code" value="{{ selected_module_code }}">
+
+							<div class="col-md-4">
+								<input type="text" class="form-control" name="room_name" maxlength="255" placeholder="Room name (e.g., Boole G12)" required>
+							</div>
+							<div class="col-md-3">
+								<input type="datetime-local" class="form-control" name="booked_for_at" required>
+							</div>
+							<div class="col-md-2">
+								<input type="number" class="form-control" name="duration_minutes" min="15" max="240" value="60" placeholder="Minutes">
+							</div>
+							<div class="col-md-3">
+								<input type="text" class="form-control" name="notes" maxlength="2000" placeholder="Optional notes">
+							</div>
+							<div class="col-12">
+								<button type="submit" class="btn btn-sm btn-outline-success">Save Booking to Group</button>
+							</div>
+						</form>
+					{% else %}
+						<p class="small text-muted">Join the group to add module room bookings.</p>
+					{% endif %}
+
+					<div class="table-responsive">
+						<table class="table table-sm align-middle mb-0">
+							<thead>
+								<tr>
+									<th>Room</th>
+									<th>Date/Time</th>
+									<th>Duration</th>
+									<th>Booked By</th>
+									<th>Notes</th>
+								</tr>
+							</thead>
+							<tbody>
+								{% for booking in room_bookings %}
+									<tr>
+										<td>{{ booking.room_name }}</td>
+										<td>{{ booking.booked_for_at | irish_datetime if booking.booked_for_at else '-' }}</td>
+										<td>{{ booking.duration_minutes }} mins</td>
+										<td>{{ booking.booked_by_name }}</td>
+										<td>{{ booking.notes or '-' }}</td>
+									</tr>
+								{% else %}
+									<tr>
+										<td colspan="5" class="text-muted">No room bookings yet for this module group.</td>
+									</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+				</div>
 			{% else %}
 				<p class="text-muted mb-0">Select a module from the left to open its study group.</p>
 			{% endif %}

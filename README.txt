@@ -1464,6 +1464,14 @@ Reference:
   ChatGPT provided the preference load/save pattern and query blending approach used
   in /focus-music and /focus-music/preferences.
 
+  - ChatGPT (OpenAI). Study Group Room Booking Form + Action Handling.
+    Date: 2026-02-25
+    Prompt: "I want each module study group to include a room booking form where
+    members can save room, date/time, duration, and notes, then show a booking list.
+    Can you provide Flask action guards and template structure?"
+  ChatGPT provided the member-guarded booking action and table-render pattern used in
+  /study-groups with the add_room_booking branch and room booking listing.
+
   - ChatGPT (OpenAI). Admin Activity Overview Dashboard Route.
     Date: 2026-02-25
     Prompt: "I need an admin-only Flask route that aggregates activity logs across all
@@ -1488,6 +1496,15 @@ Reference:
     Prompt: "I need a safe migration to store per-student Spotify music category
     preferences so each user can personalize playlist suggestions. Please include
     an idempotent table + index pattern."
+  ChatGPT provided the idempotent table and index migration pattern.
+
+FILE: scripts/add_study_group_room_bookings.sql
+Reference:
+  - ChatGPT (OpenAI). Study Group Room Bookings Migration.
+    Date: 2026-02-25
+    Prompt: "I need a safe SQL migration to store module-level study room bookings
+    within study groups, with who booked, date/time, duration, and notes. Please use
+    idempotent CREATE TABLE/INDEX patterns."
   ChatGPT provided the idempotent table and index migration pattern.
 
 ================================================================================
