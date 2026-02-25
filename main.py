@@ -19,6 +19,7 @@ from io import BytesIO
 from email.message import EmailMessage
 import smtplib
 from pathlib import Path
+from urllib.parse import urlencode
 from typing import List, Dict, Optional, Tuple, Any
 from datetime import datetime, timedelta, time, timezone
 
@@ -534,10 +535,10 @@ def register():
 				}
 			)
 			
-		flash("Registration successful! Please login.", "success")
-		next_page = request.args.get("next")
-		# I preserve the next redirect so invite links work after registration
-		return redirect(url_for("login", next=next_page) if next_page else url_for("login"))
+			flash("Registration successful! Please login.", "success")
+			next_page = request.args.get("next")
+			# I preserve the next redirect so invite links work after registration
+			return redirect(url_for("login", next=next_page) if next_page else url_for("login"))
 			
 		except Exception as e:
 			flash(f"Registration failed: {str(e)}", "error")
@@ -2506,6 +2507,157 @@ def _lookup_module_id(module_code: Optional[str], student_id: int) -> Optional[i
 	return None
 
 
+def _normalise_module_code(module_code: Optional[str]) -> Optional[str]:
+	value = (module_code or "").strip().upper()
+	return value or None
+
+
+def _get_or_create_study_group(module_code: str) -> Optional[Dict[str, Any]]:
+	code = _normalise_module_code(module_code)
+	if not code:
+		return None
+	group = sb_fetch_one(
+		"""
+		SELECT id, module_code, created_at
+		FROM study_groups
+		WHERE UPPER(module_code) = :module_code
+		LIMIT 1
+		""",
+		{"module_code": code},
+	)
+	if group:
+		return group
+	try:
+		sb_execute(
+			"""
+			INSERT INTO study_groups (module_code, created_at)
+			VALUES (:module_code, NOW())
+			ON CONFLICT (module_code) DO NOTHING
+			""",
+			{"module_code": code},
+		)
+	except Exception:
+		pass
+	return sb_fetch_one(
+		"""
+		SELECT id, module_code, created_at
+		FROM study_groups
+		WHERE UPPER(module_code) = :module_code
+		LIMIT 1
+		""",
+		{"module_code": code},
+	)
+
+
+def _list_student_module_codes(student_id: int) -> List[str]:
+	try:
+		rows = sb_fetch_all(
+			"""
+			SELECT DISTINCT UPPER(m.code) AS code
+			FROM modules m
+			JOIN tasks t ON t.module_id = m.id
+			WHERE t.student_id = :student_id
+			ORDER BY UPPER(m.code) ASC
+			""",
+			{"student_id": student_id},
+		)
+	except Exception:
+		rows = []
+	codes: List[str] = []
+	for row in rows:
+		code = _normalise_module_code(row.get("code"))
+		if code and code not in codes:
+			codes.append(code)
+	return codes
+
+
+def _spotify_redirect_uri() -> str:
+	explicit = (os.getenv("SPOTIFY_REDIRECT_URI") or "").strip()
+	if explicit:
+		return explicit
+	return url_for("spotify_callback", _external=True)
+
+
+def _spotify_access_token() -> Optional[str]:
+	token_data = session.get("spotify_token") or {}
+	access_token = token_data.get("access_token")
+	expires_at = float(token_data.get("expires_at") or 0)
+	if access_token and expires_at > time_module.time() + 30:
+		return access_token
+
+	refresh_token = token_data.get("refresh_token")
+	client_id = os.getenv("SPOTIFY_CLIENT_ID", "").strip()
+	client_secret = os.getenv("SPOTIFY_CLIENT_SECRET", "").strip()
+	if not (refresh_token and client_id and client_secret):
+		return None
+
+	try:
+		resp = requests.post(
+			"https://accounts.spotify.com/api/token",
+			data={
+				"grant_type": "refresh_token",
+				"refresh_token": refresh_token,
+			},
+			auth=(client_id, client_secret),
+			timeout=10,
+		)
+		if not resp.ok:
+			return None
+		payload = resp.json()
+		new_token = payload.get("access_token")
+		expires_in = int(payload.get("expires_in") or 3600)
+		if not new_token:
+			return None
+		token_data["access_token"] = new_token
+		token_data["expires_at"] = time_module.time() + max(120, expires_in - 30)
+		if payload.get("refresh_token"):
+			token_data["refresh_token"] = payload.get("refresh_token")
+		session["spotify_token"] = token_data
+		return new_token
+	except Exception:
+		return None
+
+
+def _focus_music_query(student_id: int) -> str:
+	row = sb_fetch_one(
+		"""
+		SELECT t.title, t.priority, t.due_date, m.code AS module_code
+		FROM tasks t
+		LEFT JOIN modules m ON m.id = t.module_id
+		WHERE t.student_id = :student_id
+		  AND COALESCE(t.status, 'pending') <> 'completed'
+		ORDER BY
+		  CASE t.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+		  t.due_date ASC NULLS LAST,
+		  t.id ASC
+		LIMIT 1
+		""",
+		{"student_id": student_id},
+	)
+	if not row:
+		return "focus study playlist"
+	title = (row.get("title") or "").lower()
+	module_code = (row.get("module_code") or "").upper()
+	priority = (row.get("priority") or "").lower()
+	due_date = row.get("due_date")
+	is_urgent = False
+	if due_date:
+		try:
+			due_dt = due_date if isinstance(due_date, datetime) else datetime.fromisoformat(str(due_date))
+			is_urgent = due_dt.date() <= datetime.now().date() + timedelta(days=3)
+		except Exception:
+			is_urgent = False
+	if priority == "high" and is_urgent:
+		return "deep focus concentration"
+	if module_code.startswith("IS") or any(term in title for term in ["code", "program", "database", "system"]):
+		return "programming music focus"
+	if any(term in title for term in ["essay", "report", "writing", "draft"]):
+		return "ambient study music"
+	if any(term in title for term in ["revision", "exam", "quiz", "study"]):
+		return "lo-fi study beats"
+	return "focus study playlist"
+
+
 # Reference: ChatGPT (OpenAI) - Task Lookup and Creation Pattern
 # Date: 2025-11-14
 # Prompt: "I need a function that looks up an existing task by title and module, and if 
@@ -4310,6 +4462,224 @@ def group_workspace_download_project_file(file_id: int):
 	return send_file(filepath, as_attachment=True, download_name=row.get("filename") or "project_file")
 
 
+# Reference: ChatGPT (OpenAI) - AI Reading Summary Route with JSON Guard
+# Date: 2026-02-25
+# Prompt: "I need a Flask endpoint that accepts pasted text or an uploaded PDF/DOCX,
+# generates a concise study summary with OpenAI, and returns JSON safely for a frontend
+# voice reader. Can you provide a robust pattern with input validation?"
+# ChatGPT provided the validation + JSON response pattern adapted below.
+@app.route("/audio-summary", methods=["GET", "POST"])
+@login_required
+def audio_summary():
+	if request.method == "GET":
+		return render_template("audio_summary.html")
+
+	try:
+		raw_text = (request.form.get("text") or "").strip()
+		file_storage = request.files.get("reading_file")
+		segments: List[str] = []
+		if raw_text:
+			segments.append(raw_text)
+		if file_storage and file_storage.filename:
+			filename = file_storage.filename
+			payload = file_storage.read()
+			if not payload:
+				return jsonify({"ok": False, "error": "Uploaded file was empty."}), 400
+			if len(payload) > _AI_MAX_UPLOAD_BYTES:
+				return jsonify({"ok": False, "error": "File is too large (max 4MB)."}), 400
+			segments.append(_extract_text_from_brief(filename, payload))
+
+		combined = "\n\n".join([part.strip() for part in segments if (part or "").strip()]).strip()
+		if not combined:
+			return jsonify({"ok": False, "error": "Add text or upload a file first."}), 400
+
+		sanitized = _sanitize_prompt_text(combined) or _summarize_text(combined, max_len=4500) or combined[:4500]
+		service = get_chatgpt_service()
+		response = service._client.responses.create(  # type: ignore[attr-defined]
+			model=app.config.get("OPENAI_MODEL_NAME") or "gpt-4o-mini",
+			input=[
+				{
+					"role": "system",
+					"content": (
+						"You are a study assistant. Summarize readings clearly for spoken playback. "
+						"Use short bullet points, plain language, and keep important terms."
+					),
+				},
+				{
+					"role": "user",
+					"content": (
+						"Summarise this reading for quick revision. "
+						"Return plain text only with 8-12 concise bullet points.\n\n"
+						f"{sanitized}"
+					),
+				},
+			],
+			temperature=0.2,
+			max_output_tokens=900,
+		)
+		summary_text = service._extract_text(response)  # type: ignore[attr-defined]
+		return jsonify({"ok": True, "summary": summary_text.strip()})
+	except ChatGPTClientError as exc:
+		return jsonify({"ok": False, "error": str(exc)}), 400
+	except Exception as exc:
+		print(f"[audio-summary] generation failed user={current_user.id} err={exc}")
+		return jsonify({"ok": False, "error": "Could not generate a summary right now."}), 500
+
+
+@app.route("/spotify/auth")
+@login_required
+def spotify_auth():
+	client_id = (os.getenv("SPOTIFY_CLIENT_ID") or "").strip()
+	client_secret = (os.getenv("SPOTIFY_CLIENT_SECRET") or "").strip()
+	if not client_id or not client_secret:
+		flash("Spotify is not configured yet. Add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET.", "warning")
+		return redirect(url_for("focus_music"))
+	state = secrets.token_urlsafe(24)
+	session["spotify_oauth_state"] = state
+	params = {
+		"response_type": "code",
+		"client_id": client_id,
+		"scope": "playlist-read-private streaming user-read-playback-state",
+		"redirect_uri": _spotify_redirect_uri(),
+		"state": state,
+	}
+	return redirect(f"https://accounts.spotify.com/authorize?{urlencode(params)}")
+
+
+@app.route("/spotify/callback")
+@login_required
+def spotify_callback():
+	if request.args.get("error"):
+		flash("Spotify authorization was cancelled.", "warning")
+		return redirect(url_for("focus_music"))
+	code = (request.args.get("code") or "").strip()
+	state = (request.args.get("state") or "").strip()
+	expected_state = (session.get("spotify_oauth_state") or "").strip()
+	if not code or not state or state != expected_state:
+		flash("Spotify login failed due to an invalid callback state.", "error")
+		return redirect(url_for("focus_music"))
+
+	client_id = (os.getenv("SPOTIFY_CLIENT_ID") or "").strip()
+	client_secret = (os.getenv("SPOTIFY_CLIENT_SECRET") or "").strip()
+	if not client_id or not client_secret:
+		flash("Spotify credentials are missing.", "error")
+		return redirect(url_for("focus_music"))
+
+	try:
+		resp = requests.post(
+			"https://accounts.spotify.com/api/token",
+			data={
+				"grant_type": "authorization_code",
+				"code": code,
+				"redirect_uri": _spotify_redirect_uri(),
+			},
+			auth=(client_id, client_secret),
+			timeout=12,
+		)
+		if not resp.ok:
+			flash("Could not complete Spotify login. Please try again.", "error")
+			return redirect(url_for("focus_music"))
+		payload = resp.json()
+		access_token = payload.get("access_token")
+		refresh_token = payload.get("refresh_token")
+		expires_in = int(payload.get("expires_in") or 3600)
+		if not access_token:
+			flash("Spotify did not return an access token.", "error")
+			return redirect(url_for("focus_music"))
+		session["spotify_token"] = {
+			"access_token": access_token,
+			"refresh_token": refresh_token,
+			"expires_at": time_module.time() + max(120, expires_in - 30),
+		}
+		session.pop("spotify_oauth_state", None)
+		flash("Spotify connected successfully.", "success")
+	except Exception as exc:
+		print(f"[spotify] callback failed user={current_user.id} err={exc}")
+		flash("Spotify connection failed.", "error")
+	return redirect(url_for("focus_music"))
+
+
+@app.route("/spotify/disconnect", methods=["POST"])
+@login_required
+def spotify_disconnect():
+	session.pop("spotify_token", None)
+	session.pop("spotify_oauth_state", None)
+	flash("Spotify disconnected.", "success")
+	return redirect(url_for("focus_music"))
+
+
+# Reference: ChatGPT (OpenAI) - Spotify Playlist Search + Embed Route
+# Date: 2026-02-25
+# Prompt: "I need a Flask route that checks Spotify OAuth session tokens, derives a
+# study mood query from upcoming tasks, searches playlists via Spotify API, and shows
+# embeddable playlist cards."
+# ChatGPT provided the token-refresh + playlist-shaping flow adapted below.
+@app.route("/focus-music")
+@login_required
+def focus_music():
+	token = _spotify_access_token()
+	connected = bool(token)
+	mood_query = _focus_music_query(current_user.id)
+	playlists: List[Dict[str, Any]] = []
+	selected_playlist = None
+	error: Optional[str] = None
+
+	if connected:
+		try:
+			search_resp = requests.get(
+				"https://api.spotify.com/v1/search",
+				params={"q": mood_query, "type": "playlist", "limit": 5},
+				headers={"Authorization": f"Bearer {token}"},
+				timeout=10,
+			)
+			if not search_resp.ok:
+				error = "Spotify search failed. Please reconnect and try again."
+			else:
+				items = (search_resp.json().get("playlists") or {}).get("items") or []
+				for item in items:
+					if not isinstance(item, dict):
+						continue
+					playlist_id = item.get("id")
+					if not playlist_id:
+						continue
+					image_url = None
+					images = item.get("images") or []
+					if images and isinstance(images, list) and isinstance(images[0], dict):
+						image_url = images[0].get("url")
+					playlists.append(
+						{
+							"id": playlist_id,
+							"name": item.get("name") or "Playlist",
+							"owner": ((item.get("owner") or {}).get("display_name") or "Spotify"),
+							"url": (item.get("external_urls") or {}).get("spotify"),
+							"image_url": image_url,
+							"tracks_total": ((item.get("tracks") or {}).get("total") or 0),
+							"embed_url": f"https://open.spotify.com/embed/playlist/{playlist_id}",
+						}
+					)
+		except Exception as exc:
+			print(f"[spotify] search failed user={current_user.id} err={exc}")
+			error = "Could not load Spotify playlists right now."
+
+	playlist_id = (request.args.get("playlist_id") or "").strip()
+	if playlist_id:
+		for entry in playlists:
+			if entry.get("id") == playlist_id:
+				selected_playlist = entry
+				break
+	if not selected_playlist and playlists:
+		selected_playlist = playlists[0]
+
+	return render_template(
+		"focus_music.html",
+		spotify_connected=connected,
+		mood_query=mood_query,
+		playlists=playlists,
+		selected_playlist=selected_playlist,
+		error=error,
+	)
+
+
 @app.route("/ai-workspace", methods=["GET", "POST"])
 @login_required
 def ai_workspace():
@@ -5700,6 +6070,242 @@ def analytics():
 		}
 
 	return render_template("analytics.html", analytics=analytics_data)
+
+
+# Reference: ChatGPT (OpenAI) - Module-Based Collaborative Study Groups Route
+# Date: 2026-02-25
+# Prompt: "I need a Flask route for module-based study groups where students can join
+# by module code, post messages, and share links/notes. Please include membership
+# checks so only joined users can post."
+# ChatGPT provided the route flow + membership guard pattern adapted below.
+@app.route("/study-groups", methods=["GET", "POST"])
+@login_required
+def study_groups():
+	selected_module_code = _normalise_module_code(request.args.get("module_code"))
+
+	if request.method == "POST":
+		action = (request.form.get("action") or "").strip()
+		module_code = _normalise_module_code(request.form.get("module_code"))
+		if not module_code:
+			flash("Please choose a module first.", "warning")
+			return redirect(url_for("study_groups"))
+
+		group = _get_or_create_study_group(module_code)
+		if not group:
+			flash("Could not open this study group right now.", "error")
+			return redirect(url_for("study_groups"))
+		group_id = group.get("id")
+		if not group_id:
+			flash("Invalid study group.", "error")
+			return redirect(url_for("study_groups"))
+
+		membership = sb_fetch_one(
+			"""
+			SELECT id
+			FROM study_group_members
+			WHERE group_id = :group_id AND student_id = :student_id
+			LIMIT 1
+			""",
+			{"group_id": group_id, "student_id": current_user.id},
+		)
+		is_member = bool(membership)
+
+		if action == "join_group":
+			try:
+				sb_execute(
+					"""
+					INSERT INTO study_group_members (group_id, student_id, joined_at)
+					VALUES (:group_id, :student_id, NOW())
+					ON CONFLICT (group_id, student_id) DO NOTHING
+					""",
+					{"group_id": group_id, "student_id": current_user.id},
+				)
+				flash(f"You joined the {module_code} study group.", "success")
+			except Exception as exc:
+				print(f"[study-groups] join failed user={current_user.id} group={group_id} err={exc}")
+				flash("Could not join this study group.", "error")
+		elif action == "leave_group":
+			try:
+				sb_execute(
+					"""
+					DELETE FROM study_group_members
+					WHERE group_id = :group_id AND student_id = :student_id
+					""",
+					{"group_id": group_id, "student_id": current_user.id},
+				)
+				flash(f"You left the {module_code} study group.", "success")
+			except Exception as exc:
+				print(f"[study-groups] leave failed user={current_user.id} group={group_id} err={exc}")
+				flash("Could not leave this study group.", "error")
+		elif action == "post_message":
+			message = (request.form.get("message") or "").strip()
+			if not is_member:
+				flash("Join the study group before posting messages.", "warning")
+			elif not message:
+				flash("Message cannot be empty.", "warning")
+			else:
+				try:
+					sb_execute(
+						"""
+						INSERT INTO study_group_messages (
+							group_id, student_id, student_name, message, created_at
+						) VALUES (
+							:group_id, :student_id, :student_name, :message, NOW()
+						)
+						""",
+						{
+							"group_id": group_id,
+							"student_id": current_user.id,
+							"student_name": (current_user.name or "Student")[:255],
+							"message": message[:1500],
+						},
+					)
+					flash("Message posted.", "success")
+				except Exception as exc:
+					print(f"[study-groups] post failed user={current_user.id} group={group_id} err={exc}")
+					flash("Could not post your message.", "error")
+		elif action == "add_resource":
+			title = (request.form.get("title") or "").strip()
+			url_value = (request.form.get("url") or "").strip()
+			note = (request.form.get("note") or "").strip()
+			if not is_member:
+				flash("Join the study group before sharing resources.", "warning")
+			elif not title:
+				flash("Resource title is required.", "warning")
+			elif not url_value and not note:
+				flash("Add a link or a note for the resource.", "warning")
+			else:
+				if url_value and not (url_value.startswith("http://") or url_value.startswith("https://")):
+					url_value = f"https://{url_value}"
+				try:
+					sb_execute(
+						"""
+						INSERT INTO study_group_resources (
+							group_id, student_id, title, url, note, created_at
+						) VALUES (
+							:group_id, :student_id, :title, :url, :note, NOW()
+						)
+						""",
+						{
+							"group_id": group_id,
+							"student_id": current_user.id,
+							"title": title[:255],
+							"url": url_value[:1000] if url_value else None,
+							"note": note[:2000] if note else None,
+						},
+					)
+					flash("Resource shared with the group.", "success")
+				except Exception as exc:
+					print(f"[study-groups] resource add failed user={current_user.id} group={group_id} err={exc}")
+					flash("Could not add the resource.", "error")
+		return redirect(url_for("study_groups", module_code=module_code))
+
+	module_codes = _list_student_module_codes(current_user.id)
+	try:
+		joined_rows = sb_fetch_all(
+			"""
+			SELECT DISTINCT UPPER(g.module_code) AS module_code
+			FROM study_groups g
+			JOIN study_group_members gm ON gm.group_id = g.id
+			WHERE gm.student_id = :student_id
+			ORDER BY UPPER(g.module_code) ASC
+			""",
+			{"student_id": current_user.id},
+		)
+	except Exception:
+		joined_rows = []
+	for row in joined_rows:
+		code = _normalise_module_code(row.get("module_code"))
+		if code and code not in module_codes:
+			module_codes.append(code)
+
+	module_codes.sort()
+	if not selected_module_code and module_codes:
+		selected_module_code = module_codes[0]
+	if selected_module_code and selected_module_code not in module_codes:
+		module_codes.append(selected_module_code)
+		module_codes.sort()
+
+	selected_group = None
+	members: List[Dict[str, Any]] = []
+	messages: List[Dict[str, Any]] = []
+	resources: List[Dict[str, Any]] = []
+	is_member = False
+	member_count = 0
+	if selected_module_code:
+		selected_group = sb_fetch_one(
+			"""
+			SELECT id, module_code, created_at
+			FROM study_groups
+			WHERE UPPER(module_code) = :module_code
+			LIMIT 1
+			""",
+			{"module_code": selected_module_code},
+		)
+		if selected_group and selected_group.get("id"):
+			group_id = selected_group.get("id")
+			member_row = sb_fetch_one(
+				"""
+				SELECT id
+				FROM study_group_members
+				WHERE group_id = :group_id AND student_id = :student_id
+				LIMIT 1
+				""",
+				{"group_id": group_id, "student_id": current_user.id},
+			)
+			is_member = bool(member_row)
+			try:
+				members = sb_fetch_all(
+					"""
+					SELECT s.name, s.email, gm.joined_at
+					FROM study_group_members gm
+					JOIN students s ON s.id = gm.student_id
+					WHERE gm.group_id = :group_id
+					ORDER BY gm.joined_at ASC
+					""",
+					{"group_id": group_id},
+				)
+			except Exception:
+				members = []
+			member_count = len(members)
+			try:
+				messages = sb_fetch_all(
+					"""
+					SELECT id, student_name, message, created_at
+					FROM study_group_messages
+					WHERE group_id = :group_id
+					ORDER BY created_at DESC
+					LIMIT 100
+					""",
+					{"group_id": group_id},
+				)
+			except Exception:
+				messages = []
+			try:
+				resources = sb_fetch_all(
+					"""
+					SELECT id, title, url, note, created_at
+					FROM study_group_resources
+					WHERE group_id = :group_id
+					ORDER BY created_at DESC
+					LIMIT 100
+					""",
+					{"group_id": group_id},
+				)
+			except Exception:
+				resources = []
+
+	return render_template(
+		"study_groups.html",
+		module_codes=module_codes,
+		selected_module_code=selected_module_code,
+		selected_group=selected_group,
+		is_member=is_member,
+		member_count=member_count,
+		members=members,
+		messages=messages,
+		resources=resources,
+	)
 
 
 # ── Per-Module Dashboard (Iteration 5 – US 17) ─────────────────────

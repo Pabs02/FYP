@@ -62,7 +62,10 @@
 </style>
 
 <div class="mod-page">
-	<a href="{{ url_for('modules_overview') }}" class="back-link">← Back to Modules</a>
+	<div class="d-flex justify-content-between align-items-center">
+		<a href="{{ url_for('modules_overview') }}" class="back-link">← Back to Modules</a>
+		<a href="{{ url_for('study_groups', module_code=module.code) }}" class="btn btn-sm btn-outline-primary">Join Study Group</a>
+	</div>
 
 	<div class="page-header-card mt-3">
 		<h1>📖 {{ module.code }}</h1>

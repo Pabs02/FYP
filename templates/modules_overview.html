@@ -15,7 +15,6 @@
 		border-radius: 16px;
 		padding: 1.5rem;
 		transition: all 0.25s ease;
-		text-decoration: none;
 		color: inherit;
 		display: block;
 	}
@@ -77,6 +76,19 @@
 	.module-grade.average { background: #fef3c7; color: #92400e; }
 	.module-grade.low { background: #fee2e2; color: #991b1b; }
 	.module-grade.none { background: #f1f5f9; color: #94a3b8; }
+	.module-actions {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-top: 0.5rem;
+	}
+	.module-action-link {
+		font-size: 0.75rem;
+		font-weight: 600;
+		text-decoration: none;
+	}
+	.module-action-link.view { color: #6366f1; }
+	.module-action-link.group { color: #0f766e; }
 </style>
 
 <div class="modules-page">
@@ -88,7 +100,7 @@
 	{% if modules %}
 	<div class="module-grid">
 		{% for m in modules %}
-		<a href="{{ url_for('module_detail', module_id=m.id) }}" class="module-card">
+		<div class="module-card">
 			<div class="module-code">
 				<span class="icon">📖</span>
 				{{ m.code }}
@@ -135,9 +147,12 @@
 					{{ m.completion_rate or 0 }}% complete ·
 					{{ m.attended_lectures or 0 }}/{{ m.lecture_sessions or 0 }} lectures
 				</span>
-				<span style="font-size: 0.75rem; color: #6366f1; font-weight: 600;">View →</span>
 			</div>
-		</a>
+			<div class="module-actions">
+				<a class="module-action-link view" href="{{ url_for('module_detail', module_id=m.id) }}">View Module →</a>
+				<a class="module-action-link group" href="{{ url_for('study_groups', module_code=m.code) }}">Join Study Group →</a>
+			</div>
+		</div>
 		{% endfor %}
 	</div>
 	{% else %}

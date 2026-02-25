@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Audio Summary{% endblock %}
+{% block content %}
+<style>
+	.audio-page { max-width: 1000px; margin: 0 auto; }
+	.audio-card {
+		background: #fff;
+		border: 1px solid #e2e8f0;
+		border-radius: 14px;
+		padding: 1rem;
+	}
+	.summary-box {
+		white-space: pre-wrap;
+		background: #f8fafc;
+		border: 1px solid #e2e8f0;
+		border-radius: 10px;
+		padding: 0.9rem;
+		min-height: 190px;
+	}
+</style>
+
+<div class="audio-page">
+	<div class="page-header-card">
+		<h1>🔊 Audio Summary</h1>
+		<p>Paste text or upload a reading, then listen to a concise AI summary.</p>
+	</div>
+
+	<div class="audio-card mt-3">
+		<form id="audioSummaryForm" class="mb-3">
+			<div class="mb-2">
+				<label class="form-label">Reading Text</label>
+				<textarea id="readingText" name="text" rows="7" class="form-control" placeholder="Paste article or notes here..."></textarea>
+			</div>
+			<div class="mb-2">
+				<label class="form-label">Or Upload File (TXT/MD/DOCX/PDF)</label>
+				<input type="file" id="readingFile" name="reading_file" class="form-control" accept=".txt,.md,.markdown,.docx,.pdf">
+			</div>
+			<button type="submit" class="btn btn-primary" id="generateBtn">Generate Summary</button>
+			<span id="statusText" class="small text-muted ms-2"></span>
+		</form>
+
+		<div class="row g-2 mb-2">
+			<div class="col-md-4">
+				<label class="form-label small mb-1">Voice</label>
+				<select id="voiceSelect" class="form-select form-select-sm"></select>
+			</div>
+			<div class="col-md-2">
+				<label class="form-label small mb-1">Speed</label>
+				<select id="rateSelect" class="form-select form-select-sm">
+					<option value="0.75">0.75x</option>
+					<option value="1" selected>1x</option>
+					<option value="1.25">1.25x</option>
+					<option value="1.5">1.5x</option>
+				</select>
+			</div>
+			<div class="col-md-6 d-flex align-items-end gap-2">
+				<button type="button" class="btn btn-outline-primary btn-sm" id="playBtn">Play</button>
+				<button type="button" class="btn btn-outline-secondary btn-sm" id="pauseBtn">Pause</button>
+				<button type="button" class="btn btn-outline-danger btn-sm" id="stopBtn">Stop</button>
+			</div>
+		</div>
+
+		<div id="summaryOutput" class="summary-box text-muted">Your summary will appear here.</div>
+	</div>
+</div>
+
+<script>
+	const form = document.getElementById("audioSummaryForm");
+	const generateBtn = document.getElementById("generateBtn");
+	const statusText = document.getElementById("statusText");
+	const summaryOutput = document.getElementById("summaryOutput");
+	const voiceSelect = document.getElementById("voiceSelect");
+	const rateSelect = document.getElementById("rateSelect");
+	const playBtn = document.getElementById("playBtn");
+	const pauseBtn = document.getElementById("pauseBtn");
+	const stopBtn = document.getElementById("stopBtn");
+
+	let voices = [];
+	let currentSummary = "";
+	let utterance = null;
+
+	function loadVoices() {
+		voices = window.speechSynthesis.getVoices();
+		voiceSelect.innerHTML = "";
+		voices.forEach((voice, idx) => {
+			const option = document.createElement("option");
+			option.value = String(idx);
+			option.textContent = `${voice.name} (${voice.lang})`;
+			voiceSelect.appendChild(option);
+		});
+	}
+
+	if ("speechSynthesis" in window) {
+		loadVoices();
+		window.speechSynthesis.onvoiceschanged = loadVoices;
+	} else {
+		statusText.textContent = "Text-to-speech is not supported in this browser.";
+	}
+
+	function speakSummary() {
+		if (!currentSummary) {
+			statusText.textContent = "Generate a summary first.";
+			return;
+		}
+		if (!("speechSynthesis" in window)) {
+			statusText.textContent = "Text-to-speech is not supported in this browser.";
+			return;
+		}
+		window.speechSynthesis.cancel();
+		utterance = new SpeechSynthesisUtterance(currentSummary);
+		const selectedIdx = Number(voiceSelect.value || 0);
+		if (voices[selectedIdx]) {
+			utterance.voice = voices[selectedIdx];
+		}
+		utterance.rate = Number(rateSelect.value || 1);
+		window.speechSynthesis.speak(utterance);
+		statusText.textContent = "Playing summary...";
+	}
+
+	form.addEventListener("submit", async (event) => {
+		event.preventDefault();
+		const payload = new FormData(form);
+		generateBtn.disabled = true;
+		statusText.textContent = "Generating summary...";
+		try {
+			const response = await fetch("/audio-summary", {
+				method: "POST",
+				body: payload
+			});
+			const data = await response.json();
+			if (!response.ok || !data.ok) {
+				throw new Error(data.error || "Failed to generate summary.");
+			}
+			currentSummary = data.summary || "";
+			summaryOutput.textContent = currentSummary || "No summary returned.";
+			summaryOutput.classList.remove("text-muted");
+			statusText.textContent = "Summary ready.";
+		} catch (error) {
+			statusText.textContent = error.message || "Failed to generate summary.";
+		} finally {
+			generateBtn.disabled = false;
+		}
+	});
+
+	playBtn.addEventListener("click", speakSummary);
+	pauseBtn.addEventListener("click", () => {
+		if ("speechSynthesis" in window) {
+			window.speechSynthesis.pause();
+			statusText.textContent = "Paused.";
+		}
+	});
+	stopBtn.addEventListener("click", () => {
+		if ("speechSynthesis" in window) {
+			window.speechSynthesis.cancel();
+			statusText.textContent = "Stopped.";
+		}
+	});
+</script>
+{% endblock %}

@@ -1419,6 +1419,44 @@ All database migration scripts were created with ChatGPT assistance to ensure pr
 PostgreSQL syntax, indexing strategies, and constraint definitions.
 
 ================================================================================
+ITERATION 5 ADDITIONS (US 23, US 24, US 25)
+================================================================================
+
+FILE: main.py
+Reference:
+  - ChatGPT (OpenAI). Module-Based Collaborative Study Groups Route.
+    Date: 2026-02-25
+    Prompt: "I need a Flask route for module-based study groups where students can join
+    by module code, post messages, and share links/notes. Please include membership
+    checks so only joined users can post."
+  ChatGPT provided the route flow and membership-guard branching for /study-groups,
+  including join/leave actions, thread posting, and resource sharing.
+
+  - ChatGPT (OpenAI). AI Reading Summary Route with JSON Guard.
+    Date: 2026-02-25
+    Prompt: "I need a Flask endpoint that accepts pasted text or an uploaded PDF/DOCX,
+    generates a concise study summary with OpenAI, and returns JSON safely for a frontend
+    voice reader. Can you provide a robust pattern with input validation?"
+  ChatGPT provided the validation + JSON response pattern used in /audio-summary.
+
+  - ChatGPT (OpenAI). Spotify Playlist Search + Embed Route.
+    Date: 2026-02-25
+    Prompt: "I need a Flask route that checks Spotify OAuth session tokens, derives a
+    study mood query from upcoming tasks, searches playlists via Spotify API, and shows
+    embeddable playlist cards."
+  ChatGPT provided the token refresh, mood-query, and playlist shaping flow used in
+  /spotify/auth, /spotify/callback, /spotify/disconnect, and /focus-music.
+
+FILE: scripts/add_study_groups_tables.sql
+Reference:
+  - ChatGPT (OpenAI). Study Groups Migration Script.
+    Date: 2026-02-25
+    Prompt: "I need a safe SQL migration for module-based collaborative study groups
+    with members, message thread, and shared resources. Can you provide CREATE TABLE
+    and index statements using IF NOT EXISTS so reruns are safe?"
+  ChatGPT provided the idempotent CREATE TABLE and index migration pattern.
+
+================================================================================
 DOMAIN REGISTRAR
 ================================================================================
 
