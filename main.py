@@ -534,8 +534,10 @@ def register():
 				}
 			)
 			
-			flash("Registration successful! Please login.", "success")
-			return redirect(url_for("login"))
+		flash("Registration successful! Please login.", "success")
+		next_page = request.args.get("next")
+		# I preserve the next redirect so invite links work after registration
+		return redirect(url_for("login", next=next_page) if next_page else url_for("login"))
 			
 		except Exception as e:
 			flash(f"Registration failed: {str(e)}", "error")
@@ -4118,6 +4120,12 @@ def group_workspace():
 # ChatGPT provided the token validation + restricted update flow adapted below.
 @app.route("/group-workspace/invite/<invite_token>", methods=["GET", "POST"])
 def group_workspace_invite(invite_token: str):
+	# I require the user to be logged in before they can view or accept a group invite.
+	# If not logged in, I redirect them to the login page with the invite link as the next destination.
+	if not current_user.is_authenticated:
+		flash("Please log in or register first to accept your group project invite.", "info")
+		return redirect(url_for("login", next=f"/group-workspace/invite/{invite_token}"))
+
 	member = sb_fetch_one(
 		"""
 		SELECT m.id, m.project_id, m.member_name, m.member_email, m.invite_status, m.accepted_at,
@@ -4132,24 +4140,38 @@ def group_workspace_invite(invite_token: str):
 	if not member:
 		return render_template("group_workspace_invite.html", invalid_link=True, invite_token=invite_token), 404
 
+	# I verify that the logged-in user's email matches the invited member's email.
+	# This prevents a different user from accidentally accepting someone else's invite.
+	invited_email = (member.get("member_email") or "").strip().lower()
+	current_email = (current_user.email or "").strip().lower()
+	email_mismatch = invited_email and current_email and current_email != invited_email
+
 	if request.method == "POST":
 		action = (request.form.get("action") or "").strip()
 		if action == "accept_invite":
-			try:
-				sb_execute(
-					"""
-					UPDATE group_project_members
-					SET invite_status = 'accepted',
-					    accepted_at = COALESCE(accepted_at, NOW())
-					WHERE id = :member_id
-					""",
-					{"member_id": member.get("id")},
+			if email_mismatch:
+				flash(
+					f"This invite was sent to {member.get('member_email')}. "
+					f"You are logged in as {current_user.email}. "
+					"Please log in with the correct account to accept.",
+					"error",
 				)
-				member["invite_status"] = "accepted"
-				flash("Invite accepted. You can now update your tasks.", "success")
-			except Exception as exc:
-				print(f"[group-workspace] accept invite failed member={member.get('id')} err={exc}")
-				flash("Failed to accept invite.", "error")
+			else:
+				try:
+					sb_execute(
+						"""
+						UPDATE group_project_members
+						SET invite_status = 'accepted',
+						    accepted_at = COALESCE(accepted_at, NOW())
+						WHERE id = :member_id
+						""",
+						{"member_id": member.get("id")},
+					)
+					member["invite_status"] = "accepted"
+					flash("Invite accepted. You can now update your tasks.", "success")
+				except Exception as exc:
+					print(f"[group-workspace] accept invite failed member={member.get('id')} err={exc}")
+					flash("Failed to accept invite.", "error")
 		elif action == "update_member_task":
 			task_id = _coerce_int(request.form.get("task_id"))
 			status = (request.form.get("status") or "").strip()
@@ -4223,6 +4245,7 @@ def group_workspace_invite(invite_token: str):
 		invite_token=invite_token,
 		member=member,
 		tasks=tasks,
+		email_mismatch=email_mismatch,
 	)
 
 

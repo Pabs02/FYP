@@ -29,14 +29,22 @@
 						{% endfor %}
 					{% endif %}
 				{% endwith %}
-				{% if member.invite_status != 'accepted' %}
-					<form method="POST" action="{{ url_for('group_workspace_invite', invite_token=invite_token) }}">
-						<input type="hidden" name="action" value="accept_invite">
-						<button type="submit" class="btn btn-primary">Accept Invite</button>
-					</form>
-				{% else %}
-					<span class="badge text-bg-success">Invite accepted</span>
-				{% endif %}
+			{% if email_mismatch %}
+				<div class="alert alert-warning mb-2">
+					<strong>Wrong account.</strong>
+					This invite was sent to <strong>{{ member.member_email }}</strong>, but you are logged in as
+					<strong>{{ current_user.email }}</strong>.
+					Please <a href="{{ url_for('logout') }}">log out</a> and sign in with the correct account (or register one) to accept this invite.
+				</div>
+			{% elif member.invite_status != 'accepted' %}
+				<form method="POST" action="{{ url_for('group_workspace_invite', invite_token=invite_token) }}">
+					<input type="hidden" name="action" value="accept_invite">
+					<button type="submit" class="btn btn-primary">Accept Invite &amp; Join Project</button>
+				</form>
+			{% else %}
+				<span class="badge text-bg-success">✓ Invite accepted</span>
+				<a href="{{ url_for('group_workspace') }}" class="btn btn-sm btn-outline-primary ms-2">Open Group Workspace</a>
+			{% endif %}
 			</div>
 		</div>
 

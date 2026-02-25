@@ -521,13 +521,22 @@
 				display: flex;
 			}
 			
-			.dynamic-island.mobile-open {
-				flex-wrap: wrap;
-				width: calc(100% - 32px);
-				max-width: 400px;
-				padding: 12px;
-				border-radius: 24px;
-			}
+		.dynamic-island.mobile-open {
+			flex-wrap: wrap;
+			width: calc(100% - 32px);
+			max-width: 400px;
+			padding: 12px;
+			border-radius: 24px;
+			/* I add max-height and overflow so the expanded mobile menu is
+			   scrollable when it exceeds the screen height on small devices */
+			max-height: 85vh;
+			overflow-y: auto;
+			-webkit-overflow-scrolling: touch;
+		}
+
+		body.nav-open {
+			overflow: hidden;
+		}
 			
 			.dynamic-island.mobile-open .island-nav {
 				display: flex;
@@ -886,6 +895,8 @@
 		function toggleMobileNav() {
 			const island = document.getElementById('dynamicIsland');
 			island.classList.toggle('mobile-open');
+			// I lock the page scroll when the nav is open so the background doesn't scroll behind it
+			document.body.classList.toggle('nav-open', island.classList.contains('mobile-open'));
 		}
 		
 		// Close dropdowns when clicking outside
@@ -904,6 +915,7 @@
 			
 			if (!island.contains(e.target)) {
 				island.classList.remove('mobile-open');
+				document.body.classList.remove('nav-open');
 			}
 		});
 		
@@ -914,6 +926,7 @@
 				const userMenu = document.getElementById('userMenu');
 				if (userMenu) userMenu.classList.remove('open');
 				document.getElementById('dynamicIsland').classList.remove('mobile-open');
+				document.body.classList.remove('nav-open');
 			}
 		});
 	</script>
