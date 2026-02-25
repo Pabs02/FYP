@@ -2621,14 +2621,14 @@ def _spotify_access_token() -> Optional[str]:
 def _focus_music_query(student_id: int) -> str:
 	row = sb_fetch_one(
 		"""
-		SELECT t.title, t.priority, t.due_date, m.code AS module_code
+		SELECT t.title, t.due_date, t.weight_percentage, m.code AS module_code
 		FROM tasks t
 		LEFT JOIN modules m ON m.id = t.module_id
 		WHERE t.student_id = :student_id
 		  AND COALESCE(t.status, 'pending') <> 'completed'
 		ORDER BY
-		  CASE t.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
 		  t.due_date ASC NULLS LAST,
+		  t.weight_percentage DESC NULLS LAST,
 		  t.id ASC
 		LIMIT 1
 		""",
@@ -2638,7 +2638,7 @@ def _focus_music_query(student_id: int) -> str:
 		return "focus study playlist"
 	title = (row.get("title") or "").lower()
 	module_code = (row.get("module_code") or "").upper()
-	priority = (row.get("priority") or "").lower()
+	task_weight = float(row.get("weight_percentage") or 0)
 	due_date = row.get("due_date")
 	is_urgent = False
 	if due_date:
@@ -2647,7 +2647,7 @@ def _focus_music_query(student_id: int) -> str:
 			is_urgent = due_dt.date() <= datetime.now().date() + timedelta(days=3)
 		except Exception:
 			is_urgent = False
-	if priority == "high" and is_urgent:
+	if task_weight >= 30 and is_urgent:
 		return "deep focus concentration"
 	if module_code.startswith("IS") or any(term in title for term in ["code", "program", "database", "system"]):
 		return "programming music focus"
