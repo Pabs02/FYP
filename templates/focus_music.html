@@ -47,6 +47,7 @@
 			<div>
 				<div class="fw-semibold">Current Mood Query</div>
 				<div class="text-muted small">{{ mood_query }}</div>
+				<div class="text-muted small">Search Query Used: {{ search_query }}</div>
 				<div class="text-muted small mt-1">Time of day: {{ time_tag|title }}</div>
 				<div class="text-muted small">Each user connects their own Spotify account from this page.</div>
 			</div>
@@ -61,6 +62,29 @@
 				{% endif %}
 			</div>
 		</div>
+		<hr>
+		<form method="POST" action="{{ url_for('focus_music_preferences') }}">
+			<div class="fw-semibold mb-2">Pick Your Music Categories</div>
+			<div class="text-muted small mb-2">Choose as many as you like. Suggestions will blend your picks with task mood.</div>
+			<div class="d-flex flex-wrap gap-2 mb-3">
+				{% for category in available_categories %}
+					<label class="btn btn-sm {% if category in preferred_categories %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+						<input
+							type="checkbox"
+							name="music_categories"
+							value="{{ category }}"
+							{% if category in preferred_categories %}checked{% endif %}
+							style="display:none;"
+							onchange="this.form.submit()"
+						>
+						{{ category|title }}
+					</label>
+				{% endfor %}
+			</div>
+			<noscript>
+				<button type="submit" class="btn btn-sm btn-primary">Save Categories</button>
+			</noscript>
+		</form>
 	</div>
 
 	{% if not spotify_connected %}

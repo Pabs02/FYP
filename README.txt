@@ -1456,6 +1456,14 @@ Reference:
   evening/night mood terms onto the base playlist query in /focus-music, plus the
   refresh-variant cycling and out-of-time filtering (e.g., avoid morning playlists at night).
 
+  - ChatGPT (OpenAI). Per-User Music Category Preferences for Spotify Suggestions.
+    Date: 2026-02-25
+    Prompt: "I want users to pick preferred music genres (pop, rap, house, country,
+    etc.) and have focus playlist suggestions personalized per user. Can you provide
+    a route + query blending pattern?"
+  ChatGPT provided the preference load/save pattern and query blending approach used
+  in /focus-music and /focus-music/preferences.
+
   - ChatGPT (OpenAI). Admin Activity Overview Dashboard Route.
     Date: 2026-02-25
     Prompt: "I need an admin-only Flask route that aggregates activity logs across all
@@ -1472,6 +1480,15 @@ Reference:
     with members, message thread, and shared resources. Can you provide CREATE TABLE
     and index statements using IF NOT EXISTS so reruns are safe?"
   ChatGPT provided the idempotent CREATE TABLE and index migration pattern.
+
+FILE: scripts/add_music_preferences_table.sql
+Reference:
+  - ChatGPT (OpenAI). User Music Preferences Table Migration.
+    Date: 2026-02-25
+    Prompt: "I need a safe migration to store per-student Spotify music category
+    preferences so each user can personalize playlist suggestions. Please include
+    an idempotent table + index pattern."
+  ChatGPT provided the idempotent table and index migration pattern.
 
 ================================================================================
 DOMAIN REGISTRAR

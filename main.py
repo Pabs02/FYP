@@ -220,6 +220,28 @@ _AI_ALLOWED_SUFFIXES = {".txt", ".md", ".markdown", ".docx", ".pdf"}
 _AI_MAX_UPLOAD_BYTES = 4 * 1024 * 1024
 _GROUP_MAX_UPLOAD_BYTES = 8 * 1024 * 1024
 _DEFAULT_ADMIN_EMAILS = {"122753729@umail.ucc.ie"}
+_SPOTIFY_MUSIC_CATEGORIES = [
+	"lofi",
+	"pop",
+	"rap",
+	"hip hop",
+	"house",
+	"edm",
+	"country",
+	"rock",
+	"indie",
+	"classical",
+	"jazz",
+	"r&b",
+	"soul",
+	"ambient",
+	"acoustic",
+	"instrumental",
+	"latin",
+	"afrobeats",
+	"k-pop",
+	"drum and bass",
+]
 
 
 def get_chatgpt_service() -> ChatGPTTaskBreakdownService:
@@ -2641,6 +2663,57 @@ def _spotify_access_token() -> Optional[str]:
 		return None
 
 
+def _normalise_music_categories(categories: List[str]) -> List[str]:
+	allowed = {item.lower() for item in _SPOTIFY_MUSIC_CATEGORIES}
+	seen = set()
+	result: List[str] = []
+	for value in categories:
+		normalised = (value or "").strip().lower()
+		if not normalised or normalised not in allowed or normalised in seen:
+			continue
+		seen.add(normalised)
+		result.append(normalised)
+	return result
+
+
+def _load_user_music_categories(student_id: int) -> List[str]:
+	try:
+		row = sb_fetch_one(
+			"""
+			SELECT categories_json
+			FROM student_music_preferences
+			WHERE student_id = :student_id
+			LIMIT 1
+			""",
+			{"student_id": student_id},
+		)
+	except Exception:
+		row = None
+	if not row:
+		return []
+	raw_value = row.get("categories_json")
+	try:
+		parsed = json.loads(raw_value) if isinstance(raw_value, str) else raw_value
+	except Exception:
+		parsed = []
+	if not isinstance(parsed, list):
+		return []
+	return _normalise_music_categories([str(item) for item in parsed])
+
+
+def _save_user_music_categories(student_id: int, categories: List[str]) -> None:
+	clean = _normalise_music_categories(categories)
+	sb_execute(
+		"""
+		INSERT INTO student_music_preferences (student_id, categories_json, updated_at)
+		VALUES (:student_id, :categories_json, NOW())
+		ON CONFLICT (student_id)
+		DO UPDATE SET categories_json = :categories_json, updated_at = NOW()
+		""",
+		{"student_id": student_id, "categories_json": json.dumps(clean)},
+	)
+
+
 # Reference: ChatGPT (OpenAI) - Time-of-Day Playlist Mood Tuning
 # Date: 2026-02-25
 # Prompt: "I already map task context to Spotify playlist queries. Can you add a
@@ -4666,6 +4739,20 @@ def spotify_disconnect():
 	return redirect(url_for("focus_music"))
 
 
+@app.route("/focus-music/preferences", methods=["POST"])
+@login_required
+def focus_music_preferences():
+	# I save each user's selected genre categories so Spotify suggestions are personalized.
+	raw_categories = request.form.getlist("music_categories")
+	try:
+		_save_user_music_categories(current_user.id, raw_categories)
+		flash("Music preferences saved.", "success")
+	except Exception as exc:
+		print(f"[focus-music] save preferences failed user={current_user.id} err={exc}")
+		flash("Could not save preferences right now.", "error")
+	return redirect(url_for("focus_music"))
+
+
 # Reference: ChatGPT (OpenAI) - Spotify Playlist Search + Embed Route
 # Date: 2026-02-25
 # Prompt: "I need a Flask route that checks Spotify OAuth session tokens, derives a
@@ -4684,6 +4771,12 @@ def focus_music():
 		style_index += 1
 		session[style_key] = style_index
 	mood_query, time_tag = _focus_music_query(current_user.id, variant_index=style_index)
+	preferred_categories = _load_user_music_categories(current_user.id)
+	category_hint = ""
+	if preferred_categories:
+		rotated = preferred_categories[style_index % len(preferred_categories):] + preferred_categories[:style_index % len(preferred_categories)]
+		category_hint = " ".join(rotated[:2])
+	search_query = f"{mood_query} {category_hint}".strip()
 	playlists: List[Dict[str, Any]] = []
 	selected_playlist = None
 	error: Optional[str] = None
@@ -4692,7 +4785,7 @@ def focus_music():
 		try:
 			search_resp = requests.get(
 				"https://api.spotify.com/v1/search",
-				params={"q": mood_query, "type": "playlist", "limit": 5},
+				params={"q": search_query, "type": "playlist", "limit": 12},
 				headers={"Authorization": f"Bearer {token}"},
 				timeout=10,
 			)
@@ -4746,9 +4839,12 @@ def focus_music():
 		"focus_music.html",
 		spotify_connected=connected,
 		mood_query=mood_query,
+		search_query=search_query,
 		time_tag=time_tag,
 		playlists=playlists,
 		selected_playlist=selected_playlist,
+		available_categories=_SPOTIFY_MUSIC_CATEGORIES,
+		preferred_categories=preferred_categories,
 		error=error,
 	)
 
