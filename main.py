@@ -4790,7 +4790,62 @@ def focus_music():
 				timeout=10,
 			)
 			if not search_resp.ok:
-				error = "Spotify search failed. Please reconnect and try again."
+				status_code = int(search_resp.status_code or 0)
+				body_preview = (search_resp.text or "")[:300]
+				print(
+					f"[spotify] search non-ok user={current_user.id} status={status_code} "
+					f"query={search_query!r} body={body_preview!r}"
+				)
+				if status_code == 401:
+					session.pop("spotify_token", None)
+					error = "Spotify session expired. Please reconnect your account."
+				elif status_code == 429:
+					error = "Spotify rate-limited requests. Please wait a moment and refresh."
+				else:
+					# I retry with a broader fallback query before failing the request.
+					fallback_query = "focus study playlist"
+					fallback_resp = requests.get(
+						"https://api.spotify.com/v1/search",
+						params={"q": fallback_query, "type": "playlist", "limit": 8},
+						headers={"Authorization": f"Bearer {token}"},
+						timeout=10,
+					)
+					if not fallback_resp.ok:
+						fallback_status = int(fallback_resp.status_code or 0)
+						fallback_body = (fallback_resp.text or "")[:300]
+						print(
+							f"[spotify] fallback search non-ok user={current_user.id} status={fallback_status} "
+							f"query={fallback_query!r} body={fallback_body!r}"
+						)
+						error = f"Spotify search failed (status {status_code}). Please reconnect and try again."
+					else:
+						items = (fallback_resp.json().get("playlists") or {}).get("items") or []
+						for item in items:
+							if not isinstance(item, dict):
+								continue
+							playlist_id = item.get("id")
+							if not playlist_id:
+								continue
+							playlist_name = (item.get("name") or "").strip()
+							image_url = None
+							images = item.get("images") or []
+							if images and isinstance(images, list) and isinstance(images[0], dict):
+								image_url = images[0].get("url")
+							playlists.append(
+								{
+									"id": playlist_id,
+									"name": playlist_name or "Playlist",
+									"owner": ((item.get("owner") or {}).get("display_name") or "Spotify"),
+									"url": (item.get("external_urls") or {}).get("spotify"),
+									"image_url": image_url,
+									"tracks_total": ((item.get("tracks") or {}).get("total") or 0),
+									"embed_url": f"https://open.spotify.com/embed/playlist/{playlist_id}",
+								}
+							)
+							if len(playlists) >= 5:
+								break
+						if not playlists:
+							error = "Spotify returned no playlists for the fallback query."
 			else:
 				items = (search_resp.json().get("playlists") or {}).get("items") or []
 				for item in items:
