@@ -2647,7 +2647,7 @@ def _spotify_access_token() -> Optional[str]:
 # second layer that adapts the query by time of day (morning/afternoon/evening/night)
 # so suggestions feel more natural?"
 # ChatGPT provided the time-bucket tuning pattern adapted below.
-def _focus_music_query(student_id: int) -> str:
+def _focus_music_query(student_id: int, variant_index: int = 0) -> Tuple[str, str]:
 	row = sb_fetch_one(
 		"""
 		SELECT t.title, t.due_date, t.weight_percentage, m.code AS module_code
@@ -2664,28 +2664,34 @@ def _focus_music_query(student_id: int) -> str:
 		{"student_id": student_id},
 	)
 	if not row:
-		return "focus study playlist"
-	title = (row.get("title") or "").lower()
-	module_code = (row.get("module_code") or "").upper()
-	task_weight = float(row.get("weight_percentage") or 0)
-	due_date = row.get("due_date")
-	is_urgent = False
-	if due_date:
-		try:
-			due_dt = due_date if isinstance(due_date, datetime) else datetime.fromisoformat(str(due_date))
-			is_urgent = due_dt.date() <= datetime.now().date() + timedelta(days=3)
-		except Exception:
-			is_urgent = False
-	if task_weight >= 30 and is_urgent:
-		base_query = "deep focus concentration"
-	elif module_code.startswith("IS") or any(term in title for term in ["code", "program", "database", "system"]):
-		base_query = "programming music focus"
-	elif any(term in title for term in ["essay", "report", "writing", "draft"]):
-		base_query = "ambient study music"
-	elif any(term in title for term in ["revision", "exam", "quiz", "study"]):
-		base_query = "lo-fi study beats"
-	else:
 		base_query = "focus study playlist"
+		title = ""
+		module_code = ""
+		task_weight = 0.0
+		is_urgent = False
+	else:
+		title = (row.get("title") or "").lower()
+		module_code = (row.get("module_code") or "").upper()
+		task_weight = float(row.get("weight_percentage") or 0)
+		due_date = row.get("due_date")
+		is_urgent = False
+		if due_date:
+			try:
+				due_dt = due_date if isinstance(due_date, datetime) else datetime.fromisoformat(str(due_date))
+				is_urgent = due_dt.date() <= datetime.now().date() + timedelta(days=3)
+			except Exception:
+				is_urgent = False
+
+		if task_weight >= 30 and is_urgent:
+			base_query = "deep focus concentration"
+		elif module_code.startswith("IS") or any(term in title for term in ["code", "program", "database", "system"]):
+			base_query = "programming music focus"
+		elif any(term in title for term in ["essay", "report", "writing", "draft"]):
+			base_query = "ambient study music"
+		elif any(term in title for term in ["revision", "exam", "quiz", "study"]):
+			base_query = "lo-fi study beats"
+		else:
+			base_query = "focus study playlist"
 
 	# I tune the final query by time-of-day so playlist tone matches the study session.
 	hour = datetime.now().hour
@@ -2697,13 +2703,15 @@ def _focus_music_query(student_id: int) -> str:
 		time_tag = "evening"
 	else:
 		time_tag = "night"
-	time_suffix = {
-		"morning": "upbeat focus",
-		"afternoon": "deep work",
-		"evening": "calm concentration",
-		"night": "lofi chill",
-	}.get(time_tag, "focus")
-	return f"{base_query} {time_suffix}"
+	time_options = {
+		"morning": ["upbeat focus", "morning study", "energising concentration", "productive chill"],
+		"afternoon": ["deep work", "instrumental focus", "flow state", "study concentration"],
+		"evening": ["calm concentration", "soft focus", "ambient study", "relaxed deep work"],
+		"night": ["lofi chill", "night study", "quiet concentration", "late night focus"],
+	}
+	options = time_options.get(time_tag, ["focus"])
+	chosen_suffix = options[variant_index % len(options)]
+	return f"{base_query} {chosen_suffix}", time_tag
 
 
 # Reference: ChatGPT (OpenAI) - Task Lookup and Creation Pattern
@@ -4669,7 +4677,13 @@ def spotify_disconnect():
 def focus_music():
 	token = _spotify_access_token()
 	connected = bool(token)
-	mood_query = _focus_music_query(current_user.id)
+	refresh_requested = (request.args.get("refresh") or "").strip() in {"1", "true", "yes"}
+	style_key = f"focus_music_style_idx_{current_user.id}"
+	style_index = int(session.get(style_key) or 0)
+	if refresh_requested:
+		style_index += 1
+		session[style_key] = style_index
+	mood_query, time_tag = _focus_music_query(current_user.id, variant_index=style_index)
 	playlists: List[Dict[str, Any]] = []
 	selected_playlist = None
 	error: Optional[str] = None
@@ -4692,6 +4706,12 @@ def focus_music():
 					playlist_id = item.get("id")
 					if not playlist_id:
 						continue
+					playlist_name = (item.get("name") or "").strip()
+					name_lower = playlist_name.lower()
+					# I avoid morning-themed playlists outside morning hours so suggestions
+					# better match the current time context.
+					if time_tag != "morning" and any(word in name_lower for word in {"morning", "sunrise", "wake up"}):
+						continue
 					image_url = None
 					images = item.get("images") or []
 					if images and isinstance(images, list) and isinstance(images[0], dict):
@@ -4699,7 +4719,7 @@ def focus_music():
 					playlists.append(
 						{
 							"id": playlist_id,
-							"name": item.get("name") or "Playlist",
+							"name": playlist_name or "Playlist",
 							"owner": ((item.get("owner") or {}).get("display_name") or "Spotify"),
 							"url": (item.get("external_urls") or {}).get("spotify"),
 							"image_url": image_url,
@@ -4707,6 +4727,8 @@ def focus_music():
 							"embed_url": f"https://open.spotify.com/embed/playlist/{playlist_id}",
 						}
 					)
+					if len(playlists) >= 5:
+						break
 		except Exception as exc:
 			print(f"[spotify] search failed user={current_user.id} err={exc}")
 			error = "Could not load Spotify playlists right now."
@@ -4724,6 +4746,7 @@ def focus_music():
 		"focus_music.html",
 		spotify_connected=connected,
 		mood_query=mood_query,
+		time_tag=time_tag,
 		playlists=playlists,
 		selected_playlist=selected_playlist,
 		error=error,

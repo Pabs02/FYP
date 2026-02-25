@@ -47,15 +47,19 @@
 			<div>
 				<div class="fw-semibold">Current Mood Query</div>
 				<div class="text-muted small">{{ mood_query }}</div>
-				<div class="text-muted small mt-1">Each user connects their own Spotify account from this page.</div>
+				<div class="text-muted small mt-1">Time of day: {{ time_tag|title }}</div>
+				<div class="text-muted small">Each user connects their own Spotify account from this page.</div>
 			</div>
-			{% if spotify_connected %}
-				<form method="POST" action="{{ url_for('spotify_disconnect') }}">
-					<button type="submit" class="btn btn-sm btn-outline-danger">Disconnect Spotify</button>
-				</form>
-			{% else %}
-				<a href="{{ url_for('spotify_auth') }}" class="btn btn-sm btn-success">Connect Spotify</a>
-			{% endif %}
+			<div class="d-flex gap-2">
+				{% if spotify_connected %}
+					<a href="{{ url_for('focus_music', refresh=1) }}" class="btn btn-sm btn-outline-primary">Refresh Suggestions</a>
+					<form method="POST" action="{{ url_for('spotify_disconnect') }}">
+						<button type="submit" class="btn btn-sm btn-outline-danger">Disconnect Spotify</button>
+					</form>
+				{% else %}
+					<a href="{{ url_for('spotify_auth') }}" class="btn btn-sm btn-success">Connect Spotify</a>
+				{% endif %}
+			</div>
 		</div>
 	</div>
 

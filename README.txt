@@ -1453,7 +1453,8 @@ Reference:
     second layer that adapts the query by time of day (morning/afternoon/evening/night)
     so suggestions feel more natural?"
   ChatGPT provided the time-bucket tuning pattern used to append morning/afternoon/
-  evening/night mood terms onto the base playlist query in /focus-music.
+  evening/night mood terms onto the base playlist query in /focus-music, plus the
+  refresh-variant cycling and out-of-time filtering (e.g., avoid morning playlists at night).
 
   - ChatGPT (OpenAI). Admin Activity Overview Dashboard Route.
     Date: 2026-02-25
