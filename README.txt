@@ -1447,6 +1447,14 @@ Reference:
   ChatGPT provided the token refresh, mood-query, and playlist shaping flow used in
   /spotify/auth, /spotify/callback, /spotify/disconnect, and /focus-music.
 
+  - ChatGPT (OpenAI). Time-of-Day Playlist Mood Tuning.
+    Date: 2026-02-25
+    Prompt: "I already map task context to Spotify playlist queries. Can you add a
+    second layer that adapts the query by time of day (morning/afternoon/evening/night)
+    so suggestions feel more natural?"
+  ChatGPT provided the time-bucket tuning pattern used to append morning/afternoon/
+  evening/night mood terms onto the base playlist query in /focus-music.
+
   - ChatGPT (OpenAI). Admin Activity Overview Dashboard Route.
     Date: 2026-02-25
     Prompt: "I need an admin-only Flask route that aggregates activity logs across all

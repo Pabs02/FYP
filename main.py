@@ -2641,6 +2641,12 @@ def _spotify_access_token() -> Optional[str]:
 		return None
 
 
+# Reference: ChatGPT (OpenAI) - Time-of-Day Playlist Mood Tuning
+# Date: 2026-02-25
+# Prompt: "I already map task context to Spotify playlist queries. Can you add a
+# second layer that adapts the query by time of day (morning/afternoon/evening/night)
+# so suggestions feel more natural?"
+# ChatGPT provided the time-bucket tuning pattern adapted below.
 def _focus_music_query(student_id: int) -> str:
 	row = sb_fetch_one(
 		"""
@@ -2671,14 +2677,33 @@ def _focus_music_query(student_id: int) -> str:
 		except Exception:
 			is_urgent = False
 	if task_weight >= 30 and is_urgent:
-		return "deep focus concentration"
-	if module_code.startswith("IS") or any(term in title for term in ["code", "program", "database", "system"]):
-		return "programming music focus"
-	if any(term in title for term in ["essay", "report", "writing", "draft"]):
-		return "ambient study music"
-	if any(term in title for term in ["revision", "exam", "quiz", "study"]):
-		return "lo-fi study beats"
-	return "focus study playlist"
+		base_query = "deep focus concentration"
+	elif module_code.startswith("IS") or any(term in title for term in ["code", "program", "database", "system"]):
+		base_query = "programming music focus"
+	elif any(term in title for term in ["essay", "report", "writing", "draft"]):
+		base_query = "ambient study music"
+	elif any(term in title for term in ["revision", "exam", "quiz", "study"]):
+		base_query = "lo-fi study beats"
+	else:
+		base_query = "focus study playlist"
+
+	# I tune the final query by time-of-day so playlist tone matches the study session.
+	hour = datetime.now().hour
+	if 6 <= hour < 12:
+		time_tag = "morning"
+	elif 12 <= hour < 17:
+		time_tag = "afternoon"
+	elif 17 <= hour < 22:
+		time_tag = "evening"
+	else:
+		time_tag = "night"
+	time_suffix = {
+		"morning": "upbeat focus",
+		"afternoon": "deep work",
+		"evening": "calm concentration",
+		"night": "lofi chill",
+	}.get(time_tag, "focus")
+	return f"{base_query} {time_suffix}"
 
 
 # Reference: ChatGPT (OpenAI) - Task Lookup and Creation Pattern

@@ -47,6 +47,7 @@
 			<div>
 				<div class="fw-semibold">Current Mood Query</div>
 				<div class="text-muted small">{{ mood_query }}</div>
+				<div class="text-muted small mt-1">Each user connects their own Spotify account from this page.</div>
 			</div>
 			{% if spotify_connected %}
 				<form method="POST" action="{{ url_for('spotify_disconnect') }}">
