@@ -1447,6 +1447,14 @@ Reference:
   ChatGPT provided the token refresh, mood-query, and playlist shaping flow used in
   /spotify/auth, /spotify/callback, /spotify/disconnect, and /focus-music.
 
+  - ChatGPT (OpenAI). Admin Activity Overview Dashboard Route.
+    Date: 2026-02-25
+    Prompt: "I need an admin-only Flask route that aggregates activity logs across all
+    users (24h/7d totals, top routes, top users, and recent actions). Can you provide
+    a safe SQL + render pattern with access guards?"
+  ChatGPT provided the admin guard and aggregate-query pattern used in /admin/overview,
+  including top paths, top users, and recent activity tables.
+
 FILE: scripts/add_study_groups_tables.sql
 Reference:
   - ChatGPT (OpenAI). Study Groups Migration Script.

@@ -837,6 +837,14 @@
 						</svg>
 						Activity History
 					</a>
+					{% if is_admin_user %}
+					<a href="/admin/overview" class="dropdown-link {% if request.path == '/admin/overview' %}active{% endif %}">
+						<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-6m3 6V7m3 10v-4m4 8H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2z"/>
+						</svg>
+						Admin Overview
+					</a>
+					{% endif %}
 				</div>
 				<div class="dropdown-section">
 					<div class="dropdown-label">Settings</div>

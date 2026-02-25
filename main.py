@@ -219,6 +219,7 @@ _chatgpt_service: Optional[ChatGPTTaskBreakdownService] = None
 _AI_ALLOWED_SUFFIXES = {".txt", ".md", ".markdown", ".docx", ".pdf"}
 _AI_MAX_UPLOAD_BYTES = 4 * 1024 * 1024
 _GROUP_MAX_UPLOAD_BYTES = 8 * 1024 * 1024
+_DEFAULT_ADMIN_EMAILS = {"122753729@umail.ucc.ie"}
 
 
 def get_chatgpt_service() -> ChatGPTTaskBreakdownService:
@@ -234,6 +235,24 @@ def get_chatgpt_service() -> ChatGPTTaskBreakdownService:
 
 	_chatgpt_service = ChatGPTTaskBreakdownService(api_key=api_key, model_name=model_name)
 	return _chatgpt_service
+
+
+def _admin_email_set() -> set:
+	raw = os.getenv("ADMIN_EMAILS", "")
+	items = {item.strip().lower() for item in raw.split(",") if item.strip()}
+	return items | {email.lower() for email in _DEFAULT_ADMIN_EMAILS}
+
+
+def _is_admin_user() -> bool:
+	if not current_user.is_authenticated:
+		return False
+	email = (getattr(current_user, "email", "") or "").strip().lower()
+	return email in _admin_email_set()
+
+
+@app.context_processor
+def inject_admin_context():
+	return {"is_admin_user": _is_admin_user()}
 
 
 # Reference: Flask-Login Documentation - User Class Implementation
@@ -7183,6 +7202,99 @@ def activity_history():
 		activity_logs=activity_logs,
 		page=page,
 		total_pages=total_pages
+	)
+
+
+# Reference: ChatGPT (OpenAI) - Admin Activity Overview Dashboard Route
+# Date: 2026-02-25
+# Prompt: "I need an admin-only Flask route that aggregates activity logs across all
+# users (24h/7d totals, top routes, top users, and recent actions). Can you provide
+# a safe SQL + render pattern with access guards?"
+# ChatGPT provided the guard + aggregate-query route pattern adapted below.
+@app.route("/admin/overview")
+@login_required
+def admin_overview():
+	if not _is_admin_user():
+		abort(403)
+
+	summary = {
+		"actions_24h": 0,
+		"users_24h": 0,
+		"actions_7d": 0,
+		"errors_7d": 0,
+	}
+	top_paths: List[Dict[str, Any]] = []
+	top_users: List[Dict[str, Any]] = []
+	recent_logs: List[Dict[str, Any]] = []
+
+	try:
+		summary_row = sb_fetch_one(
+			"""
+			SELECT
+				SUM(CASE WHEN created_at >= NOW() - INTERVAL '24 hours' THEN 1 ELSE 0 END) AS actions_24h,
+				COUNT(DISTINCT CASE WHEN created_at >= NOW() - INTERVAL '24 hours' THEN student_id END) AS users_24h,
+				SUM(CASE WHEN created_at >= NOW() - INTERVAL '7 days' THEN 1 ELSE 0 END) AS actions_7d,
+				SUM(CASE WHEN created_at >= NOW() - INTERVAL '7 days' AND status_code >= 400 THEN 1 ELSE 0 END) AS errors_7d
+			FROM activity_logs
+			"""
+		)
+		if summary_row:
+			summary = {
+				"actions_24h": int(summary_row.get("actions_24h") or 0),
+				"users_24h": int(summary_row.get("users_24h") or 0),
+				"actions_7d": int(summary_row.get("actions_7d") or 0),
+				"errors_7d": int(summary_row.get("errors_7d") or 0),
+			}
+
+		top_paths = sb_fetch_all(
+			"""
+			SELECT path, COUNT(*) AS hits
+			FROM activity_logs
+			WHERE created_at >= NOW() - INTERVAL '7 days'
+			GROUP BY path
+			ORDER BY hits DESC
+			LIMIT 15
+			"""
+		)
+
+		top_users = sb_fetch_all(
+			"""
+			SELECT
+				a.student_id,
+				COALESCE(s.name, 'Unknown') AS name,
+				COALESCE(s.email, '') AS email,
+				COUNT(*) AS actions
+			FROM activity_logs a
+			LEFT JOIN students s ON s.id = a.student_id
+			WHERE a.created_at >= NOW() - INTERVAL '7 days'
+			GROUP BY a.student_id, s.name, s.email
+			ORDER BY actions DESC
+			LIMIT 12
+			"""
+		)
+
+		recent_logs = sb_fetch_all(
+			"""
+			SELECT
+				a.created_at, a.method, a.path, a.status_code, a.duration_ms,
+				COALESCE(s.name, 'Unknown') AS name,
+				COALESCE(s.email, '') AS email
+			FROM activity_logs a
+			LEFT JOIN students s ON s.id = a.student_id
+			ORDER BY a.created_at DESC
+			LIMIT 120
+			"""
+		)
+	except Exception as exc:
+		print(f"[admin-overview] failed user={current_user.id} err={exc}")
+		flash("Could not load admin analytics right now.", "error")
+
+	return render_template(
+		"admin_overview.html",
+		summary=summary,
+		top_paths=top_paths,
+		top_users=top_users,
+		recent_logs=recent_logs,
 	)
 
 

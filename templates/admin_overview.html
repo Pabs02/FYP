@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Admin Overview{% endblock %}
+{% block content %}
+<style>
+	.admin-page { max-width: 1200px; margin: 0 auto; }
+	.kpi-grid {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(180px, 1fr));
+		gap: 0.8rem;
+		margin-top: 1rem;
+	}
+	@media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(2, minmax(160px, 1fr)); } }
+	@media (max-width: 520px) { .kpi-grid { grid-template-columns: 1fr; } }
+	.kpi-card {
+		background: #fff;
+		border: 1px solid #e2e8f0;
+		border-radius: 14px;
+		padding: 1rem;
+	}
+	.kpi-label { color: #64748b; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; }
+	.kpi-value { color: #1e293b; font-size: 1.6rem; font-weight: 800; line-height: 1.1; margin-top: 0.3rem; }
+	.panel {
+		background: #fff;
+		border: 1px solid #e2e8f0;
+		border-radius: 14px;
+		padding: 1rem;
+	}
+	.table-wrap { overflow-x: auto; }
+	.table-min { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+	.table-min th, .table-min td { padding: 0.6rem 0.5rem; border-bottom: 1px solid #f1f5f9; }
+	.table-min th { color: #475569; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.05em; }
+</style>
+
+<div class="admin-page">
+	<div class="page-header-card">
+		<h1>🛡️ Admin Overview</h1>
+		<p>Monitor aggregate usage and user activity across the planner.</p>
+	</div>
+
+	<div class="kpi-grid">
+		<div class="kpi-card">
+			<div class="kpi-label">Actions (24h)</div>
+			<div class="kpi-value">{{ summary.actions_24h or 0 }}</div>
+		</div>
+		<div class="kpi-card">
+			<div class="kpi-label">Active Users (24h)</div>
+			<div class="kpi-value">{{ summary.users_24h or 0 }}</div>
+		</div>
+		<div class="kpi-card">
+			<div class="kpi-label">Actions (7d)</div>
+			<div class="kpi-value">{{ summary.actions_7d or 0 }}</div>
+		</div>
+		<div class="kpi-card">
+			<div class="kpi-label">Errors (7d)</div>
+			<div class="kpi-value">{{ summary.errors_7d or 0 }}</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mt-1">
+		<div class="col-lg-6">
+			<div class="panel">
+				<h6 class="mb-3">Top Paths (7d)</h6>
+				<div class="table-wrap">
+					<table class="table-min">
+						<thead><tr><th>Path</th><th>Hits</th></tr></thead>
+						<tbody>
+							{% for row in top_paths %}
+								<tr><td>{{ row.path or '-' }}</td><td>{{ row.hits or 0 }}</td></tr>
+							{% else %}
+								<tr><td colspan="2" class="text-muted">No data available.</td></tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-6">
+			<div class="panel">
+				<h6 class="mb-3">Top Users (7d)</h6>
+				<div class="table-wrap">
+					<table class="table-min">
+						<thead><tr><th>User</th><th>Email</th><th>Actions</th></tr></thead>
+						<tbody>
+							{% for row in top_users %}
+								<tr>
+									<td>{{ row.name or 'Unknown' }}</td>
+									<td>{{ row.email or '-' }}</td>
+									<td>{{ row.actions or 0 }}</td>
+								</tr>
+							{% else %}
+								<tr><td colspan="3" class="text-muted">No data available.</td></tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="panel mt-3">
+		<h6 class="mb-3">Recent Activity (Latest 120)</h6>
+		<div class="table-wrap">
+			<table class="table-min">
+				<thead>
+					<tr>
+						<th>Time</th>
+						<th>User</th>
+						<th>Method</th>
+						<th>Path</th>
+						<th>Status</th>
+						<th>Duration</th>
+					</tr>
+				</thead>
+				<tbody>
+					{% for item in recent_logs %}
+						<tr>
+							<td>{{ item.created_at | irish_datetime if item.created_at else '-' }}</td>
+							<td>{{ item.name }}{% if item.email %} ({{ item.email }}){% endif %}</td>
+							<td>{{ item.method or '-' }}</td>
+							<td>{{ item.path or '-' }}</td>
+							<td>{{ item.status_code or '-' }}</td>
+							<td>{{ item.duration_ms if item.duration_ms is not none else '-' }}{% if item.duration_ms is not none %}ms{% endif %}</td>
+						</tr>
+					{% else %}
+						<tr><td colspan="6" class="text-muted">No activity data yet.</td></tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</div>
+	</div>
+</div>
+{% endblock %}
