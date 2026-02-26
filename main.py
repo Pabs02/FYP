@@ -4736,7 +4736,7 @@ def audio_summary_tts():
 			model="gpt-4o-mini-tts",
 			voice=voice,
 			input=text,
-			format="mp3",
+			response_format="mp3",
 		)
 		audio_bytes = b""
 		if hasattr(audio_response, "read"):
