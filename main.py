@@ -4597,6 +4597,11 @@ def group_workspace_download_project_file(file_id: int):
 # generates a concise study summary with OpenAI, and returns JSON safely for a frontend
 # voice reader. Can you provide a robust pattern with input validation?"
 # ChatGPT provided the validation + JSON response pattern adapted below.
+# Reference: ChatGPT (OpenAI) - Multi-File Audio Summary + Podcast Mode
+# Date: 2026-02-26
+# Prompt: "Can you extend my Flask audio summary endpoint to accept multiple uploaded
+# files and support a podcast-style output mode with a two-speaker conversational script?"
+# ChatGPT provided the multi-file ingestion and mode-based prompt/response flow used below.
 @app.route("/audio-summary", methods=["GET", "POST"])
 @login_required
 def audio_summary():
@@ -4604,50 +4609,88 @@ def audio_summary():
 		return render_template("audio_summary.html")
 
 	try:
+		mode = (request.form.get("mode") or "summary").strip().lower()
+		if mode not in {"summary", "podcast"}:
+			mode = "summary"
+
 		raw_text = (request.form.get("text") or "").strip()
-		file_storage = request.files.get("reading_file")
 		segments: List[str] = []
 		if raw_text:
 			segments.append(raw_text)
-		if file_storage and file_storage.filename:
-			filename = file_storage.filename
+
+		file_list = [f for f in request.files.getlist("reading_files") if f and f.filename]
+		if not file_list:
+			single_file = request.files.get("reading_file")
+			if single_file and single_file.filename:
+				file_list = [single_file]
+
+		max_total_upload_bytes = _AI_MAX_UPLOAD_BYTES * 3
+		total_upload_bytes = 0
+		for file_storage in file_list:
+			filename = (file_storage.filename or "upload").strip()
 			payload = file_storage.read()
 			if not payload:
-				return jsonify({"ok": False, "error": "Uploaded file was empty."}), 400
-			if len(payload) > _AI_MAX_UPLOAD_BYTES:
-				return jsonify({"ok": False, "error": "File is too large (max 4MB)."}), 400
-			segments.append(_extract_text_from_brief(filename, payload))
+				continue
+			file_size = len(payload)
+			total_upload_bytes += file_size
+			if file_size > _AI_MAX_UPLOAD_BYTES:
+				return jsonify({"ok": False, "error": f"{filename} is too large (max 4MB per file)."}), 400
+			if total_upload_bytes > max_total_upload_bytes:
+				return jsonify({"ok": False, "error": "Total uploaded size is too large (max 12MB)."}), 400
+			extracted = (_extract_text_from_brief(filename, payload) or "").strip()
+			if extracted:
+				segments.append(f"[{filename}]\n{extracted}")
 
 		combined = "\n\n".join([part.strip() for part in segments if (part or "").strip()]).strip()
 		if not combined:
-			return jsonify({"ok": False, "error": "Add text or upload a file first."}), 400
+			return jsonify({"ok": False, "error": "Add text or upload at least one readable file first."}), 400
 
 		sanitized = _sanitize_prompt_text(combined) or _summarize_text(combined, max_len=4500) or combined[:4500]
 		service = get_chatgpt_service()
+		system_text = (
+			"You are a study assistant. Summarize readings clearly for spoken playback. "
+			"Use short bullet points, plain language, and keep important terms."
+		)
+		user_text = (
+			"Summarise this reading for quick revision. "
+			"Return plain text only with 8-12 concise bullet points.\n\n"
+			f"{sanitized}"
+		)
+		max_tokens = 900
+		if mode == "podcast":
+			system_text = (
+				"You are a study assistant creating a short revision podcast script. "
+				"Use two speakers named Host and Guest."
+			)
+			user_text = (
+				"Turn this material into a concise podcast-style revision conversation.\n"
+				"Rules:\n"
+				"- Output plain text only.\n"
+				"- 14 to 20 short lines total.\n"
+				"- Every line must start with exactly 'Host:' or 'Guest:'.\n"
+				"- Keep it factual, clear, and easy to listen to.\n"
+				"- Include key terms and 1-2 practical takeaways at the end.\n\n"
+				f"{sanitized}"
+			)
+			max_tokens = 1200
+
 		response = service._client.responses.create(  # type: ignore[attr-defined]
 			model=app.config.get("OPENAI_MODEL_NAME") or "gpt-4o-mini",
 			input=[
 				{
 					"role": "system",
-					"content": (
-						"You are a study assistant. Summarize readings clearly for spoken playback. "
-						"Use short bullet points, plain language, and keep important terms."
-					),
+					"content": system_text,
 				},
 				{
 					"role": "user",
-					"content": (
-						"Summarise this reading for quick revision. "
-						"Return plain text only with 8-12 concise bullet points.\n\n"
-						f"{sanitized}"
-					),
+					"content": user_text,
 				},
 			],
 			temperature=0.2,
-			max_output_tokens=900,
+			max_output_tokens=max_tokens,
 		)
 		summary_text = service._extract_text(response)  # type: ignore[attr-defined]
-		return jsonify({"ok": True, "summary": summary_text.strip()})
+		return jsonify({"ok": True, "mode": mode, "summary": summary_text.strip()})
 	except ChatGPTClientError as exc:
 		return jsonify({"ok": False, "error": str(exc)}), 400
 	except Exception as exc:

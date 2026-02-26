@@ -22,27 +22,43 @@
 <div class="audio-page">
 	<div class="page-header-card">
 		<h1>🔊 Audio Summary</h1>
-		<p>Paste text or upload a reading, then listen to a concise AI summary.</p>
+		<p>Paste text or upload one or more readings, then listen to a summary or podcast-style script.</p>
 	</div>
 
 	<div class="audio-card mt-3">
 		<form id="audioSummaryForm" class="mb-3">
 			<div class="mb-2">
+				<label class="form-label">Output Mode</label>
+				<select id="outputMode" name="mode" class="form-select">
+					<option value="summary" selected>Summary (bullets)</option>
+					<option value="podcast">Podcast (Host/Guest conversation)</option>
+				</select>
+			</div>
+			<div class="mb-2">
 				<label class="form-label">Reading Text</label>
 				<textarea id="readingText" name="text" rows="7" class="form-control" placeholder="Paste article or notes here..."></textarea>
 			</div>
 			<div class="mb-2">
-				<label class="form-label">Or Upload File (TXT/MD/DOCX/PDF)</label>
-				<input type="file" id="readingFile" name="reading_file" class="form-control" accept=".txt,.md,.markdown,.docx,.pdf">
+				<label class="form-label">Or Upload Files (TXT/MD/DOCX/PDF)</label>
+				<input type="file" id="readingFiles" name="reading_files" class="form-control" accept=".txt,.md,.markdown,.docx,.pdf" multiple>
+				<div class="small text-muted mt-1">You can upload multiple files (max 4MB per file, 12MB total).</div>
 			</div>
 			<button type="submit" class="btn btn-primary" id="generateBtn">Generate Summary</button>
 			<span id="statusText" class="small text-muted ms-2"></span>
 		</form>
 
 		<div class="row g-2 mb-2">
-			<div class="col-md-4">
-				<label class="form-label small mb-1">Voice</label>
+			<div class="col-md-3">
+				<label class="form-label small mb-1">Voice (Single)</label>
 				<select id="voiceSelect" class="form-select form-select-sm"></select>
+			</div>
+			<div class="col-md-3">
+				<label class="form-label small mb-1">Podcast Voice (Host)</label>
+				<select id="voiceSelectHost" class="form-select form-select-sm"></select>
+			</div>
+			<div class="col-md-3">
+				<label class="form-label small mb-1">Podcast Voice (Guest)</label>
+				<select id="voiceSelectGuest" class="form-select form-select-sm"></select>
 			</div>
 			<div class="col-md-2">
 				<label class="form-label small mb-1">Speed</label>
@@ -70,24 +86,40 @@
 	const statusText = document.getElementById("statusText");
 	const summaryOutput = document.getElementById("summaryOutput");
 	const voiceSelect = document.getElementById("voiceSelect");
+	const voiceSelectHost = document.getElementById("voiceSelectHost");
+	const voiceSelectGuest = document.getElementById("voiceSelectGuest");
 	const rateSelect = document.getElementById("rateSelect");
 	const playBtn = document.getElementById("playBtn");
 	const pauseBtn = document.getElementById("pauseBtn");
 	const stopBtn = document.getElementById("stopBtn");
+	const outputMode = document.getElementById("outputMode");
 
 	let voices = [];
 	let currentSummary = "";
+	let currentMode = "summary";
 	let utterance = null;
+	let podcastQueue = [];
+	let podcastSpeaking = false;
 
 	function loadVoices() {
 		voices = window.speechSynthesis.getVoices();
 		voiceSelect.innerHTML = "";
+		voiceSelectHost.innerHTML = "";
+		voiceSelectGuest.innerHTML = "";
 		voices.forEach((voice, idx) => {
 			const option = document.createElement("option");
 			option.value = String(idx);
 			option.textContent = `${voice.name} (${voice.lang})`;
-			voiceSelect.appendChild(option);
+			voiceSelect.appendChild(option.cloneNode(true));
+			voiceSelectHost.appendChild(option.cloneNode(true));
+			voiceSelectGuest.appendChild(option);
 		});
+		if (voiceSelectHost.options.length > 0) {
+			voiceSelectHost.value = "0";
+		}
+		if (voiceSelectGuest.options.length > 1) {
+			voiceSelectGuest.value = "1";
+		}
 	}
 
 	if ("speechSynthesis" in window) {
@@ -107,6 +139,49 @@
 			return;
 		}
 		window.speechSynthesis.cancel();
+		podcastQueue = [];
+		podcastSpeaking = false;
+
+		if (currentMode === "podcast") {
+			const lines = currentSummary
+				.split("\n")
+				.map((line) => line.trim())
+				.filter((line) => line);
+			if (!lines.length) {
+				statusText.textContent = "No podcast script to play.";
+				return;
+			}
+			const hostIdx = Number(voiceSelectHost.value || 0);
+			const guestIdx = Number(voiceSelectGuest.value || 0);
+			const hostVoice = voices[hostIdx] || null;
+			const guestVoice = voices[guestIdx] || voices[hostIdx] || null;
+			podcastQueue = lines.map((line) => {
+				const lower = line.toLowerCase();
+				const speaker = lower.startsWith("guest:") ? "guest" : "host";
+				const text = line.replace(/^host:\s*/i, "").replace(/^guest:\s*/i, "").trim();
+				return { speaker, text };
+			}).filter((item) => item.text);
+			let index = 0;
+			podcastSpeaking = true;
+			const speakNext = () => {
+				if (!podcastSpeaking || index >= podcastQueue.length) {
+					podcastSpeaking = false;
+					statusText.textContent = "Podcast finished.";
+					return;
+				}
+				const item = podcastQueue[index++];
+				const part = new SpeechSynthesisUtterance(item.text);
+				part.voice = item.speaker === "guest" ? guestVoice : hostVoice;
+				part.rate = Number(rateSelect.value || 1);
+				part.onend = speakNext;
+				part.onerror = speakNext;
+				window.speechSynthesis.speak(part);
+			};
+			statusText.textContent = "Playing podcast...";
+			speakNext();
+			return;
+		}
+
 		utterance = new SpeechSynthesisUtterance(currentSummary);
 		const selectedIdx = Number(voiceSelect.value || 0);
 		if (voices[selectedIdx]) {
@@ -132,9 +207,10 @@
 				throw new Error(data.error || "Failed to generate summary.");
 			}
 			currentSummary = data.summary || "";
+			currentMode = data.mode || outputMode.value || "summary";
 			summaryOutput.textContent = currentSummary || "No summary returned.";
 			summaryOutput.classList.remove("text-muted");
-			statusText.textContent = "Summary ready.";
+			statusText.textContent = currentMode === "podcast" ? "Podcast script ready." : "Summary ready.";
 		} catch (error) {
 			statusText.textContent = error.message || "Failed to generate summary.";
 		} finally {
@@ -151,6 +227,8 @@
 	});
 	stopBtn.addEventListener("click", () => {
 		if ("speechSynthesis" in window) {
+			podcastSpeaking = false;
+			podcastQueue = [];
 			window.speechSynthesis.cancel();
 			statusText.textContent = "Stopped.";
 		}

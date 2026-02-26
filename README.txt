@@ -1439,6 +1439,13 @@ Reference:
     voice reader. Can you provide a robust pattern with input validation?"
   ChatGPT provided the validation + JSON response pattern used in /audio-summary.
 
+  - ChatGPT (OpenAI). Multi-File Audio Summary + Podcast Mode.
+    Date: 2026-02-26
+    Prompt: "Can you extend my Flask audio summary endpoint to accept multiple uploaded
+    files and support a podcast-style output mode with a two-speaker conversational script?"
+  ChatGPT provided the multi-file ingestion and mode-based prompt/response pattern used
+  in /audio-summary and the alternating-voice playback flow in templates/audio_summary.html.
+
   - ChatGPT (OpenAI). Spotify Playlist Search + Embed Route.
     Date: 2026-02-25
     Prompt: "I need a Flask route that checks Spotify OAuth session tokens, derives a
