@@ -108,6 +108,22 @@
 	let podcastQueue = [];
 	let podcastSpeaking = false;
 	let selectedFiles = [];
+	let naturalAudio = null;
+	let naturalAudioObjectUrl = "";
+	let lastNaturalAudioText = "";
+
+	function cleanupNaturalAudio() {
+		if (naturalAudio) {
+			try {
+				naturalAudio.pause();
+			} catch (error) {}
+			naturalAudio = null;
+		}
+		if (naturalAudioObjectUrl) {
+			URL.revokeObjectURL(naturalAudioObjectUrl);
+			naturalAudioObjectUrl = "";
+		}
+	}
 
 	function formatBytes(bytes) {
 		if (!bytes || bytes <= 0) return "0 B";
@@ -200,6 +216,60 @@
 		window.speechSynthesis.cancel();
 		podcastQueue = [];
 		podcastSpeaking = false;
+		cleanupNaturalAudio();
+
+		const naturalVoiceMap = {
+			host: "alloy",
+			guest: "nova",
+			single: "alloy"
+		};
+		const canUseNaturalTts = !!window.fetch && !!window.Audio && currentSummary.length <= 6000;
+		if (canUseNaturalTts) {
+			statusText.textContent = "Generating natural voice audio...";
+			fetch("/audio-summary/tts", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					text: currentSummary,
+					voice: currentMode === "podcast" ? naturalVoiceMap.host : naturalVoiceMap.single
+				})
+			}).then(async (resp) => {
+				const data = await resp.json();
+				if (!resp.ok || !data.ok || !data.audio_base64) {
+					throw new Error(data.error || "Natural voice unavailable.");
+				}
+				const binary = atob(data.audio_base64);
+				const bytes = new Uint8Array(binary.length);
+				for (let i = 0; i < binary.length; i += 1) {
+					bytes[i] = binary.charCodeAt(i);
+				}
+				const blob = new Blob([bytes], { type: data.mime_type || "audio/mpeg" });
+				naturalAudioObjectUrl = URL.createObjectURL(blob);
+				naturalAudio = new Audio(naturalAudioObjectUrl);
+				naturalAudio.playbackRate = Number(rateSelect.value || 1);
+				naturalAudio.onended = () => {
+					statusText.textContent = "Natural voice playback finished.";
+				};
+				naturalAudio.play().then(() => {
+					lastNaturalAudioText = currentSummary;
+					statusText.textContent = "Playing natural voice audio...";
+				}).catch(() => {
+					throw new Error("Could not play natural audio.");
+				});
+			}).catch(() => {
+				statusText.textContent = "Natural voice unavailable, using browser voice.";
+				playWithBrowserVoices();
+			});
+			return;
+		}
+
+		playWithBrowserVoices();
+	}
+
+	function playWithBrowserVoices() {
+		window.speechSynthesis.cancel();
+		podcastQueue = [];
+		podcastSpeaking = false;
 
 		if (currentMode === "podcast") {
 			const lines = currentSummary
@@ -238,7 +308,7 @@
 				part.onerror = speakNext;
 				window.speechSynthesis.speak(part);
 			};
-			statusText.textContent = "Playing podcast...";
+			statusText.textContent = "Playing podcast (browser voices)...";
 			speakNext();
 			return;
 		}
@@ -250,7 +320,7 @@
 		}
 		utterance.rate = Number(rateSelect.value || 1);
 		window.speechSynthesis.speak(utterance);
-		statusText.textContent = "Playing summary...";
+		statusText.textContent = "Playing summary (browser voice)...";
 	}
 
 	form.addEventListener("submit", async (event) => {
@@ -288,12 +358,18 @@
 
 	playBtn.addEventListener("click", speakSummary);
 	pauseBtn.addEventListener("click", () => {
+		if (naturalAudio) {
+			naturalAudio.pause();
+			statusText.textContent = "Paused.";
+			return;
+		}
 		if ("speechSynthesis" in window) {
 			window.speechSynthesis.pause();
 			statusText.textContent = "Paused.";
 		}
 	});
 	stopBtn.addEventListener("click", () => {
+		cleanupNaturalAudio();
 		if ("speechSynthesis" in window) {
 			podcastSpeaking = false;
 			podcastQueue = [];

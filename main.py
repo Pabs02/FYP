@@ -12,6 +12,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import time as time_module
 import json
+import base64
 import re
 import secrets
 import requests
@@ -4602,6 +4603,11 @@ def group_workspace_download_project_file(file_id: int):
 # Prompt: "Can you extend my Flask audio summary endpoint to accept multiple uploaded
 # files and support a podcast-style output mode with a two-speaker conversational script?"
 # ChatGPT provided the multi-file ingestion and mode-based prompt/response flow used below.
+# Reference: ChatGPT (OpenAI) - Natural AI TTS Playback for Audio Summary
+# Date: 2026-02-26
+# Prompt: "My browser speech voices sound robotic. Can you add a Flask endpoint that
+# uses OpenAI text-to-speech for more natural playback, with safe validation and JSON output?"
+# ChatGPT provided the route + validation pattern adapted below for natural voice playback.
 @app.route("/audio-summary", methods=["GET", "POST"])
 @login_required
 def audio_summary():
@@ -4655,10 +4661,11 @@ def audio_summary():
 		)
 		user_text = (
 			"Summarise this reading for quick revision. "
-			"Return plain text only with 8-12 concise bullet points.\n\n"
+			"Return plain text only with 14-18 bullet points. "
+			"Each point should be specific and include concrete detail, not generic wording.\n\n"
 			f"{sanitized}"
 		)
-		max_tokens = 900
+		max_tokens = 1400
 		if mode == "podcast":
 			system_text = (
 				"You are a study assistant creating a detailed revision podcast script. "
@@ -4699,6 +4706,53 @@ def audio_summary():
 	except Exception as exc:
 		print(f"[audio-summary] generation failed user={current_user.id} err={exc}")
 		return jsonify({"ok": False, "error": "Could not generate a summary right now."}), 500
+
+
+@app.route("/audio-summary/tts", methods=["POST"])
+@login_required
+def audio_summary_tts():
+	try:
+		if request.is_json:
+			payload = request.get_json(silent=True) or {}
+			text = (payload.get("text") or "").strip()
+			voice = (payload.get("voice") or "alloy").strip().lower()
+		else:
+			text = (request.form.get("text") or "").strip()
+			voice = (request.form.get("voice") or "alloy").strip().lower()
+
+		if not text:
+			return jsonify({"ok": False, "error": "No text provided for speech synthesis."}), 400
+
+		max_tts_chars = 6000
+		if len(text) > max_tts_chars:
+			text = text[:max_tts_chars]
+
+		allowed_voices = {"alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer"}
+		if voice not in allowed_voices:
+			voice = "alloy"
+
+		service = get_chatgpt_service()
+		audio_response = service._client.audio.speech.create(  # type: ignore[attr-defined]
+			model="gpt-4o-mini-tts",
+			voice=voice,
+			input=text,
+			format="mp3",
+		)
+		audio_bytes = b""
+		if hasattr(audio_response, "read"):
+			audio_bytes = audio_response.read()
+		elif hasattr(audio_response, "content"):
+			audio_bytes = audio_response.content or b""
+		if not audio_bytes:
+			raise ChatGPTClientError("OpenAI TTS returned empty audio.")
+
+		encoded = base64.b64encode(audio_bytes).decode("ascii")
+		return jsonify({"ok": True, "audio_base64": encoded, "mime_type": "audio/mpeg"})
+	except ChatGPTClientError as exc:
+		return jsonify({"ok": False, "error": str(exc)}), 400
+	except Exception as exc:
+		print(f"[audio-summary-tts] failed user={current_user.id} err={exc}")
+		return jsonify({"ok": False, "error": "Could not generate natural audio right now."}), 500
 
 
 @app.route("/spotify/auth")

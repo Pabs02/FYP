@@ -1447,6 +1447,13 @@ Reference:
   in /audio-summary and the alternating-voice playback flow in templates/audio_summary.html,
   including queued multi-pick file uploads and extended podcast script generation.
 
+  - ChatGPT (OpenAI). Natural AI TTS Playback for Audio Summary.
+    Date: 2026-02-26
+    Prompt: "My browser speech voices sound robotic. Can you add a Flask endpoint that
+    uses OpenAI text-to-speech for more natural playback, with safe validation and JSON output?"
+  ChatGPT provided the OpenAI TTS route and validation pattern used in /audio-summary/tts,
+  plus frontend fallback handling in templates/audio_summary.html.
+
   - ChatGPT (OpenAI). Spotify Playlist Search + Embed Route.
     Date: 2026-02-25
     Prompt: "I need a Flask route that checks Spotify OAuth session tokens, derives a
