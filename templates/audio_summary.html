@@ -41,7 +41,11 @@
 			<div class="mb-2">
 				<label class="form-label">Or Upload Files (TXT/MD/DOCX/PDF)</label>
 				<input type="file" id="readingFiles" name="reading_files" class="form-control" accept=".txt,.md,.markdown,.docx,.pdf" multiple>
-				<div class="small text-muted mt-1">You can upload multiple files (max 4MB per file, 12MB total).</div>
+				<div class="small text-muted mt-1">You can upload multiple files (max 4MB per file, 12MB total). Add files in multiple picks if needed.</div>
+				<div id="selectedFilesList" class="small mt-2 text-muted">No files selected yet.</div>
+				<div class="mt-2">
+					<button type="button" class="btn btn-outline-secondary btn-sm" id="clearFilesBtn">Clear Files</button>
+				</div>
 			</div>
 			<button type="submit" class="btn btn-primary" id="generateBtn">Generate Summary</button>
 			<span id="statusText" class="small text-muted ms-2"></span>
@@ -88,6 +92,9 @@
 	const voiceSelect = document.getElementById("voiceSelect");
 	const voiceSelectHost = document.getElementById("voiceSelectHost");
 	const voiceSelectGuest = document.getElementById("voiceSelectGuest");
+	const readingFilesInput = document.getElementById("readingFiles");
+	const selectedFilesList = document.getElementById("selectedFilesList");
+	const clearFilesBtn = document.getElementById("clearFilesBtn");
 	const rateSelect = document.getElementById("rateSelect");
 	const playBtn = document.getElementById("playBtn");
 	const pauseBtn = document.getElementById("pauseBtn");
@@ -100,6 +107,52 @@
 	let utterance = null;
 	let podcastQueue = [];
 	let podcastSpeaking = false;
+	let selectedFiles = [];
+
+	function formatBytes(bytes) {
+		if (!bytes || bytes <= 0) return "0 B";
+		const units = ["B", "KB", "MB", "GB"];
+		let value = bytes;
+		let unitIdx = 0;
+		while (value >= 1024 && unitIdx < units.length - 1) {
+			value /= 1024;
+			unitIdx += 1;
+		}
+		return `${value.toFixed(unitIdx === 0 ? 0 : 1)} ${units[unitIdx]}`;
+	}
+
+	function renderSelectedFiles() {
+		if (!selectedFiles.length) {
+			selectedFilesList.textContent = "No files selected yet.";
+			return;
+		}
+		const totalSize = selectedFiles.reduce((acc, f) => acc + (f.size || 0), 0);
+		const names = selectedFiles.map((f) => `${f.name} (${formatBytes(f.size || 0)})`);
+		selectedFilesList.textContent = `${selectedFiles.length} file(s): ${names.join(", ")} | Total: ${formatBytes(totalSize)}`;
+	}
+
+	readingFilesInput.addEventListener("change", () => {
+		const incoming = Array.from(readingFilesInput.files || []);
+		if (!incoming.length) return;
+		const known = new Set(selectedFiles.map((f) => `${f.name}::${f.size}::${f.lastModified}`));
+		incoming.forEach((file) => {
+			const key = `${file.name}::${file.size}::${file.lastModified}`;
+			if (!known.has(key)) {
+				selectedFiles.push(file);
+				known.add(key);
+			}
+		});
+		readingFilesInput.value = "";
+		renderSelectedFiles();
+		statusText.textContent = `${selectedFiles.length} file(s) queued.`;
+	});
+
+	clearFilesBtn.addEventListener("click", () => {
+		selectedFiles = [];
+		readingFilesInput.value = "";
+		renderSelectedFiles();
+		statusText.textContent = "File queue cleared.";
+	});
 
 	function loadVoices() {
 		voices = window.speechSynthesis.getVoices();
@@ -114,11 +167,17 @@
 			voiceSelectHost.appendChild(option.cloneNode(true));
 			voiceSelectGuest.appendChild(option);
 		});
-		if (voiceSelectHost.options.length > 0) {
+		const preferredIndices = voices
+			.map((voice, idx) => ({ voice, idx }))
+			.filter((row) => /^en/i.test(row.voice.lang || ""))
+			.map((row) => row.idx);
+		if (preferredIndices.length) {
+			voiceSelect.value = String(preferredIndices[0]);
+			voiceSelectHost.value = String(preferredIndices[0]);
+			voiceSelectGuest.value = String(preferredIndices[Math.min(1, preferredIndices.length - 1)]);
+		} else if (voiceSelectHost.options.length > 0) {
 			voiceSelectHost.value = "0";
-		}
-		if (voiceSelectGuest.options.length > 1) {
-			voiceSelectGuest.value = "1";
+			voiceSelectGuest.value = voiceSelectGuest.options.length > 1 ? "1" : "0";
 		}
 	}
 
@@ -172,7 +231,9 @@
 				const item = podcastQueue[index++];
 				const part = new SpeechSynthesisUtterance(item.text);
 				part.voice = item.speaker === "guest" ? guestVoice : hostVoice;
-				part.rate = Number(rateSelect.value || 1);
+				const selectedRate = Number(rateSelect.value || 1);
+				part.rate = Math.min(1.05, selectedRate);
+				part.pitch = item.speaker === "guest" ? 1.08 : 0.96;
 				part.onend = speakNext;
 				part.onerror = speakNext;
 				window.speechSynthesis.speak(part);
@@ -194,7 +255,14 @@
 
 	form.addEventListener("submit", async (event) => {
 		event.preventDefault();
-		const payload = new FormData(form);
+		const payload = new FormData();
+		payload.append("mode", outputMode.value || "summary");
+		payload.append("text", document.getElementById("readingText").value || "");
+		if (selectedFiles.length) {
+			selectedFiles.forEach((file) => payload.append("reading_files[]", file, file.name));
+		} else {
+			Array.from(readingFilesInput.files || []).forEach((file) => payload.append("reading_files[]", file, file.name));
+		}
 		generateBtn.disabled = true;
 		statusText.textContent = "Generating summary...";
 		try {

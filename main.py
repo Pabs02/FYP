@@ -4620,6 +4620,8 @@ def audio_summary():
 
 		file_list = [f for f in request.files.getlist("reading_files") if f and f.filename]
 		if not file_list:
+			file_list = [f for f in request.files.getlist("reading_files[]") if f and f.filename]
+		if not file_list:
 			single_file = request.files.get("reading_file")
 			if single_file and single_file.filename:
 				file_list = [single_file]
@@ -4659,20 +4661,21 @@ def audio_summary():
 		max_tokens = 900
 		if mode == "podcast":
 			system_text = (
-				"You are a study assistant creating a short revision podcast script. "
+				"You are a study assistant creating a detailed revision podcast script. "
 				"Use two speakers named Host and Guest."
 			)
 			user_text = (
-				"Turn this material into a concise podcast-style revision conversation.\n"
+				"Turn this material into a longer podcast-style revision conversation.\n"
 				"Rules:\n"
 				"- Output plain text only.\n"
-				"- 14 to 20 short lines total.\n"
+				"- 28 to 40 short lines total.\n"
 				"- Every line must start with exactly 'Host:' or 'Guest:'.\n"
 				"- Keep it factual, clear, and easy to listen to.\n"
-				"- Include key terms and 1-2 practical takeaways at the end.\n\n"
+				"- Include key terms, examples, and 3-4 practical takeaways near the end.\n"
+				"- End with a 4-line recap section in the same Host/Guest format.\n\n"
 				f"{sanitized}"
 			)
-			max_tokens = 1200
+			max_tokens = 1800
 
 		response = service._client.responses.create(  # type: ignore[attr-defined]
 			model=app.config.get("OPENAI_MODEL_NAME") or "gpt-4o-mini",

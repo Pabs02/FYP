@@ -1444,7 +1444,8 @@ Reference:
     Prompt: "Can you extend my Flask audio summary endpoint to accept multiple uploaded
     files and support a podcast-style output mode with a two-speaker conversational script?"
   ChatGPT provided the multi-file ingestion and mode-based prompt/response pattern used
-  in /audio-summary and the alternating-voice playback flow in templates/audio_summary.html.
+  in /audio-summary and the alternating-voice playback flow in templates/audio_summary.html,
+  including queued multi-pick file uploads and extended podcast script generation.
 
   - ChatGPT (OpenAI). Spotify Playlist Search + Embed Route.
     Date: 2026-02-25
