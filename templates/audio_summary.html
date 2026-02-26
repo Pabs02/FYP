@@ -17,6 +17,27 @@
 		padding: 0.9rem;
 		min-height: 190px;
 	}
+	.controls-shell {
+		background: #f8fafc;
+		border: 1px solid #e2e8f0;
+		border-radius: 12px;
+		padding: 0.9rem;
+	}
+	.control-group {
+		background: #ffffff;
+		border: 1px solid #e2e8f0;
+		border-radius: 10px;
+		padding: 0.8rem;
+		height: 100%;
+	}
+	.control-group h6 {
+		font-size: 0.84rem;
+		font-weight: 700;
+		color: #475569;
+		margin-bottom: 0.6rem;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+	}
 </style>
 
 <div class="audio-page">
@@ -51,8 +72,9 @@
 			<span id="statusText" class="small text-muted ms-2"></span>
 		</form>
 
-		<div class="row g-2 mb-2">
-			<div class="col-md-3">
+		<div class="controls-shell mb-2">
+			<div class="row g-2 mb-2">
+				<div class="col-lg-3 col-md-6">
 				<label class="form-label small mb-1">Playback Engine</label>
 				<select id="playbackEngine" class="form-select form-select-sm">
 					<option value="auto" selected>Auto (AI then Browser)</option>
@@ -60,23 +82,7 @@
 					<option value="browser">Browser Voice</option>
 				</select>
 			</div>
-			<div class="col-md-3">
-				<label class="form-label small mb-1">Browser Voice</label>
-				<select id="voiceSelect" class="form-select form-select-sm"></select>
-			</div>
-			<div class="col-md-3">
-				<label class="form-label small mb-1">AI Voice (Single)</label>
-				<select id="aiVoiceSingle" class="form-select form-select-sm"></select>
-			</div>
-			<div class="col-md-3">
-				<label class="form-label small mb-1">AI Voice (Host)</label>
-				<select id="aiVoiceHost" class="form-select form-select-sm"></select>
-			</div>
-			<div class="col-md-3">
-				<label class="form-label small mb-1">AI Voice (Guest)</label>
-				<select id="aiVoiceGuest" class="form-select form-select-sm"></select>
-			</div>
-			<div class="col-md-2">
+				<div class="col-lg-3 col-md-6">
 				<label class="form-label small mb-1">Speed</label>
 				<select id="rateSelect" class="form-select form-select-sm">
 					<option value="0.75">0.75x</option>
@@ -85,10 +91,47 @@
 					<option value="1.5">1.5x</option>
 				</select>
 			</div>
-			<div class="col-md-6 d-flex align-items-end gap-2">
+				<div class="col-lg-6 col-md-12 d-flex align-items-end gap-2">
 				<button type="button" class="btn btn-outline-primary btn-sm" id="playBtn">Play</button>
 				<button type="button" class="btn btn-outline-secondary btn-sm" id="pauseBtn">Pause</button>
 				<button type="button" class="btn btn-outline-danger btn-sm" id="stopBtn">Stop</button>
+				</div>
+			</div>
+			<div class="row g-2">
+				<div class="col-md-6">
+					<div class="control-group">
+						<h6>Browser Voices</h6>
+						<div class="mb-2">
+							<label class="form-label small mb-1">Single</label>
+							<select id="voiceSelect" class="form-select form-select-sm"></select>
+						</div>
+						<div class="mb-2">
+							<label class="form-label small mb-1">Host</label>
+							<select id="voiceSelectHostBrowser" class="form-select form-select-sm"></select>
+						</div>
+						<div>
+							<label class="form-label small mb-1">Guest</label>
+							<select id="voiceSelectGuestBrowser" class="form-select form-select-sm"></select>
+						</div>
+					</div>
+				</div>
+				<div class="col-md-6">
+					<div class="control-group">
+						<h6>AI Voices</h6>
+						<div class="mb-2">
+							<label class="form-label small mb-1">Single</label>
+							<select id="aiVoiceSingle" class="form-select form-select-sm"></select>
+						</div>
+						<div class="mb-2">
+							<label class="form-label small mb-1">Host</label>
+							<select id="aiVoiceHost" class="form-select form-select-sm"></select>
+						</div>
+						<div>
+							<label class="form-label small mb-1">Guest</label>
+							<select id="aiVoiceGuest" class="form-select form-select-sm"></select>
+						</div>
+					</div>
+				</div>
 			</div>
 		</div>
 
@@ -102,6 +145,8 @@
 	const statusText = document.getElementById("statusText");
 	const summaryOutput = document.getElementById("summaryOutput");
 	const voiceSelect = document.getElementById("voiceSelect");
+	const voiceSelectHostBrowser = document.getElementById("voiceSelectHostBrowser");
+	const voiceSelectGuestBrowser = document.getElementById("voiceSelectGuestBrowser");
 	const playbackEngine = document.getElementById("playbackEngine");
 	const aiVoiceSingle = document.getElementById("aiVoiceSingle");
 	const aiVoiceHost = document.getElementById("aiVoiceHost");
@@ -207,11 +252,15 @@
 	function loadVoices() {
 		voices = window.speechSynthesis.getVoices();
 		voiceSelect.innerHTML = "";
+		voiceSelectHostBrowser.innerHTML = "";
+		voiceSelectGuestBrowser.innerHTML = "";
 		voices.forEach((voice, idx) => {
 			const option = document.createElement("option");
 			option.value = String(idx);
 			option.textContent = `${voice.name} (${voice.lang})`;
-			voiceSelect.appendChild(option);
+			voiceSelect.appendChild(option.cloneNode(true));
+			voiceSelectHostBrowser.appendChild(option.cloneNode(true));
+			voiceSelectGuestBrowser.appendChild(option);
 		});
 		const preferredIndices = voices
 			.map((voice, idx) => ({ voice, idx }))
@@ -219,8 +268,12 @@
 			.map((row) => row.idx);
 		if (preferredIndices.length) {
 			voiceSelect.value = String(preferredIndices[0]);
+			voiceSelectHostBrowser.value = String(preferredIndices[0]);
+			voiceSelectGuestBrowser.value = String(preferredIndices[Math.min(1, preferredIndices.length - 1)]);
 		} else if (voiceSelect.options.length > 0) {
 			voiceSelect.value = "0";
+			voiceSelectHostBrowser.value = "0";
+			voiceSelectGuestBrowser.value = voiceSelectGuestBrowser.options.length > 1 ? "1" : "0";
 		}
 	}
 
@@ -378,8 +431,8 @@
 				statusText.textContent = "No podcast script to play.";
 				return;
 			}
-			const hostIdx = Number(voiceSelect.value || 0);
-			const guestIdx = Math.min(voices.length - 1, hostIdx + 1);
+			const hostIdx = Number(voiceSelectHostBrowser.value || 0);
+			const guestIdx = Number(voiceSelectGuestBrowser.value || hostIdx || 0);
 			const hostVoice = voices[hostIdx] || null;
 			const guestVoice = voices[guestIdx] || voices[hostIdx] || null;
 			podcastQueue = lines.map((line) => {
