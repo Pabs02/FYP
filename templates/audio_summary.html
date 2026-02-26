@@ -53,7 +53,15 @@
 
 		<div class="row g-2 mb-2">
 			<div class="col-md-3">
-				<label class="form-label small mb-1">Browser Voice (Fallback)</label>
+				<label class="form-label small mb-1">Playback Engine</label>
+				<select id="playbackEngine" class="form-select form-select-sm">
+					<option value="auto" selected>Auto (AI then Browser)</option>
+					<option value="ai">AI Natural Voice</option>
+					<option value="browser">Browser Voice</option>
+				</select>
+			</div>
+			<div class="col-md-3">
+				<label class="form-label small mb-1">Browser Voice</label>
 				<select id="voiceSelect" class="form-select form-select-sm"></select>
 			</div>
 			<div class="col-md-3">
@@ -94,6 +102,7 @@
 	const statusText = document.getElementById("statusText");
 	const summaryOutput = document.getElementById("summaryOutput");
 	const voiceSelect = document.getElementById("voiceSelect");
+	const playbackEngine = document.getElementById("playbackEngine");
 	const aiVoiceSingle = document.getElementById("aiVoiceSingle");
 	const aiVoiceHost = document.getElementById("aiVoiceHost");
 	const aiVoiceGuest = document.getElementById("aiVoiceGuest");
@@ -306,10 +315,18 @@
 		podcastSpeaking = false;
 		cleanupNaturalAudio();
 
+		const selectedEngine = (playbackEngine.value || "auto").toLowerCase();
 		const canUseNaturalTts = !!window.fetch && !!window.Audio && currentSummary.length <= 6000;
-		if (canUseNaturalTts) {
+		const useBrowserOnly = selectedEngine === "browser";
+		const useAiOnly = selectedEngine === "ai";
+
+		if (!useBrowserOnly && canUseNaturalTts) {
 			if (currentMode === "podcast") {
 				playNaturalPodcastByLine().catch(() => {
+					if (useAiOnly) {
+						statusText.textContent = "AI natural podcast playback failed.";
+						return;
+					}
 					statusText.textContent = "Natural podcast unavailable, using browser voices.";
 					playWithBrowserVoices();
 				});
@@ -329,9 +346,18 @@
 					throw new Error("Could not play natural audio.");
 				});
 			}).catch(() => {
+				if (useAiOnly) {
+					statusText.textContent = "AI natural voice playback failed.";
+					return;
+				}
 				statusText.textContent = "Natural voice unavailable, using browser voice.";
 				playWithBrowserVoices();
 			});
+			return;
+		}
+
+		if (useAiOnly && !canUseNaturalTts) {
+			statusText.textContent = "AI natural voice is unavailable for this text length/device.";
 			return;
 		}
 
