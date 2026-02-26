@@ -53,16 +53,20 @@
 
 		<div class="row g-2 mb-2">
 			<div class="col-md-3">
-				<label class="form-label small mb-1">Voice (Single)</label>
+				<label class="form-label small mb-1">Browser Voice (Fallback)</label>
 				<select id="voiceSelect" class="form-select form-select-sm"></select>
 			</div>
 			<div class="col-md-3">
-				<label class="form-label small mb-1">Podcast Voice (Host)</label>
-				<select id="voiceSelectHost" class="form-select form-select-sm"></select>
+				<label class="form-label small mb-1">AI Voice (Single)</label>
+				<select id="aiVoiceSingle" class="form-select form-select-sm"></select>
 			</div>
 			<div class="col-md-3">
-				<label class="form-label small mb-1">Podcast Voice (Guest)</label>
-				<select id="voiceSelectGuest" class="form-select form-select-sm"></select>
+				<label class="form-label small mb-1">AI Voice (Host)</label>
+				<select id="aiVoiceHost" class="form-select form-select-sm"></select>
+			</div>
+			<div class="col-md-3">
+				<label class="form-label small mb-1">AI Voice (Guest)</label>
+				<select id="aiVoiceGuest" class="form-select form-select-sm"></select>
 			</div>
 			<div class="col-md-2">
 				<label class="form-label small mb-1">Speed</label>
@@ -90,8 +94,9 @@
 	const statusText = document.getElementById("statusText");
 	const summaryOutput = document.getElementById("summaryOutput");
 	const voiceSelect = document.getElementById("voiceSelect");
-	const voiceSelectHost = document.getElementById("voiceSelectHost");
-	const voiceSelectGuest = document.getElementById("voiceSelectGuest");
+	const aiVoiceSingle = document.getElementById("aiVoiceSingle");
+	const aiVoiceHost = document.getElementById("aiVoiceHost");
+	const aiVoiceGuest = document.getElementById("aiVoiceGuest");
 	const readingFilesInput = document.getElementById("readingFiles");
 	const selectedFilesList = document.getElementById("selectedFilesList");
 	const clearFilesBtn = document.getElementById("clearFilesBtn");
@@ -110,7 +115,27 @@
 	let selectedFiles = [];
 	let naturalAudio = null;
 	let naturalAudioObjectUrl = "";
-	let lastNaturalAudioText = "";
+	const AI_TTS_VOICES = ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer"];
+
+	function loadAiVoices() {
+		aiVoiceSingle.innerHTML = "";
+		aiVoiceHost.innerHTML = "";
+		aiVoiceGuest.innerHTML = "";
+		AI_TTS_VOICES.forEach((voiceName) => {
+			const pretty = voiceName.charAt(0).toUpperCase() + voiceName.slice(1);
+			const singleOpt = document.createElement("option");
+			singleOpt.value = voiceName;
+			singleOpt.textContent = pretty;
+			const hostOpt = singleOpt.cloneNode(true);
+			const guestOpt = singleOpt.cloneNode(true);
+			aiVoiceSingle.appendChild(singleOpt);
+			aiVoiceHost.appendChild(hostOpt);
+			aiVoiceGuest.appendChild(guestOpt);
+		});
+		aiVoiceSingle.value = "alloy";
+		aiVoiceHost.value = "alloy";
+		aiVoiceGuest.value = "nova";
+	}
 
 	function cleanupNaturalAudio() {
 		if (naturalAudio) {
@@ -173,15 +198,11 @@
 	function loadVoices() {
 		voices = window.speechSynthesis.getVoices();
 		voiceSelect.innerHTML = "";
-		voiceSelectHost.innerHTML = "";
-		voiceSelectGuest.innerHTML = "";
 		voices.forEach((voice, idx) => {
 			const option = document.createElement("option");
 			option.value = String(idx);
 			option.textContent = `${voice.name} (${voice.lang})`;
-			voiceSelect.appendChild(option.cloneNode(true));
-			voiceSelectHost.appendChild(option.cloneNode(true));
-			voiceSelectGuest.appendChild(option);
+			voiceSelect.appendChild(option);
 		});
 		const preferredIndices = voices
 			.map((voice, idx) => ({ voice, idx }))
@@ -189,11 +210,8 @@
 			.map((row) => row.idx);
 		if (preferredIndices.length) {
 			voiceSelect.value = String(preferredIndices[0]);
-			voiceSelectHost.value = String(preferredIndices[0]);
-			voiceSelectGuest.value = String(preferredIndices[Math.min(1, preferredIndices.length - 1)]);
-		} else if (voiceSelectHost.options.length > 0) {
-			voiceSelectHost.value = "0";
-			voiceSelectGuest.value = voiceSelectGuest.options.length > 1 ? "1" : "0";
+		} else if (voiceSelect.options.length > 0) {
+			voiceSelect.value = "0";
 		}
 	}
 
@@ -202,6 +220,76 @@
 		window.speechSynthesis.onvoiceschanged = loadVoices;
 	} else {
 		statusText.textContent = "Text-to-speech is not supported in this browser.";
+	}
+	loadAiVoices();
+
+	async function fetchNaturalAudioUrl(text, voiceName) {
+		const resp = await fetch("/audio-summary/tts", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ text, voice: voiceName })
+		});
+		const data = await resp.json();
+		if (!resp.ok || !data.ok || !data.audio_base64) {
+			throw new Error(data.error || "Natural voice unavailable.");
+		}
+		const binary = atob(data.audio_base64);
+		const bytes = new Uint8Array(binary.length);
+		for (let i = 0; i < binary.length; i += 1) {
+			bytes[i] = binary.charCodeAt(i);
+		}
+		const blob = new Blob([bytes], { type: data.mime_type || "audio/mpeg" });
+		return URL.createObjectURL(blob);
+	}
+
+	function playUrl(url, playbackRate) {
+		return new Promise((resolve, reject) => {
+			const audio = new Audio(url);
+			naturalAudio = audio;
+			audio.playbackRate = playbackRate;
+			audio.onended = () => resolve();
+			audio.onerror = () => reject(new Error("Audio playback failed."));
+			audio.play().catch(reject);
+		});
+	}
+
+	async function playNaturalPodcastByLine() {
+		const lines = currentSummary
+			.split("\n")
+			.map((line) => line.trim())
+			.filter((line) => line);
+		if (!lines.length) {
+			throw new Error("No podcast script to play.");
+		}
+		const segments = lines
+			.map((line) => {
+				const lower = line.toLowerCase();
+				const speaker = lower.startsWith("guest:") ? "guest" : "host";
+				const text = line.replace(/^host:\s*/i, "").replace(/^guest:\s*/i, "").trim();
+				return { speaker, text };
+			})
+			.filter((item) => item.text);
+		if (!segments.length) {
+			throw new Error("No podcast lines found.");
+		}
+		podcastSpeaking = true;
+		for (let i = 0; i < segments.length; i += 1) {
+			if (!podcastSpeaking) {
+				break;
+			}
+			const item = segments[i];
+			const chosenVoice = item.speaker === "guest" ? (aiVoiceGuest.value || "nova") : (aiVoiceHost.value || "alloy");
+			statusText.textContent = `Generating natural podcast voice ${i + 1}/${segments.length}...`;
+			const url = await fetchNaturalAudioUrl(item.text, chosenVoice);
+			naturalAudioObjectUrl = url;
+			statusText.textContent = `Playing podcast line ${i + 1}/${segments.length}...`;
+			await playUrl(url, Number(rateSelect.value || 1));
+			URL.revokeObjectURL(url);
+			naturalAudioObjectUrl = "";
+			naturalAudio = null;
+		}
+		podcastSpeaking = false;
+		statusText.textContent = "Natural podcast playback finished.";
 	}
 
 	function speakSummary() {
@@ -218,40 +306,24 @@
 		podcastSpeaking = false;
 		cleanupNaturalAudio();
 
-		const naturalVoiceMap = {
-			host: "alloy",
-			guest: "nova",
-			single: "alloy"
-		};
 		const canUseNaturalTts = !!window.fetch && !!window.Audio && currentSummary.length <= 6000;
 		if (canUseNaturalTts) {
+			if (currentMode === "podcast") {
+				playNaturalPodcastByLine().catch(() => {
+					statusText.textContent = "Natural podcast unavailable, using browser voices.";
+					playWithBrowserVoices();
+				});
+				return;
+			}
 			statusText.textContent = "Generating natural voice audio...";
-			fetch("/audio-summary/tts", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					text: currentSummary,
-					voice: currentMode === "podcast" ? naturalVoiceMap.host : naturalVoiceMap.single
-				})
-			}).then(async (resp) => {
-				const data = await resp.json();
-				if (!resp.ok || !data.ok || !data.audio_base64) {
-					throw new Error(data.error || "Natural voice unavailable.");
-				}
-				const binary = atob(data.audio_base64);
-				const bytes = new Uint8Array(binary.length);
-				for (let i = 0; i < binary.length; i += 1) {
-					bytes[i] = binary.charCodeAt(i);
-				}
-				const blob = new Blob([bytes], { type: data.mime_type || "audio/mpeg" });
-				naturalAudioObjectUrl = URL.createObjectURL(blob);
+			fetchNaturalAudioUrl(currentSummary, aiVoiceSingle.value || "alloy").then((url) => {
+				naturalAudioObjectUrl = url;
 				naturalAudio = new Audio(naturalAudioObjectUrl);
 				naturalAudio.playbackRate = Number(rateSelect.value || 1);
 				naturalAudio.onended = () => {
 					statusText.textContent = "Natural voice playback finished.";
 				};
 				naturalAudio.play().then(() => {
-					lastNaturalAudioText = currentSummary;
 					statusText.textContent = "Playing natural voice audio...";
 				}).catch(() => {
 					throw new Error("Could not play natural audio.");
@@ -280,8 +352,8 @@
 				statusText.textContent = "No podcast script to play.";
 				return;
 			}
-			const hostIdx = Number(voiceSelectHost.value || 0);
-			const guestIdx = Number(voiceSelectGuest.value || 0);
+			const hostIdx = Number(voiceSelect.value || 0);
+			const guestIdx = Math.min(voices.length - 1, hostIdx + 1);
 			const hostVoice = voices[hostIdx] || null;
 			const guestVoice = voices[guestIdx] || voices[hostIdx] || null;
 			podcastQueue = lines.map((line) => {

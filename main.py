@@ -4661,11 +4661,11 @@ def audio_summary():
 		)
 		user_text = (
 			"Summarise this reading for quick revision. "
-			"Return plain text only with 14-18 bullet points. "
+			"Return plain text only with 18-24 bullet points. "
 			"Each point should be specific and include concrete detail, not generic wording.\n\n"
 			f"{sanitized}"
 		)
-		max_tokens = 1400
+		max_tokens = 1800
 		if mode == "podcast":
 			system_text = (
 				"You are a study assistant creating a detailed revision podcast script. "

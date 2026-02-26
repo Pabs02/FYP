@@ -1452,7 +1452,8 @@ Reference:
     Prompt: "My browser speech voices sound robotic. Can you add a Flask endpoint that
     uses OpenAI text-to-speech for more natural playback, with safe validation and JSON output?"
   ChatGPT provided the OpenAI TTS route and validation pattern used in /audio-summary/tts,
-  plus frontend fallback handling in templates/audio_summary.html.
+  plus frontend fallback handling in templates/audio_summary.html, including per-line
+  Host/Guest voice switching in podcast mode and richer summary-point output tuning.
 
   - ChatGPT (OpenAI). Spotify Playlist Search + Embed Route.
     Date: 2026-02-25
