@@ -3,11 +3,19 @@
 {% block content %}
 <style>
 	.admin-page { max-width: 1200px; margin: 0 auto; }
+	.section-title {
+		color: #334155;
+		font-size: 0.86rem;
+		font-weight: 800;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		margin-top: 1.2rem;
+		margin-bottom: 0.55rem;
+	}
 	.kpi-grid {
 		display: grid;
 		grid-template-columns: repeat(4, minmax(180px, 1fr));
 		gap: 0.8rem;
-		margin-top: 1rem;
 	}
 	@media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(2, minmax(160px, 1fr)); } }
 	@media (max-width: 520px) { .kpi-grid { grid-template-columns: 1fr; } }
@@ -37,6 +45,7 @@
 		<p>Monitor aggregate usage and user activity across the planner.</p>
 	</div>
 
+	<div class="section-title">Last 24 Hours</div>
 	<div class="kpi-grid">
 		<div class="kpi-card">
 			<div class="kpi-label">Actions (24h)</div>
@@ -47,16 +56,89 @@
 			<div class="kpi-value">{{ summary.users_24h or 0 }}</div>
 		</div>
 		<div class="kpi-card">
+			<div class="kpi-label">Errors (24h)</div>
+			<div class="kpi-value">{{ summary.errors_24h or 0 }}</div>
+		</div>
+		<div class="kpi-card">
+			<div class="kpi-label">Error Rate (24h)</div>
+			<div class="kpi-value">{{ summary.error_rate_24h or 0 }}%</div>
+		</div>
+		<div class="kpi-card">
+			<div class="kpi-label">Avg Response (24h)</div>
+			<div class="kpi-value">{{ summary.avg_duration_24h or 0 }}ms</div>
+		</div>
+	</div>
+
+	<div class="section-title">Last 7 Days</div>
+	<div class="kpi-grid">
+		<div class="kpi-card">
 			<div class="kpi-label">Actions (7d)</div>
 			<div class="kpi-value">{{ summary.actions_7d or 0 }}</div>
+		</div>
+		<div class="kpi-card">
+			<div class="kpi-label">Active Users (7d)</div>
+			<div class="kpi-value">{{ summary.users_7d or 0 }}</div>
 		</div>
 		<div class="kpi-card">
 			<div class="kpi-label">Errors (7d)</div>
 			<div class="kpi-value">{{ summary.errors_7d or 0 }}</div>
 		</div>
+		<div class="kpi-card">
+			<div class="kpi-label">Error Rate (7d)</div>
+			<div class="kpi-value">{{ summary.error_rate_7d or 0 }}%</div>
+		</div>
+		<div class="kpi-card">
+			<div class="kpi-label">Avg Response (7d)</div>
+			<div class="kpi-value">{{ summary.avg_duration_7d or 0 }}ms</div>
+		</div>
+	</div>
+
+	<div class="section-title">All Time</div>
+	<div class="kpi-grid">
+		<div class="kpi-card">
+			<div class="kpi-label">Total Actions</div>
+			<div class="kpi-value">{{ summary.actions_all_time or 0 }}</div>
+		</div>
+		<div class="kpi-card">
+			<div class="kpi-label">Active Users (All Time)</div>
+			<div class="kpi-value">{{ summary.users_all_time or 0 }}</div>
+		</div>
+		<div class="kpi-card">
+			<div class="kpi-label">Registered Users</div>
+			<div class="kpi-value">{{ summary.registered_users_total or 0 }}</div>
+		</div>
+		<div class="kpi-card">
+			<div class="kpi-label">Errors (All Time)</div>
+			<div class="kpi-value">{{ summary.errors_all_time or 0 }}</div>
+		</div>
+		<div class="kpi-card">
+			<div class="kpi-label">Error Rate (All Time)</div>
+			<div class="kpi-value">{{ summary.error_rate_all_time or 0 }}%</div>
+		</div>
+		<div class="kpi-card">
+			<div class="kpi-label">Avg Response (All Time)</div>
+			<div class="kpi-value">{{ summary.avg_duration_all_time or 0 }}ms</div>
+		</div>
 	</div>
 
 	<div class="row g-3 mt-1">
+		<div class="col-lg-6">
+			<div class="panel">
+				<h6 class="mb-3">Top Paths (24h)</h6>
+				<div class="table-wrap">
+					<table class="table-min">
+						<thead><tr><th>Path</th><th>Hits</th></tr></thead>
+						<tbody>
+							{% for row in top_paths_24h %}
+								<tr><td>{{ row.path or '-' }}</td><td>{{ row.hits or 0 }}</td></tr>
+							{% else %}
+								<tr><td colspan="2" class="text-muted">No data available.</td></tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
 		<div class="col-lg-6">
 			<div class="panel">
 				<h6 class="mb-3">Top Paths (7d)</h6>
@@ -74,7 +156,7 @@
 				</div>
 			</div>
 		</div>
-		<div class="col-lg-6">
+		<div class="col-lg-6 mt-3">
 			<div class="panel">
 				<h6 class="mb-3">Top Users (7d)</h6>
 				<div class="table-wrap">
@@ -82,6 +164,27 @@
 						<thead><tr><th>User</th><th>Email</th><th>Actions</th></tr></thead>
 						<tbody>
 							{% for row in top_users %}
+								<tr>
+									<td>{{ row.name or 'Unknown' }}</td>
+									<td>{{ row.email or '-' }}</td>
+									<td>{{ row.actions or 0 }}</td>
+								</tr>
+							{% else %}
+								<tr><td colspan="3" class="text-muted">No data available.</td></tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-6 mt-3">
+			<div class="panel">
+				<h6 class="mb-3">Top Users (All Time)</h6>
+				<div class="table-wrap">
+					<table class="table-min">
+						<thead><tr><th>User</th><th>Email</th><th>Actions</th></tr></thead>
+						<tbody>
+							{% for row in top_users_all_time %}
 								<tr>
 									<td>{{ row.name or 'Unknown' }}</td>
 									<td>{{ row.email or '-' }}</td>

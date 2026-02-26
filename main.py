@@ -7488,32 +7488,93 @@ def admin_overview():
 
 	summary = {
 		"actions_24h": 0,
+		"actions_all_time": 0,
 		"users_24h": 0,
+		"users_7d": 0,
+		"users_all_time": 0,
 		"actions_7d": 0,
+		"errors_24h": 0,
 		"errors_7d": 0,
+		"errors_all_time": 0,
+		"error_rate_24h": 0.0,
+		"error_rate_7d": 0.0,
+		"error_rate_all_time": 0.0,
+		"avg_duration_24h": 0.0,
+		"avg_duration_7d": 0.0,
+		"avg_duration_all_time": 0.0,
+		"registered_users_total": 0,
 	}
+	top_paths_24h: List[Dict[str, Any]] = []
 	top_paths: List[Dict[str, Any]] = []
 	top_users: List[Dict[str, Any]] = []
+	top_users_all_time: List[Dict[str, Any]] = []
 	recent_logs: List[Dict[str, Any]] = []
 
 	try:
 		summary_row = sb_fetch_one(
 			"""
 			SELECT
+				COUNT(*) AS actions_all_time,
 				SUM(CASE WHEN created_at >= NOW() - INTERVAL '24 hours' THEN 1 ELSE 0 END) AS actions_24h,
 				COUNT(DISTINCT CASE WHEN created_at >= NOW() - INTERVAL '24 hours' THEN student_id END) AS users_24h,
+				COUNT(DISTINCT CASE WHEN created_at >= NOW() - INTERVAL '7 days' THEN student_id END) AS users_7d,
+				COUNT(DISTINCT student_id) AS users_all_time,
 				SUM(CASE WHEN created_at >= NOW() - INTERVAL '7 days' THEN 1 ELSE 0 END) AS actions_7d,
-				SUM(CASE WHEN created_at >= NOW() - INTERVAL '7 days' AND status_code >= 400 THEN 1 ELSE 0 END) AS errors_7d
+				SUM(CASE WHEN created_at >= NOW() - INTERVAL '24 hours' AND status_code >= 400 THEN 1 ELSE 0 END) AS errors_24h,
+				SUM(CASE WHEN created_at >= NOW() - INTERVAL '7 days' AND status_code >= 400 THEN 1 ELSE 0 END) AS errors_7d,
+				SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END) AS errors_all_time,
+				COALESCE(AVG(CASE WHEN created_at >= NOW() - INTERVAL '24 hours' THEN duration_ms END), 0) AS avg_duration_24h,
+				COALESCE(AVG(CASE WHEN created_at >= NOW() - INTERVAL '7 days' THEN duration_ms END), 0) AS avg_duration_7d,
+				COALESCE(AVG(duration_ms), 0) AS avg_duration_all_time,
+				COALESCE(
+					100.0 * SUM(CASE WHEN created_at >= NOW() - INTERVAL '24 hours' AND status_code >= 400 THEN 1 ELSE 0 END)
+					/ NULLIF(SUM(CASE WHEN created_at >= NOW() - INTERVAL '24 hours' THEN 1 ELSE 0 END), 0),
+					0
+				) AS error_rate_24h,
+				COALESCE(
+					100.0 * SUM(CASE WHEN created_at >= NOW() - INTERVAL '7 days' AND status_code >= 400 THEN 1 ELSE 0 END)
+					/ NULLIF(SUM(CASE WHEN created_at >= NOW() - INTERVAL '7 days' THEN 1 ELSE 0 END), 0),
+					0
+				) AS error_rate_7d,
+				COALESCE(
+					100.0 * SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END)
+					/ NULLIF(COUNT(*), 0),
+					0
+				) AS error_rate_all_time,
+				(SELECT COUNT(*) FROM students) AS registered_users_total
 			FROM activity_logs
 			"""
 		)
 		if summary_row:
 			summary = {
+				"actions_all_time": int(summary_row.get("actions_all_time") or 0),
 				"actions_24h": int(summary_row.get("actions_24h") or 0),
 				"users_24h": int(summary_row.get("users_24h") or 0),
+				"users_7d": int(summary_row.get("users_7d") or 0),
+				"users_all_time": int(summary_row.get("users_all_time") or 0),
 				"actions_7d": int(summary_row.get("actions_7d") or 0),
+				"errors_24h": int(summary_row.get("errors_24h") or 0),
 				"errors_7d": int(summary_row.get("errors_7d") or 0),
+				"errors_all_time": int(summary_row.get("errors_all_time") or 0),
+				"error_rate_24h": round(float(summary_row.get("error_rate_24h") or 0), 2),
+				"error_rate_7d": round(float(summary_row.get("error_rate_7d") or 0), 2),
+				"error_rate_all_time": round(float(summary_row.get("error_rate_all_time") or 0), 2),
+				"avg_duration_24h": round(float(summary_row.get("avg_duration_24h") or 0), 1),
+				"avg_duration_7d": round(float(summary_row.get("avg_duration_7d") or 0), 1),
+				"avg_duration_all_time": round(float(summary_row.get("avg_duration_all_time") or 0), 1),
+				"registered_users_total": int(summary_row.get("registered_users_total") or 0),
 			}
+
+		top_paths_24h = sb_fetch_all(
+			"""
+			SELECT path, COUNT(*) AS hits
+			FROM activity_logs
+			WHERE created_at >= NOW() - INTERVAL '24 hours'
+			GROUP BY path
+			ORDER BY hits DESC
+			LIMIT 10
+			"""
+		)
 
 		top_paths = sb_fetch_all(
 			"""
@@ -7542,6 +7603,21 @@ def admin_overview():
 			"""
 		)
 
+		top_users_all_time = sb_fetch_all(
+			"""
+			SELECT
+				a.student_id,
+				COALESCE(s.name, 'Unknown') AS name,
+				COALESCE(s.email, '') AS email,
+				COUNT(*) AS actions
+			FROM activity_logs a
+			LEFT JOIN students s ON s.id = a.student_id
+			GROUP BY a.student_id, s.name, s.email
+			ORDER BY actions DESC
+			LIMIT 12
+			"""
+		)
+
 		recent_logs = sb_fetch_all(
 			"""
 			SELECT
@@ -7561,8 +7637,10 @@ def admin_overview():
 	return render_template(
 		"admin_overview.html",
 		summary=summary,
+		top_paths_24h=top_paths_24h,
 		top_paths=top_paths,
 		top_users=top_users,
+		top_users_all_time=top_users_all_time,
 		recent_logs=recent_logs,
 	)
 
@@ -9067,7 +9145,11 @@ def update_task_status(task_id):
 @login_required
 def export_ics():
 	"""Generate an ICS file for the student's tasks and events."""
-	from icalendar import Calendar as ICalendar, Event as IEvent, vText
+	try:
+		from icalendar import Calendar as ICalendar, Event as IEvent, vText  # pyright: ignore[reportMissingModuleSource]
+	except Exception:
+		flash("ICS export is unavailable because the icalendar package is missing on this environment.", "error")
+		return redirect(url_for("calendar_view"))
 	import pytz
 
 	include_tasks = request.args.get("include_tasks", "true") == "true"
