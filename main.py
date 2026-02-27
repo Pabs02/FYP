@@ -659,20 +659,37 @@ def send_test_email():
 @app.route("/email/daily-summary", methods=["POST"])
 @login_required
 def send_daily_summary():
-	body = _build_daily_summary_email(current_user.id)
-	if not body:
+	stats = _run_daily_summary_batch(student_ids=[current_user.id], force_send=True)
+	if stats.get("sent", 0) > 0:
+		flash("Daily summary sent.", "success")
+	elif stats.get("failed", 0) > 0:
+		flash("Failed to send daily summary.", "error")
+	else:
 		flash("No upcoming tasks to include in the summary.", "warning")
 		return redirect(url_for("profile"))
-	error = _send_reminder_email(
-		to_email=current_user.email,
-		subject="Your daily study summary",
-		body=body
-	)
-	if error:
-		flash(f"Failed to send daily summary: {error}", "error")
-	else:
-		flash("Daily summary sent.", "success")
-	return redirect(url_for("profile"))
+
+
+# Reference: ChatGPT (OpenAI) - Cron-Safe Daily Summary Batch Endpoint
+# Date: 2026-02-26
+# Prompt: "I need daily summary emails to run from Render Cron instead of dashboard page
+# loads. Can you provide a secure Flask cron endpoint with token check and batch stats?"
+# ChatGPT provided the cron route + batch-send pattern adapted below.
+@app.route("/cron/daily-summaries", methods=["GET", "POST"])
+def cron_daily_summaries():
+	cron_secret = (os.getenv("CRON_SECRET") or "").strip()
+	if cron_secret:
+		provided = (
+			(request.headers.get("X-Cron-Secret") or "").strip()
+			or (request.args.get("token") or "").strip()
+		)
+		auth_header = (request.headers.get("Authorization") or "").strip()
+		if auth_header.lower().startswith("bearer "):
+			provided = provided or auth_header[7:].strip()
+		if provided != cron_secret:
+			return jsonify({"ok": False, "error": "Forbidden"}), 403
+
+	stats = _run_daily_summary_batch()
+	return jsonify({"ok": True, **stats}), 200
 
 
 
@@ -682,55 +699,12 @@ def send_daily_summary():
 @login_required
 def index():
 	_generate_task_reminders(current_user.id)
-	# Send daily summary once per day (if enabled)
-	# Reference: ChatGPT (OpenAI) - Daily Summary Email Trigger Pattern
-	# Date: 2026-01-22
-	# Prompt: "I need to send a daily summary email once per day when the user loads the dashboard.
-	# Can you help me design a last-sent check and update status flags?"
-	# ChatGPT provided the trigger pattern and last-sent guard.
-	try:
-		student = sb_fetch_one(
-			"""
-			SELECT email, email_daily_summary_enabled, last_daily_summary_sent_at
-			FROM students
-			WHERE id = :student_id
-			""",
-			{"student_id": current_user.id}
-		)
-		if student and student.get("email") and student.get("email_daily_summary_enabled", True):
-			last_sent = student.get("last_daily_summary_sent_at")
-			should_send = True
-			if last_sent:
-				try:
-					last_date = last_sent.date() if hasattr(last_sent, "date") else None
-					should_send = last_date != datetime.now(timezone.utc).date()
-				except Exception:
-					should_send = True
-			if should_send:
-				body = _build_daily_summary_email(current_user.id)
-				if body:
-					error = _send_reminder_email(
-						to_email=student.get("email"),
-						subject="Your daily study summary",
-						body=body
-					)
-					status = "sent" if error is None else "failed"
-					sb_execute(
-						"""
-						UPDATE students
-						SET last_daily_summary_sent_at = NOW(),
-						    daily_summary_status = :status,
-						    daily_summary_error = :error
-						WHERE id = :student_id
-						""",
-						{
-							"status": status,
-							"error": error,
-							"student_id": current_user.id
-						}
-					)
-	except Exception as exc:
-		print(f"[daily-summary] failed to send summary user={current_user.id} error={exc}")
+	# Render Cron is the primary delivery path. Keep dashboard trigger opt-in only.
+	if (os.getenv("ENABLE_DASHBOARD_DAILY_SUMMARY_TRIGGER") or "").strip() in {"1", "true", "True"}:
+		try:
+			_run_daily_summary_batch(student_ids=[current_user.id])
+		except Exception as exc:
+			print(f"[daily-summary] dashboard-trigger failed user={current_user.id} error={exc}")
 	try:
 		rows = sb_fetch_all(
 			"""
@@ -2016,6 +1990,97 @@ def _build_daily_summary_email(student_id: int) -> Optional[str]:
 		lines.append("")
 	lines.append("Open your dashboard to plan micro-tasks and stay on track.")
 	return "\n".join(lines).strip()
+
+
+def _should_send_daily_summary_today(last_sent: Any) -> bool:
+	if not last_sent:
+		return True
+	try:
+		last_date = last_sent.date() if hasattr(last_sent, "date") else None
+		return last_date != datetime.now(timezone.utc).date()
+	except Exception:
+		return True
+
+
+def _run_daily_summary_batch(student_ids: Optional[List[int]] = None, force_send: bool = False) -> Dict[str, int]:
+	stats = {
+		"processed": 0,
+		"sent": 0,
+		"failed": 0,
+		"skipped_no_email": 0,
+		"skipped_disabled": 0,
+		"skipped_already_sent": 0,
+		"skipped_empty": 0,
+	}
+	if student_ids:
+		rows = []
+		for student_id in student_ids:
+			row = sb_fetch_one(
+				"""
+				SELECT id, email, email_daily_summary_enabled, last_daily_summary_sent_at
+				FROM students
+				WHERE id = :student_id
+				""",
+				{"student_id": student_id},
+			)
+			if row:
+				rows.append(row)
+	else:
+		rows = sb_fetch_all(
+			"""
+			SELECT id, email, email_daily_summary_enabled, last_daily_summary_sent_at
+			FROM students
+			WHERE email IS NOT NULL AND email <> ''
+			"""
+		)
+
+	for student in rows:
+		stats["processed"] += 1
+		student_id = student.get("id")
+		email = (student.get("email") or "").strip()
+		if not email:
+			stats["skipped_no_email"] += 1
+			continue
+		if not bool(student.get("email_daily_summary_enabled", True)):
+			stats["skipped_disabled"] += 1
+			continue
+		if not force_send and not _should_send_daily_summary_today(student.get("last_daily_summary_sent_at")):
+			stats["skipped_already_sent"] += 1
+			continue
+		body = _build_daily_summary_email(student_id)
+		if not body:
+			stats["skipped_empty"] += 1
+			continue
+
+		error = _send_reminder_email(
+			to_email=email,
+			subject="Your daily study summary",
+			body=body,
+		)
+		if error is None:
+			stats["sent"] += 1
+			sb_execute(
+				"""
+				UPDATE students
+				SET last_daily_summary_sent_at = NOW(),
+				    daily_summary_status = 'sent',
+				    daily_summary_error = NULL
+				WHERE id = :student_id
+				""",
+				{"student_id": student_id},
+			)
+		else:
+			stats["failed"] += 1
+			sb_execute(
+				"""
+				UPDATE students
+				SET daily_summary_status = 'failed',
+				    daily_summary_error = :error
+				WHERE id = :student_id
+				""",
+				{"error": error, "student_id": student_id},
+			)
+	return stats
 
 
 def _generate_task_reminders(student_id: int) -> None:
@@ -5683,10 +5748,10 @@ def delete_recurring_event(event_id: int):
 					AND student_id = :student_id
 					AND EXTRACT(DOW FROM start_at) = :day_of_week
 					AND TO_CHAR(start_at, 'HH24:MI') = :start_time
-					AND TO_CHAR(end_at, 'HH24:MI') = :end_time
+						AND TO_CHAR(end_at, 'HH24:MI') = :end_time
 					""",
 					{
-						"title": title,
+						"title": title, 
 						"student_id": current_user.id,
 						"day_of_week": postgres_dow,
 						"start_time": start_time,
@@ -5707,8 +5772,8 @@ def delete_recurring_event(event_id: int):
 						"student_id": current_user.id,
 						"day_of_week": postgres_dow,
 						"start_time": start_time,
-					}
-				)
+				}
+			)
 		else:
 			# Fallback: just delete by title
 			result = sb_execute(

@@ -335,6 +335,15 @@ Reference:
     Can you help me design a last-sent check and update status flags?"
   ChatGPT provided the daily summary trigger pattern and the last‑sent/status updates.
 
+Lines 525-610: Daily Summary Cron Batch Endpoint
+Reference:
+  - ChatGPT (OpenAI). Cron-Safe Daily Summary Batch Endpoint.
+    Date: 2026-02-26
+    Prompt: "I need daily summary emails to run from Render Cron instead of dashboard page
+    loads. Can you provide a secure Flask cron endpoint with token check and batch stats?"
+  ChatGPT provided the cron route + secure token guard + batch stats pattern used by
+  /cron/daily-summaries and scripts/send_daily_summaries.py.
+
 Lines 1132-1205: SMTP Email Sender + Summary Buckets
 Reference:
   - ChatGPT (OpenAI). SMTP Sender + Summary Grouping.
