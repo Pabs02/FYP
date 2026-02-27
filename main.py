@@ -1,13 +1,7 @@
-# Reference: Flask Documentation - Quickstart
-# https://flask.palletsprojects.com/en/3.0.x/quickstart/
 from flask import Flask, render_template, jsonify, request, redirect, url_for, flash, session, g, send_file, abort
 
-# Reference: Flask-Login Documentation - Managing User Sessions
-# https://flask-login.readthedocs.io/en/latest/#flask_login.LoginManager
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 
-# Reference: Werkzeug Documentation - Password Hashing
-# https://werkzeug.palletsprojects.com/en/3.0.x/utils/#werkzeug.security
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import time as time_module
@@ -38,8 +32,6 @@ from services.analytics import upcoming_tasks_with_priority, assess_progress, no
 SUPABASE_URL = get_supabase_database_url()
 
 
-# Reference: Flask Documentation - Application Setup
-# https://flask.palletsprojects.com/en/3.0.x/quickstart/#a-minimal-application
 app = Flask(__name__, static_folder="static", template_folder="templates")
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-only-change-me")
 app.config["OPENAI_API_KEY"] = get_openai_api_key()
@@ -48,8 +40,6 @@ app.config["OPENAI_MODEL_NAME"] = get_openai_model_name()
 # Keep disabled by default so production logout/auth works as expected.
 _SKIP_LOGIN_FOR_TESTING = os.getenv("AUTO_LOGIN_FOR_TESTING", "0") in {"1", "true", "True"}
 
-# Reference: Flask-Login Documentation - Initializing Extension
-# https://flask-login.readthedocs.io/en/latest/#flask_login.LoginManager.init_app
 # Setup follows Flask-Login quickstart guide
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -278,8 +268,6 @@ def inject_admin_context():
 	return {"is_admin_user": _is_admin_user()}
 
 
-# Reference: Flask-Login Documentation - User Class Implementation
-# https://flask-login.readthedocs.io/en/latest/#flask_login.UserMixin
 # Used UserMixin pattern from Flask-Login docs. Adapted to work with our database structure.
 class User(UserMixin):
 	"""User model for authentication"""
@@ -354,8 +342,6 @@ class User(UserMixin):
 		return None
 
 
-# Reference: Flask-Login Documentation - User Loader Callback
-# https://flask-login.readthedocs.io/en/latest/#flask_login.LoginManager.user_loader
 # Required callback function for Flask-Login to load users from session
 @login_manager.user_loader
 def load_user(user_id):
@@ -363,8 +349,6 @@ def load_user(user_id):
 	return User.get(int(user_id))
 
 
-# Reference: Flask Documentation - Custom Template Filters
-# https://flask.palletsprojects.com/en/3.0.x/templating/#registering-filters
 # Custom filter for Irish date format (DD/MM/YYYY)
 @app.template_filter('irish_date')
 def format_irish_date(value):
@@ -495,8 +479,6 @@ def login():
 			flash("Account not activated. Please register first.", "error")
 			return render_template("login.html")
 		
-		# Reference: Werkzeug Documentation - Password Verification
-		# https://werkzeug.palletsprojects.com/en/3.0.x/utils/#werkzeug.security.check_password_hash
 		# Verifies password against stored hash
 		if not check_password_hash(user_data['password_hash'], password):
 			flash("Invalid email or password", "error")
@@ -510,8 +492,6 @@ def login():
 			student_number=user_data.get('student_number'),
 			canvas_api_token=user_data.get('canvas_api_token')
 		)
-		# Reference: Flask-Login Documentation - Logging Users In
-		# https://flask-login.readthedocs.io/en/latest/#flask_login.login_user
 		# Creates user session
 		login_user(user, remember=True)
 		
@@ -559,8 +539,6 @@ def register():
 			flash("Email already registered. Please login instead.", "error")
 			return redirect(url_for("login"))
 		
-		# Reference: Werkzeug Documentation - Password Hashing
-		# https://werkzeug.palletsprojects.com/en/3.0.x/utils/#werkzeug.security.generate_password_hash
 		# Hashes password before storing in database
 		password_hash = generate_password_hash(password)
 		
@@ -698,7 +676,6 @@ def send_daily_summary():
 
 
 
-# MAIN APPLICATION ROUTES
 
 
 @app.route("/")
@@ -5384,8 +5361,6 @@ def calendar_view():
 	for ev in rows_ev:
 		start_val = ev.get("start_at")
 		end_val = ev.get("end_at")
-		# Reference: FullCalendar.js Documentation - Event Object
-		# https://fullcalendar.io/docs/event-object
 		# FullCalendar requires ISO-8601 date strings for timed events
 		try:
 			start_iso = start_val.isoformat()
@@ -5918,8 +5893,6 @@ def analytics():
 		in_progress_tasks = next((s['count'] for s in status_overview if s['status'] == 'in_progress'), 0)
 		pending_tasks = next((s['count'] for s in status_overview if s['status'] == 'pending'), 0)
 		
-		# Reference: PostgreSQL Documentation - Date/Time Functions
-		# https://www.postgresql.org/docs/current/functions-datetime.html#FUNCTIONS-DATETIME-TRUNC
 		# DATE_TRUNC groups dates by week for weekly analytics
 		weekly_data = sb_fetch_all("""
 			SELECT 
@@ -6260,7 +6233,6 @@ def analytics():
 			if predicted_grade['total_weight'] > 0:
 				predicted_grade_pct = round((predicted_grade['weighted_grade_sum'] / predicted_grade['total_weight']), 1)
 
-		# ── Additional Visualisation Data (Iteration 5 – US 18) ──────────
 		# Reference: ChatGPT (OpenAI) - Analytics Visualisation Queries
 		# Date: 2026-02-10
 		# Prompt: "I need extra analytics queries for new Chart.js visuals:
@@ -6696,7 +6668,6 @@ def study_groups():
 	)
 
 
-# ── Per-Module Dashboard (Iteration 5 – US 17) ─────────────────────
 # Reference: ChatGPT (OpenAI) - Per-Module Dashboard Routes
 # Date: 2026-02-10
 # Prompt: "I need a modules overview page showing all modules with task count,
@@ -7837,106 +7808,29 @@ def lecturer_messages_history():
 @app.route("/lecturer-replies")
 @login_required
 def lecturer_replies():
-	"""View lecturer replies received via email"""
-	page_str = request.args.get("page", "1").strip()
-	try:
-		page = max(1, int(page_str))
-	except ValueError:
-		page = 1
-	per_page = 20
-	offset = (page - 1) * per_page
-	
-	# Count total replies
-	count_row = sb_fetch_one(
-		"SELECT COUNT(*) as count FROM lecturer_replies WHERE student_id = :student_id",
-		{"student_id": current_user.id}
-	)
-	total = count_row["count"] if count_row else 0
-	total_pages = max(1, (total + per_page - 1) // per_page)
-	
-	# Count unread
-	unread_row = sb_fetch_one(
-		"SELECT COUNT(*) as count FROM lecturer_replies WHERE student_id = :student_id AND is_read = FALSE",
-		{"student_id": current_user.id}
-	)
-	unread_count = unread_row["count"] if unread_row else 0
-	
-	# Get replies
-	replies = sb_fetch_all(
-		"""
-		SELECT lr.id, lr.from_email, lr.from_name, lr.subject, lr.body,
-		       lr.received_at, lr.is_read, lr.lecturer_id,
-		       l.name AS lecturer_name
-		FROM lecturer_replies lr
-		LEFT JOIN lecturers l ON l.id = lr.lecturer_id
-		WHERE lr.student_id = :student_id
-		ORDER BY lr.received_at DESC
-		LIMIT :limit OFFSET :offset
-		""",
-		{"student_id": current_user.id, "limit": per_page, "offset": offset}
-	)
-	
-	# Check if IMAP is configured
-	imap_configured = get_imap_config() is not None
-	
-	return render_template(
-		"lecturer_replies.html",
-		replies=replies,
-		page=page,
-		total_pages=total_pages,
-		total=total,
-		unread_count=unread_count,
-		imap_configured=imap_configured
-	)
+	flash("Lecturer replies inbox is currently unavailable.", "warning")
+	return redirect(url_for("lecturer_messages_history"))
 
 
 @app.route("/lecturer-replies/refresh", methods=["POST"])
 @login_required
 def refresh_lecturer_replies():
-	"""Manually check for new lecturer replies via IMAP"""
-	result = _fetch_lecturer_replies(current_user.id)
-	
-	if result["success"]:
-		if result["new_count"] > 0:
-			flash(f"Found {result['new_count']} new reply(ies) from lecturers!", "success")
-		else:
-			flash("No new replies found.", "info")
-	else:
-		flash(f"Failed to check for replies: {result['error']}", "error")
-	
-	return redirect(url_for("lecturer_replies"))
+	flash("Lecturer replies inbox is currently unavailable.", "warning")
+	return redirect(url_for("lecturer_messages_history"))
 
 
 @app.route("/lecturer-replies/<int:reply_id>/read", methods=["POST"])
 @login_required
 def mark_reply_read(reply_id: int):
-	"""Mark a lecturer reply as read"""
-	try:
-		sb_execute(
-			"UPDATE lecturer_replies SET is_read = TRUE WHERE id = :id AND student_id = :student_id",
-			{"id": reply_id, "student_id": current_user.id}
-		)
-	except Exception as exc:
-		print(f"[replies] mark read failed: {exc}")
-	
-	return redirect(url_for("lecturer_replies"))
+	flash("Lecturer replies inbox is currently unavailable.", "warning")
+	return redirect(url_for("lecturer_messages_history"))
 
 
 @app.route("/lecturer-replies/mark-all-read", methods=["POST"])
 @login_required
 def mark_all_replies_read():
-	"""Mark all lecturer replies as read"""
-	try:
-		sb_execute(
-			"UPDATE lecturer_replies SET is_read = TRUE WHERE student_id = :student_id",
-			{"student_id": current_user.id}
-		)
-		flash("All replies marked as read.", "success")
-	except Exception as exc:
-		print(f"[replies] mark all read failed: {exc}")
-		flash("Failed to mark replies as read.", "error")
-	
-	return redirect(url_for("lecturer_replies"))
+	flash("Lecturer replies inbox is currently unavailable.", "warning")
+	return redirect(url_for("lecturer_messages_history"))
 
 
 @app.route("/assignment-review/<int:review_id>/delete", methods=["POST"])
@@ -8116,10 +8010,6 @@ def sync_canvas():
 				# worker with a 15 second timeout. The worker thread calls the sync function and reports either 
 				# success or an error back through a queue. If the sync exceeds the timeout, the system aborts 
 				# the operation, records an error, and displays a warning to the user instead of blocking the request.
-				# Reference: Python Documentation - threading Module
-				# https://docs.python.org/3/library/threading.html
-				# Reference: Python Documentation - queue Module
-				# https://docs.python.org/3/library/queue.html
 				import threading
 				import queue
 				
@@ -9233,7 +9123,6 @@ def update_task_status(task_id):
 	return redirect(url_for("tasks"))
 
 
-# ── ICS Calendar Export ──────────────────────────────────────────────
 # Reference: ChatGPT (OpenAI) - ICS Calendar Export with icalendar Library
 # Date: 2026-02-10
 # Prompt: "I need a Flask route that generates an ICS feed from my tasks
@@ -9263,7 +9152,6 @@ def export_ics():
 
 	utc = pytz.UTC
 
-	# ── Tasks (assignment deadlines) ──
 	if include_tasks:
 		try:
 			tasks = sb_fetch_all(
@@ -9311,7 +9199,6 @@ def export_ics():
 
 			cal.add_component(ev)
 
-	# ── Calendar events (lectures, manual blocks) ──
 	if include_events:
 		try:
 			events = sb_fetch_all(

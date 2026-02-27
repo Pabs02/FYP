@@ -308,8 +308,6 @@
 	}
 </script>
 
-<!-- Reference: FullCalendar.js - JavaScript Event Calendar -->
-<!-- https://fullcalendar.io/docs -->
 <!-- Using FullCalendar v6.1.15 for interactive calendar display -->
 <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css' rel='stylesheet' />
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
@@ -448,8 +446,6 @@
 		if (!hasTimed) {
 			document.getElementById('noEventsHint').style.display = 'block';
 		}
-		// Reference: FullCalendar.js Documentation - Initialization
-		// https://fullcalendar.io/docs#toc
 		// Configuration based on FullCalendar docs, customized for assignment display
 		const calendarEl = document.getElementById('calendar');
 		const calendar = window._fcInstance = new FullCalendar.Calendar(calendarEl, {
@@ -504,8 +500,6 @@
 			// Can you provide a function that handles all cases correctly?"
 			// ChatGPT provided the ordinal function algorithm that correctly handles all number cases including 
 			// edge cases like 11th, 12th, 13th, 21st, 22nd, etc.
-			// Reference: FullCalendar.js Documentation - Custom Title Format
-			// https://fullcalendar.io/docs/titleFormat
 			timeGridDay: {
 					titleFormat: function(arg) {
 						try {
@@ -673,7 +667,6 @@
 		color: #fff;
 	}
 
-	/* ═══════════════════════════════════════════
 	   PRINT-FRIENDLY STYLES
 	   Reference: ChatGPT (OpenAI) - Print-Friendly Calendar CSS
 	   Date: 2026-02-10
