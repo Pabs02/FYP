@@ -1,6 +1,6 @@
 ================================================================================
 FYP PROJECT CODE REFERENCES
-Smart Student Planner - Student Task Management System
+LockIn - Intelligent Learning Management Tool
 ================================================================================
 
 This file contains all references for external code, libraries, and resources
