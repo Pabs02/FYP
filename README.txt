@@ -1043,6 +1043,17 @@ Reference:
     and suggestions. Can you help me craft the system/user prompts?"
   ChatGPT provided the grading prompt and JSON response structure.
 
+Lines 530-560: Assignment Score Calibration (Anti-Cluster)
+Reference:
+  - ChatGPT (OpenAI). Score Calibration Without Flat Clustering.
+    Date: 2026-03-01
+    Prompt: "My assignment scores are too high, but a fixed deduction by weakness/
+    suggestion count makes many reviews land on the same exact mark (e.g., 65%).
+    Can you suggest a conservative calibration that still preserves score spread?"
+  ChatGPT provided the non-linear score compression and bounded critique-penalty
+  pattern used to keep grades conservative without collapsing many outputs to the
+  same value.
+
 Lines 225-352: Course Bot Prompt + Citation Rules
 Reference:
   - ChatGPT (OpenAI). Course Bot Prompt Engineering with Citations.

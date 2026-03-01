@@ -527,17 +527,33 @@ class ChatGPTTaskBreakdownService:
 			weaknesses = [self._safe_str(w) for w in payload.get("weaknesses", []) if self._safe_str(w)]
 			suggestions = [self._safe_str(s) for s in payload.get("suggestions", []) if self._safe_str(s)]
 
-			# Reference: ChatGPT (OpenAI) - Scoring Adjustment from Critique Counts
-			# Date: 2026-01-22
-			# Prompt: "The grading feels too lenient. Can you suggest a way to
-			# reduce the score based on the number of weaknesses/suggestions?"
-			# ChatGPT provided the adjustment pattern based on critique counts.
-			# Apply a stricter scoring adjustment based on the amount of critique.
+			# Reference: ChatGPT (OpenAI) - Score Calibration Without Flat Clustering
+			# Date: 2026-03-01
+			# Prompt: "My assignment scores are too high, but a fixed deduction by weakness/
+			# suggestion count makes many reviews land on the same exact mark (e.g., 65%).
+			# Can you suggest a conservative calibration that still preserves score spread?"
+			# ChatGPT provided the non-linear calibration + bounded critique deduction
+			# pattern below to keep scores conservative without collapsing to one value.
 			if isinstance(score_est, (int, float)):
-				deduction = (len(weaknesses) * 2.0) + (len(suggestions) * 1.0)
-				if weaknesses or suggestions:
-					deduction += 5.0
-				score_est = max(0.0, min(100.0, float(score_est) - deduction))
+				raw_score = max(0.0, min(100.0, float(score_est)))
+
+				# Compress high-end scores toward the 70 band while preserving ordering.
+				if raw_score >= 70.0:
+					compressed = 70.0 + ((raw_score - 70.0) * 0.68)
+				elif raw_score >= 50.0:
+					compressed = 50.0 + ((raw_score - 50.0) * 0.9)
+				else:
+					compressed = raw_score
+
+				# Keep critique impact, but bounded so long bullet lists don't force identical marks.
+				critique_penalty = min(
+					9.0,
+					(len(weaknesses) * 0.65) + (len(suggestions) * 0.25),
+				)
+				if weaknesses:
+					critique_penalty += 1.0
+
+				score_est = round(max(0.0, min(100.0, compressed - critique_penalty)), 1)
 
 			return AssignmentReviewResponse(
 				feedback=feedback,
