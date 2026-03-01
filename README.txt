@@ -1533,6 +1533,30 @@ Reference:
   ChatGPT provided the idempotent table and index migration pattern.
 
 ================================================================================
+ITERATION 6 ADDITIONS (UI POLISH)
+================================================================================
+
+FILE: templates/register.html
+Reference:
+  - ChatGPT (OpenAI). Registration Page Visual Refresh.
+    Date: 2026-03-01
+    Prompt: "Can you redesign a Bootstrap registration page with a modern
+    dynamic look using layered gradients, glassmorphism card styling, and
+    cleaner grouped form sections while preserving all existing fields?"
+  ChatGPT provided the visual layout and CSS structure pattern used for the
+  modernized register page design while retaining the existing form behavior.
+
+FILE: templates/login.html
+Reference:
+  - ChatGPT (OpenAI). Login Page Visual Refresh.
+    Date: 2026-03-01
+    Prompt: "Can you redesign a Bootstrap login page so it looks modern and
+    dynamic using gradient background, glass card styling, and polished input
+    and CTA states, while preserving existing form behavior and routes?"
+  ChatGPT provided the visual layout and CSS structure pattern used for the
+  modernized login page design while retaining the existing login flow.
+
+================================================================================
 DOMAIN REGISTRAR
 ================================================================================
 

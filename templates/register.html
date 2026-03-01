@@ -3,85 +3,215 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>Register - Smart Student Planner</title>
+	<title>Register - StudyPilot</title>
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-</head>
-<body class="bg-light">
-	<div class="container">
-		<div class="row justify-content-center mt-5">
-			<div class="col-md-6 col-lg-5">
-				<div class="card shadow">
-					<div class="card-body p-5">
-						<h2 class="text-center mb-4">🎓 Student Planner</h2>
-						<h5 class="text-center text-muted mb-4">Create Account</h5>
-						
-						<!-- Flash Messages -->
-						{% with messages = get_flashed_messages(with_categories=true) %}
-							{% if messages %}
-								{% for category, message in messages %}
-									<div class="alert alert-{{ 'success' if category=='success' else 'danger' }} alert-dismissible fade show" role="alert">
-										{{ message }}
-										<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-									</div>
-								{% endfor %}
-							{% endif %}
-						{% endwith %}
-						
-						<form method="POST" action="{{ url_for('register') }}">
-							<div class="mb-3">
-								<label for="name" class="form-label">Full Name</label>
-								<input type="text" class="form-control" id="name" name="name" required autofocus>
-							</div>
-							
-							<div class="mb-3">
-								<label for="email" class="form-label">Email</label>
-								<input type="email" class="form-control" id="email" name="email" required>
-								<div class="form-text">Use your student email</div>
-							</div>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+	<style>
+		:root {
+			--surface: rgba(255, 255, 255, 0.9);
+			--border: rgba(148, 163, 184, 0.32);
+			--text: #0f172a;
+			--muted: #475569;
+			--primary: #4f46e5;
+			--primary-dark: #3730a3;
+		}
 
-							<div class="mb-3">
-								<label for="student_number" class="form-label">Student Number <span class="badge bg-secondary">Optional</span></label>
-								<input type="text" class="form-control" id="student_number" name="student_number" placeholder="e.g., 122753729">
+		/* Reference: ChatGPT (OpenAI) - Registration Page Visual Refresh
+		   Date: 2026-03-01
+		   Prompt: "Can you redesign a Bootstrap registration page with a modern
+		   dynamic look using layered gradients, glassmorphism card styling, and
+		   cleaner grouped form sections while preserving all existing fields?" 
+		   ChatGPT provided the visual layout and CSS structure pattern adapted here. */
+		body {
+			font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+			min-height: 100vh;
+			color: var(--text);
+			background:
+				radial-gradient(circle at 10% 10%, rgba(79, 70, 229, 0.3), transparent 35%),
+				radial-gradient(circle at 90% 15%, rgba(59, 130, 246, 0.25), transparent 35%),
+				radial-gradient(circle at 30% 90%, rgba(16, 185, 129, 0.18), transparent 40%),
+				linear-gradient(180deg, #eef2ff 0%, #f8fafc 100%);
+			display: flex;
+			align-items: center;
+			padding: 32px 12px;
+		}
+
+		.register-shell {
+			width: 100%;
+			max-width: 620px;
+			margin: 0 auto;
+		}
+
+		.register-card {
+			background: var(--surface);
+			backdrop-filter: blur(14px);
+			border: 1px solid var(--border);
+			border-radius: 24px;
+			box-shadow: 0 22px 60px rgba(15, 23, 42, 0.18);
+			overflow: hidden;
+		}
+
+		.register-card-body {
+			padding: 32px;
+		}
+
+		.brand-pill {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			padding: 8px 14px;
+			border-radius: 999px;
+			background: rgba(79, 70, 229, 0.1);
+			color: var(--primary-dark);
+			font-weight: 700;
+			font-size: 0.88rem;
+			margin-bottom: 10px;
+		}
+
+		.register-title {
+			font-size: 1.8rem;
+			font-weight: 800;
+			line-height: 1.2;
+			margin-bottom: 6px;
+		}
+
+		.register-subtitle {
+			color: var(--muted);
+			margin-bottom: 18px;
+		}
+
+		.form-section {
+			background: rgba(255, 255, 255, 0.82);
+			border: 1px solid rgba(148, 163, 184, 0.22);
+			border-radius: 16px;
+			padding: 16px 16px 4px;
+			margin-bottom: 14px;
+		}
+
+		.form-section-title {
+			font-size: 0.82rem;
+			text-transform: uppercase;
+			letter-spacing: 0.08em;
+			color: #334155;
+			font-weight: 700;
+			margin-bottom: 14px;
+		}
+
+		.form-label {
+			font-weight: 600;
+		}
+
+		.form-control {
+			border-radius: 12px;
+			border-color: rgba(148, 163, 184, 0.45);
+			padding: 10px 12px;
+		}
+
+		.form-control:focus {
+			border-color: rgba(79, 70, 229, 0.6);
+			box-shadow: 0 0 0 0.2rem rgba(79, 70, 229, 0.15);
+		}
+
+		.btn-register {
+			border-radius: 12px;
+			padding: 11px 14px;
+			font-weight: 700;
+			background: linear-gradient(135deg, #4f46e5 0%, #6366f1 60%, #2563eb 100%);
+			border: none;
+		}
+
+		.btn-register:hover {
+			background: linear-gradient(135deg, #4338ca 0%, #4f46e5 60%, #1d4ed8 100%);
+		}
+
+		.badge-soft {
+			background: rgba(71, 85, 105, 0.12);
+			color: #334155;
+			font-weight: 600;
+		}
+
+		.footer-note {
+			color: #64748b;
+			font-size: 0.86rem;
+			text-align: center;
+			margin-top: 14px;
+		}
+	</style>
+</head>
+<body>
+	<div class="register-shell">
+		<div class="register-card">
+			<div class="register-card-body">
+				<div class="brand-pill">✈️ StudyPilot</div>
+				<h1 class="register-title">Create your account</h1>
+				<p class="register-subtitle">Set up your planner profile and optionally connect Canvas for instant assignment sync.</p>
+
+				{% with messages = get_flashed_messages(with_categories=true) %}
+					{% if messages %}
+						{% for category, message in messages %}
+							<div class="alert alert-{{ 'success' if category=='success' else 'danger' }} alert-dismissible fade show" role="alert">
+								{{ message }}
+								<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
 							</div>
-							
-							<div class="mb-3">
-								<label for="password" class="form-label">Password</label>
-								<input type="password" class="form-control" id="password" name="password" required minlength="6">
-								<div class="form-text">At least 6 characters</div>
-							</div>
-							
+						{% endfor %}
+					{% endif %}
+				{% endwith %}
+
+				<form method="POST" action="{{ url_for('register') }}">
+					<div class="form-section">
+						<div class="form-section-title">Account Details</div>
+						<div class="mb-3">
+							<label for="name" class="form-label">Full Name</label>
+							<input type="text" class="form-control" id="name" name="name" required autofocus>
+						</div>
+
+						<div class="mb-3">
+							<label for="email" class="form-label">Email</label>
+							<input type="email" class="form-control" id="email" name="email" required>
+							<div class="form-text">Use your student email.</div>
+						</div>
+
+						<div class="mb-3">
+							<label for="student_number" class="form-label">Student Number <span class="badge badge-soft">Optional</span></label>
+							<input type="text" class="form-control" id="student_number" name="student_number" placeholder="e.g., 122753729">
+						</div>
+
+						<div class="mb-3">
+							<label for="password" class="form-label">Password</label>
+							<input type="password" class="form-control" id="password" name="password" required minlength="6">
+							<div class="form-text">At least 6 characters.</div>
+						</div>
+
 						<div class="mb-3">
 							<label for="password_confirm" class="form-label">Confirm Password</label>
 							<input type="password" class="form-control" id="password_confirm" name="password_confirm" required minlength="6">
 						</div>
-						
-						<hr class="my-4">
-						
+					</div>
+
+					<div class="form-section">
+						<div class="form-section-title">Canvas Connection</div>
 						<div class="mb-3">
-							<label for="canvas_api_token" class="form-label">🎓 Canvas API Token <span class="badge bg-secondary">Optional</span></label>
+							<label for="canvas_api_token" class="form-label">Canvas API Token <span class="badge badge-soft">Optional</span></label>
 							<input type="text" class="form-control" id="canvas_api_token" name="canvas_api_token" placeholder="Paste your UCC Canvas API token here">
 							<div class="form-text">
-								<small>Add your Canvas token now to sync assignments, or add it later from Canvas Sync page.</small><br>
-								<a href="https://ucc.instructure.com/profile/settings" target="_blank" class="text-decoration-none">📖 Get your Canvas token →</a>
+								Add your token now for one-click sync, or add it later from the Canvas Sync page.<br>
+								<a href="https://ucc.instructure.com/profile/settings" target="_blank" rel="noopener noreferrer" class="text-decoration-none">Get your Canvas token →</a>
 							</div>
 						</div>
-						
-						<button type="submit" class="btn btn-primary w-100 mb-3">Register</button>
-							
-							<div class="text-center">
-								<small class="text-muted">Already have an account? <a href="{{ url_for('login') }}">Login here</a></small>
-							</div>
-						</form>
 					</div>
-				</div>
-				
-				<div class="text-center mt-3">
-					<small class="text-muted">Smart Student Planner - Proof of Value</small>
-				</div>
+
+					<button type="submit" class="btn btn-primary btn-register w-100 mb-3">Create Account</button>
+
+					<div class="text-center">
+						<small class="text-muted">Already have an account? <a href="{{ url_for('login') }}">Login here</a></small>
+					</div>
+				</form>
 			</div>
 		</div>
+		<div class="footer-note">StudyPilot — AI-Powered Academic Planner</div>
 	</div>
-	
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 </body>
 </html>
