@@ -1568,6 +1568,36 @@ Reference:
   modernized login page design while retaining the existing login flow.
 
 ================================================================================
+ITERATION 7 ADDITIONS (STUDY GROUP FILE SHARING)
+================================================================================
+
+FILE: main.py
+Reference:
+  - ChatGPT (OpenAI). Study Group Resource File Upload + Safe DB Fallback.
+    Date: 2026-03-01
+    Prompt: "I need to add file uploads to study-group resources with member-only
+    access, and avoid runtime crashes if the DB migration hasn't run yet. Can you
+    provide a safe Flask pattern with upload validation and fallback handling?"
+  ChatGPT provided the upload validation + migration-safe fallback pattern used
+  in /study-groups resource submission flow.
+
+  - ChatGPT (OpenAI). Study Group File Download Guard.
+    Date: 2026-03-01
+    Prompt: "I need a secure Flask download endpoint for study-group resource files
+    where only members of the same study group can download. Can you provide a safe
+    membership check pattern and send_file handling?"
+  ChatGPT provided the membership-check + secure download route pattern used in
+  /study-groups/resources/<id>/download.
+
+FILE: scripts/add_study_group_resource_files.sql
+Reference:
+  - ChatGPT (OpenAI). Study Group Resource File Columns Migration.
+    Date: 2026-03-01
+    Prompt: "I need an idempotent SQL migration to extend study_group_resources with
+    optional file metadata columns so resources can include uploaded files."
+  ChatGPT provided the ALTER TABLE migration pattern with IF NOT EXISTS.
+
+================================================================================
 DOMAIN REGISTRAR
 ================================================================================
 

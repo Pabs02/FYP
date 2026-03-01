@@ -151,6 +151,7 @@ def _format_activity_title(item: Dict[str, Any]) -> str:
 		"group_workspace": "Group Workspace",
 		"group_workspace_invite": "Group Invite",
 		"group_workspace_download_file": "Group File Download",
+		"study_group_download_resource_file": "Study Group Resource Download",
 		"toggle_lecture_attendance": "Lecture Attendance",
 	}
 
@@ -6558,36 +6559,115 @@ def study_groups():
 			title = (request.form.get("title") or "").strip()
 			url_value = (request.form.get("url") or "").strip()
 			note = (request.form.get("note") or "").strip()
+			file_storage = request.files.get("resource_file")
+			filename = ""
+			payload = b""
+			filepath: Optional[str] = None
+			file_size_bytes: Optional[int] = None
+			has_file = bool(file_storage and file_storage.filename)
 			if not is_member:
 				flash("Join the study group before sharing resources.", "warning")
 			elif not title:
 				flash("Resource title is required.", "warning")
-			elif not url_value and not note:
-				flash("Add a link or a note for the resource.", "warning")
+			elif not url_value and not note and not has_file:
+				flash("Add a link, note, or file for the resource.", "warning")
 			else:
 				if url_value and not (url_value.startswith("http://") or url_value.startswith("https://")):
 					url_value = f"https://{url_value}"
+				if has_file and file_storage:
+					try:
+						filename = os.path.basename((file_storage.filename or "").strip())
+						if not filename:
+							raise ValueError("Invalid resource filename.")
+						payload = file_storage.read()
+						if not payload:
+							raise ValueError("The uploaded resource file was empty.")
+						if len(payload) > _GROUP_MAX_UPLOAD_BYTES:
+							raise ValueError("Resource file is larger than 8 MB.")
+						uploads_dir = os.path.join(app.root_path, "uploads", "study_group_resources")
+						os.makedirs(uploads_dir, exist_ok=True)
+						timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+						stored_name = f"g{group_id}_u{current_user.id}_{timestamp}_{filename}"
+						filepath = os.path.join(uploads_dir, stored_name)
+						with open(filepath, "wb") as f:
+							f.write(payload)
+						file_size_bytes = len(payload)
+					except ValueError as exc:
+						if filepath and os.path.exists(filepath):
+							try:
+								os.remove(filepath)
+							except Exception:
+								pass
+						flash(str(exc), "warning")
+						return redirect(url_for("study_groups", module_code=module_code))
+					except Exception as exc:
+						if filepath and os.path.exists(filepath):
+							try:
+								os.remove(filepath)
+							except Exception:
+								pass
+						print(f"[study-groups] resource file upload failed user={current_user.id} group={group_id} err={exc}")
+						flash("Could not upload the resource file.", "error")
+						return redirect(url_for("study_groups", module_code=module_code))
 				try:
-					sb_execute(
-						"""
-						INSERT INTO study_group_resources (
-							group_id, student_id, title, url, note, created_at
-						) VALUES (
-							:group_id, :student_id, :title, :url, :note, NOW()
+					if has_file and filepath:
+						# Reference: ChatGPT (OpenAI) - Study Group Resource File Upload + Safe DB Fallback
+						# Date: 2026-03-01
+						# Prompt: "I need to add file uploads to study-group resources with member-only
+						# access, and avoid runtime crashes if the DB migration hasn't run yet. Can you
+						# provide a safe Flask pattern with upload validation and fallback handling?"
+						# ChatGPT provided the upload + migration-safe fallback pattern adapted below.
+						sb_execute(
+							"""
+							INSERT INTO study_group_resources (
+								group_id, student_id, title, url, note,
+								resource_filename, resource_filepath, resource_file_size_bytes, created_at
+							) VALUES (
+								:group_id, :student_id, :title, :url, :note,
+								:resource_filename, :resource_filepath, :resource_file_size_bytes, NOW()
+							)
+							""",
+							{
+								"group_id": group_id,
+								"student_id": current_user.id,
+								"title": title[:255],
+								"url": url_value[:1000] if url_value else None,
+								"note": note[:2000] if note else None,
+								"resource_filename": filename[:255],
+								"resource_filepath": filepath,
+								"resource_file_size_bytes": file_size_bytes or len(payload),
+							},
 						)
-						""",
-						{
-							"group_id": group_id,
-							"student_id": current_user.id,
-							"title": title[:255],
-							"url": url_value[:1000] if url_value else None,
-							"note": note[:2000] if note else None,
-						},
-					)
+					else:
+						sb_execute(
+							"""
+							INSERT INTO study_group_resources (
+								group_id, student_id, title, url, note, created_at
+							) VALUES (
+								:group_id, :student_id, :title, :url, :note, NOW()
+							)
+							""",
+							{
+								"group_id": group_id,
+								"student_id": current_user.id,
+								"title": title[:255],
+								"url": url_value[:1000] if url_value else None,
+								"note": note[:2000] if note else None,
+							},
+						)
 					flash("Resource shared with the group.", "success")
 				except Exception as exc:
+					if filepath and os.path.exists(filepath):
+						try:
+							os.remove(filepath)
+						except Exception:
+							pass
+					err_text = str(exc)
+					if "UndefinedColumn" in err_text or "does not exist" in err_text:
+						flash("Database update required for file sharing. Run scripts/add_study_group_resource_files.sql.", "warning")
+					else:
+						flash("Could not add the resource.", "error")
 					print(f"[study-groups] resource add failed user={current_user.id} group={group_id} err={exc}")
-					flash("Could not add the resource.", "error")
 		elif action == "add_room_booking":
 			room_name = (request.form.get("room_name") or "").strip()
 			booked_for_raw = (request.form.get("booked_for_at") or "").strip()
@@ -6721,7 +6801,10 @@ def study_groups():
 			try:
 				resources = sb_fetch_all(
 					"""
-					SELECT id, title, url, note, created_at
+					SELECT
+						id, title, url, note,
+						resource_filename, resource_filepath, resource_file_size_bytes,
+						created_at
 					FROM study_group_resources
 					WHERE group_id = :group_id
 					ORDER BY created_at DESC
@@ -6729,8 +6812,28 @@ def study_groups():
 					""",
 					{"group_id": group_id},
 				)
-			except Exception:
-				resources = []
+			except Exception as exc:
+				err_text = str(exc)
+				if "UndefinedColumn" in err_text or "does not exist" in err_text:
+					try:
+						resources = sb_fetch_all(
+							"""
+							SELECT id, title, url, note, created_at
+							FROM study_group_resources
+							WHERE group_id = :group_id
+							ORDER BY created_at DESC
+							LIMIT 100
+							""",
+							{"group_id": group_id},
+						)
+						for item in resources:
+							item["resource_filename"] = None
+							item["resource_filepath"] = None
+							item["resource_file_size_bytes"] = None
+					except Exception:
+						resources = []
+				else:
+					resources = []
 			try:
 				room_bookings = sb_fetch_all(
 					"""
@@ -6760,6 +6863,47 @@ def study_groups():
 		resources=resources,
 		room_bookings=room_bookings,
 	)
+
+
+# Reference: ChatGPT (OpenAI) - Study Group File Download Guard
+# Date: 2026-03-01
+# Prompt: "I need a secure Flask download endpoint for study-group resource files
+# where only members of the same study group can download. Can you provide a safe
+# ownership/membership check pattern and send_file handling?"
+# ChatGPT provided the membership-check + send_file route pattern adapted below.
+@app.route("/study-groups/resources/<int:resource_id>/download")
+@login_required
+def study_group_download_resource_file(resource_id: int):
+	row = sb_fetch_one(
+		"""
+		SELECT id, group_id, resource_filename, resource_filepath
+		FROM study_group_resources
+		WHERE id = :resource_id
+		LIMIT 1
+		""",
+		{"resource_id": resource_id},
+	)
+	if not row:
+		abort(404)
+	group_id = row.get("group_id")
+	if not group_id:
+		abort(404)
+	member = sb_fetch_one(
+		"""
+		SELECT id
+		FROM study_group_members
+		WHERE group_id = :group_id AND student_id = :student_id
+		LIMIT 1
+		""",
+		{"group_id": group_id, "student_id": current_user.id},
+	)
+	if not member:
+		abort(404)
+	filepath = row.get("resource_filepath")
+	if not filepath or not os.path.exists(filepath):
+		abort(404)
+	filename = row.get("resource_filename") or "resource_file"
+	return send_file(filepath, as_attachment=True, download_name=filename)
 
 
 # Reference: ChatGPT (OpenAI) - Per-Module Dashboard Routes

@@ -127,11 +127,12 @@
 						<div class="border rounded p-3 h-100">
 							<div class="fw-semibold mb-2">Shared Resources</div>
 							{% if is_member %}
-								<form method="POST" action="{{ url_for('study_groups', module_code=selected_module_code) }}" class="mb-3">
+								<form method="POST" action="{{ url_for('study_groups', module_code=selected_module_code) }}" class="mb-3" enctype="multipart/form-data">
 									<input type="hidden" name="action" value="add_resource">
 									<input type="hidden" name="module_code" value="{{ selected_module_code }}">
 									<input type="text" class="form-control mb-2" name="title" maxlength="255" placeholder="Resource title">
 									<input type="text" class="form-control mb-2" name="url" maxlength="1000" placeholder="Link (optional)">
+									<input type="file" class="form-control mb-2" name="resource_file" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.md,.zip,.png,.jpg,.jpeg">
 									<textarea class="form-control mb-2" name="note" rows="2" maxlength="2000" placeholder="Short note (optional)"></textarea>
 									<button type="submit" class="btn btn-sm btn-outline-success">Share Resource</button>
 								</form>
@@ -144,6 +145,16 @@
 										<div class="fw-semibold">{{ item.title }}</div>
 										{% if item.url %}
 											<div><a href="{{ item.url }}" target="_blank" rel="noopener noreferrer">{{ item.url }}</a></div>
+										{% endif %}
+										{% if item.resource_filename %}
+											<div class="mt-1">
+												<a class="btn btn-sm btn-outline-primary" href="{{ url_for('study_group_download_resource_file', resource_id=item.id) }}">
+													Download {{ item.resource_filename }}
+												</a>
+												{% if item.resource_file_size_bytes %}
+													<span class="small text-muted ms-2">{{ (item.resource_file_size_bytes / 1024)|round(1) }} KB</span>
+												{% endif %}
+											</div>
 										{% endif %}
 										{% if item.note %}
 											<div class="small text-muted mt-1">{{ item.note }}</div>
