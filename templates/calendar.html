@@ -23,21 +23,6 @@
 		</div>
 	</div>
 
-	<div class="card table-card mb-4">
-		<div class="card-header d-flex justify-content-between align-items-center">
-			<span>🎙️ Voice Quick Actions</span>
-			<span id="voiceStatusCalendar" class="small text-muted">Ready</span>
-		</div>
-		<div class="card-body">
-			<textarea id="voiceTranscriptCalendar" class="form-control mb-2" rows="2" placeholder="Try: Open calendar | Open modules | Open module IS4408 | Add lecture revision every Tuesday 6pm to 8pm until May"></textarea>
-			<div class="d-flex gap-2 flex-wrap mb-2">
-				<button id="voiceCaptureBtnCalendar" type="button" class="btn btn-sm btn-outline-success">Start Recording</button>
-				<button id="voiceCommandBtnCalendar" type="button" class="btn btn-sm btn-outline-primary">Run Voice Command</button>
-			</div>
-			<div id="voiceResultCalendar" class="small text-muted"></div>
-		</div>
-	</div>
-
 	<div class="alert alert-info" role="alert" id="noEventsHint" style="display:none;">
 		No timed lecture events found. If lectures are on your Canvas calendar:
 		<ol class="mb-0">
@@ -100,7 +85,7 @@
 	{% endif %}
 
 	{% if user_events %}
-	<div class="card table-card">
+	<div class="card table-card mb-4">
 		<div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
 			<span class="fw-semibold">📅 One-time Events</span>
 			<span class="text-muted small">{{ user_events|length }} total</span>
@@ -133,6 +118,48 @@
 		</div>
 	</div>
 	{% endif %}
+
+	<div class="card table-card mb-4">
+		<div class="card-header d-flex justify-content-between align-items-center">
+			<span class="fw-semibold">✅ Lecture Check-in (click when attended)</span>
+			<span class="text-muted small">Last 8 weeks + next 2 weeks</span>
+		</div>
+		<div class="table-responsive">
+			{% if lecture_sessions_recent %}
+				<table class="table table-hover table-tasks align-middle">
+					<thead>
+						<tr>
+							<th>Lecture</th>
+							<th>Module</th>
+							<th>Week/Date</th>
+							<th>Attended</th>
+						</tr>
+					</thead>
+					<tbody>
+						{% for lec in lecture_sessions_recent %}
+							<tr>
+								<td>{{ lec.title }}</td>
+								<td>{{ lec.module_code or '-' }}</td>
+								<td>{{ lec.start_at | irish_datetime if lec.start_at else '-' }}</td>
+								<td>
+									<form method="POST" action="{{ url_for('toggle_lecture_attendance', event_id=lec.id) }}">
+										<input type="hidden" name="next" value="{{ url_for('calendar_view') }}">
+										<button type="submit" class="btn btn-sm {% if lec.attended %}btn-success{% else %}btn-outline-secondary{% endif %}">
+											{% if lec.attended %}Attended{% else %}Mark Attended{% endif %}
+										</button>
+									</form>
+								</td>
+							</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+			{% else %}
+				<div class="p-3">
+					<p class="text-muted mb-0">No lecture sessions found. Sync Canvas calendar events first.</p>
+				</div>
+			{% endif %}
+		</div>
+	</div>
 </div>
 
 <!-- Add Event Modal -->
@@ -314,105 +341,6 @@
 <script id="calendar-data" type="application/json">{{ events | tojson | safe }}</script>
 
 <script>
-	// Reference: ChatGPT (OpenAI) - Reusable Voice Command Widget (Frontend)
-	// Date: 2026-02-11
-	// Prompt: "I need a lightweight browser voice widget that records speech and sends
-	// transcript to a Flask /voice-command endpoint, then renders result feedback.
-	// Can you provide a reusable JS pattern?"
-	// ChatGPT provided the start/stop + fetch/render interaction pattern below.
-	(function initCalendarVoiceWidget() {
-		const captureBtn = document.getElementById('voiceCaptureBtnCalendar');
-		const commandBtn = document.getElementById('voiceCommandBtnCalendar');
-		const transcriptEl = document.getElementById('voiceTranscriptCalendar');
-		const statusEl = document.getElementById('voiceStatusCalendar');
-		const resultEl = document.getElementById('voiceResultCalendar');
-		if (!captureBtn || !commandBtn || !transcriptEl || !statusEl || !resultEl) return;
-		const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-		let recognition = null;
-		let isListening = false;
-
-		if (SpeechRecognition) {
-			recognition = new SpeechRecognition();
-			recognition.lang = 'en-IE';
-			recognition.interimResults = true;
-			recognition.continuous = false;
-			recognition.onstart = () => {
-				isListening = true;
-				captureBtn.textContent = 'Stop Recording';
-				statusEl.textContent = 'Listening...';
-			};
-			recognition.onresult = (event) => {
-				let combined = '';
-				for (let i = event.resultIndex; i < event.results.length; i += 1) {
-					combined += event.results[i][0].transcript;
-				}
-				transcriptEl.value = `${transcriptEl.value} ${combined}`.trim();
-			};
-			recognition.onerror = () => { statusEl.textContent = 'Voice input failed.'; };
-			recognition.onend = () => {
-				isListening = false;
-				captureBtn.textContent = 'Start Recording';
-				if (!statusEl.textContent.includes('failed')) statusEl.textContent = 'Ready';
-			};
-		} else {
-			captureBtn.disabled = true;
-			statusEl.textContent = 'Speech API not supported in this browser.';
-		}
-
-		captureBtn.addEventListener('click', () => {
-			if (!recognition) return;
-			if (isListening) recognition.stop();
-			else recognition.start();
-		});
-
-		commandBtn.addEventListener('click', async () => {
-			const transcript = (transcriptEl.value || '').trim();
-			if (!transcript) {
-				resultEl.textContent = 'Please add or record a transcript first.';
-				return;
-			}
-			commandBtn.disabled = true;
-			commandBtn.textContent = 'Running...';
-			resultEl.textContent = 'Running voice command...';
-			const controller = new AbortController();
-			const timeoutId = setTimeout(() => controller.abort(), 25000);
-			try {
-				const response = await fetch('/voice-command', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ transcript }),
-					signal: controller.signal,
-				});
-				clearTimeout(timeoutId);
-				if (response.redirected || response.url.includes('/login')) {
-					resultEl.textContent = 'Session expired — please refresh the page and log in again.';
-					return;
-				}
-				const ct = response.headers.get('content-type') || '';
-				if (!ct.includes('application/json')) {
-					throw new Error('Session may have expired. Please refresh the page and log in.');
-				}
-				const data = await response.json();
-				if (!response.ok || !data.ok) throw new Error(data.error || 'Voice command failed');
-				resultEl.textContent = data.message || 'Voice command completed.';
-				if (data.data && data.data.redirect_url) {
-					window.location.href = data.data.redirect_url;
-					return;
-				}
-			} catch (error) {
-				clearTimeout(timeoutId);
-				if (error.name === 'AbortError') {
-					resultEl.textContent = 'Voice command timed out — the server may be waking up. Please try again in a moment.';
-				} else {
-					resultEl.textContent = `Voice command failed: ${error.message}`;
-				}
-			} finally {
-				commandBtn.disabled = false;
-				commandBtn.textContent = 'Run Voice Command';
-			}
-		});
-	})();
-
 	document.addEventListener('DOMContentLoaded', function() {
 		const dataEl = document.getElementById('calendar-data');
 		let calendarEvents = [];

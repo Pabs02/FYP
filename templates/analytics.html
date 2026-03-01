@@ -420,50 +420,6 @@
 		</div>
 	</div>
 
-	<div class="analytics-card mb-4">
-		<div class="analytics-card-header">
-			<h3>✅ Lecture Check-in (click when attended)</h3>
-			<span style="font-size: 0.75rem; color: #64748b;">Last 8 weeks + next 2 weeks</span>
-		</div>
-		<div class="analytics-card-body p-0">
-			{% if analytics.lecture_sessions_recent %}
-				<div class="table-responsive">
-					<table class="clean-table">
-						<thead>
-							<tr>
-								<th>Lecture</th>
-								<th>Module</th>
-								<th>Week/Date</th>
-								<th>Attended</th>
-							</tr>
-						</thead>
-						<tbody>
-							{% for lec in analytics.lecture_sessions_recent %}
-								<tr>
-									<td>{{ lec.title }}</td>
-									<td>{{ lec.module_code or '-' }}</td>
-									<td>{{ lec.start_at | irish_datetime if lec.start_at else '-' }}</td>
-									<td>
-										<form method="POST" action="{{ url_for('toggle_lecture_attendance', event_id=lec.id) }}">
-											<input type="hidden" name="next" value="{{ url_for('analytics') }}">
-											<button type="submit" class="btn btn-sm {% if lec.attended %}btn-success{% else %}btn-outline-secondary{% endif %}">
-												{% if lec.attended %}Attended{% else %}Mark Attended{% endif %}
-											</button>
-										</form>
-									</td>
-								</tr>
-							{% endfor %}
-						</tbody>
-					</table>
-				</div>
-			{% else %}
-				<div class="p-3">
-					<p class="text-muted mb-0">No lecture sessions found. Sync Canvas calendar events first.</p>
-				</div>
-			{% endif %}
-		</div>
-	</div>
-	
 	<!-- Actionable Insights -->
 	{% if analytics.focus_module or analytics.at_risk_assignments or analytics.overdue_by_module %}
 	<div class="insights-banner">

@@ -371,14 +371,6 @@
         }
     }
 
-    .voice-quick-card {
-        background: #ffffff;
-        border-radius: 14px;
-        border: 1px solid rgba(0, 0, 0, 0.06);
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
-        padding: 1rem;
-        margin-bottom: 1.5rem;
-    }
 </style>
 
 <div class="microtasks-page">
@@ -399,19 +391,6 @@
         </p>
     </div>
 
-    <div class="voice-quick-card">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <strong>🎙️ Voice Quick Actions</strong>
-            <span id="voiceStatusMicrotasks" class="small text-muted">Ready</span>
-        </div>
-        <textarea id="voiceTranscriptMicrotasks" class="form-control mb-2" rows="2" placeholder="Try: Open modules | Open module IS4408 | Break IS4416 database report into 5 steps due next Thursday"></textarea>
-        <div class="d-flex gap-2 flex-wrap mb-2">
-            <button id="voiceCaptureBtnMicrotasks" type="button" class="btn btn-sm btn-outline-success">Start Recording</button>
-            <button id="voiceCommandBtnMicrotasks" type="button" class="btn btn-sm btn-outline-primary">Run Voice Command</button>
-        </div>
-        <div id="voiceResultMicrotasks" class="small text-muted"></div>
-    </div>
-    
     {% if subtasks %}
     <!-- Stats -->
     {% set completed_count = subtasks | selectattr('is_completed') | list | length %}
@@ -519,103 +498,4 @@
     </div>
     {% endif %}
 </div>
-<script>
-// Reference: ChatGPT (OpenAI) - Reusable Voice Command Widget (Frontend)
-// Date: 2026-02-11
-// Prompt: "I need a lightweight browser voice widget that records speech and sends
-// transcript to a Flask /voice-command endpoint, then renders result feedback.
-// Can you provide a reusable JS pattern?"
-// ChatGPT provided the start/stop + fetch/render interaction pattern below.
-document.addEventListener('DOMContentLoaded', () => {
-    const captureBtn = document.getElementById('voiceCaptureBtnMicrotasks');
-    const commandBtn = document.getElementById('voiceCommandBtnMicrotasks');
-    const transcriptEl = document.getElementById('voiceTranscriptMicrotasks');
-    const statusEl = document.getElementById('voiceStatusMicrotasks');
-    const resultEl = document.getElementById('voiceResultMicrotasks');
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    let recognition = null;
-    let isListening = false;
-
-    if (SpeechRecognition) {
-        recognition = new SpeechRecognition();
-        recognition.lang = 'en-IE';
-        recognition.interimResults = true;
-        recognition.continuous = false;
-        recognition.onstart = () => {
-            isListening = true;
-            captureBtn.textContent = 'Stop Recording';
-            statusEl.textContent = 'Listening...';
-        };
-        recognition.onresult = (event) => {
-            let combined = '';
-            for (let i = event.resultIndex; i < event.results.length; i += 1) {
-                combined += event.results[i][0].transcript;
-            }
-            transcriptEl.value = `${transcriptEl.value} ${combined}`.trim();
-        };
-        recognition.onerror = () => { statusEl.textContent = 'Voice input failed.'; };
-        recognition.onend = () => {
-            isListening = false;
-            captureBtn.textContent = 'Start Recording';
-            if (!statusEl.textContent.includes('failed')) statusEl.textContent = 'Ready';
-        };
-    } else {
-        captureBtn.disabled = true;
-        statusEl.textContent = 'Speech API not supported in this browser.';
-    }
-
-    captureBtn?.addEventListener('click', () => {
-        if (!recognition) return;
-        if (isListening) recognition.stop();
-        else recognition.start();
-    });
-
-    commandBtn?.addEventListener('click', async () => {
-        const transcript = (transcriptEl.value || '').trim();
-        if (!transcript) {
-            resultEl.textContent = 'Please add or record a transcript first.';
-            return;
-        }
-        commandBtn.disabled = true;
-        commandBtn.textContent = 'Running...';
-        resultEl.textContent = 'Running voice command...';
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 25000);
-        try {
-            const response = await fetch('/voice-command', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ transcript }),
-                signal: controller.signal,
-            });
-            clearTimeout(timeoutId);
-            if (response.redirected || response.url.includes('/login')) {
-                resultEl.textContent = 'Session expired — please refresh the page and log in again.';
-                return;
-            }
-            const ct = response.headers.get('content-type') || '';
-            if (!ct.includes('application/json')) {
-                throw new Error('Session may have expired. Please refresh the page and log in.');
-            }
-            const data = await response.json();
-            if (!response.ok || !data.ok) throw new Error(data.error || 'Voice command failed');
-            resultEl.textContent = data.message || 'Voice command completed.';
-            if (data.data && data.data.redirect_url) {
-                window.location.href = data.data.redirect_url;
-                return;
-            }
-        } catch (error) {
-            clearTimeout(timeoutId);
-            if (error.name === 'AbortError') {
-                resultEl.textContent = 'Voice command timed out — the server may be waking up. Please try again in a moment.';
-            } else {
-                resultEl.textContent = `Voice command failed: ${error.message}`;
-            }
-        } finally {
-            commandBtn.disabled = false;
-            commandBtn.textContent = 'Run Voice Command';
-        }
-    });
-});
-</script>
 {% endblock %}

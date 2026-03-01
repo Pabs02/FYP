@@ -5552,7 +5552,36 @@ def calendar_view():
 			# Single occurrence - show as one-time event
 			single_events.extend(group['events'])
 
-	return render_template("calendar.html", events=events, user_events=single_events, recurring_events=recurring_events)
+	try:
+		lecture_sessions_recent = sb_fetch_all(
+			"""
+			SELECT e.id, e.title, e.start_at, e.end_at, e.module_id, m.code AS module_code,
+			       COALESCE(la.attended, FALSE) AS attended
+			FROM events e
+			LEFT JOIN lecture_attendance la
+			       ON la.event_id = e.id
+			      AND la.student_id = :student_id
+			LEFT JOIN modules m ON m.id = e.module_id
+			WHERE e.student_id = :student_id
+			  AND e.canvas_event_id IS NOT NULL
+			  AND e.start_at >= NOW() - INTERVAL '8 weeks'
+			  AND e.start_at <= NOW() + INTERVAL '2 weeks'
+			ORDER BY e.start_at DESC
+			LIMIT 80
+			""",
+			{"student_id": current_user.id},
+		)
+	except Exception as exc:
+		print(f"[calendar] lecture check-in load failed user={current_user.id} error={exc}")
+		lecture_sessions_recent = []
+
+	return render_template(
+		"calendar.html",
+		events=events,
+		user_events=single_events,
+		recurring_events=recurring_events,
+		lecture_sessions_recent=lecture_sessions_recent,
+	)
 
 
 @app.route("/calendar/add", methods=["POST"])
