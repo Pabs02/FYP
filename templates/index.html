@@ -51,18 +51,20 @@
 <div class="card dashboard-card mb-4">
 	<div class="card-header d-flex justify-content-between align-items-center">
 		<span>✉️ Lecturer Connect</span>
-		{% if lecturer_history %}
-			<a href="/lecturer-messages" class="btn btn-sm btn-outline-secondary">View Sent Messages</a>
-		{% endif %}
-	</div>
-	<div class="card-body">
-		{% if lecturers %}
-			<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-				<p class="mb-0 text-muted small">Quickly draft and send a message without cluttering the dashboard feed.</p>
+		<div class="d-flex gap-2">
+			{% if lecturer_history %}
+				<a href="/lecturer-messages" class="btn btn-sm btn-outline-secondary">View Sent Messages</a>
+			{% endif %}
+			{% if lecturers %}
 				<button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#composeMessageCollapse" aria-expanded="{% if lecturer_draft %}true{% else %}false{% endif %}" aria-controls="composeMessageCollapse">
 					✉️ Compose
 				</button>
-			</div>
+			{% endif %}
+		</div>
+	</div>
+	<div class="card-body">
+		{% if lecturers %}
+			<p class="mb-3 text-muted small">Quickly draft and send a message.</p>
 			<div class="collapse {% if lecturer_draft %}show{% endif %}" id="composeMessageCollapse">
 				<form method="POST" action="/contact-lecturer" class="p-3 bg-light rounded-3">
 					<div class="row g-2 mb-2">
