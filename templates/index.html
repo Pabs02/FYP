@@ -20,13 +20,85 @@
 			</div>
 		</div>
 		<div class="col-lg-5">
-			<div class="hero-meta">
-				<h6 class="mb-2">Quick start</h6>
-				<p class="small text-muted mb-3">Add your modules and assignments, then jump into the dashboard for progress insights.</p>
-				<div class="d-flex flex-wrap gap-2">
-					<a class="btn btn-sm btn-outline-primary" href="/semester">Active Semester</a>
-					<a class="btn btn-sm btn-outline-primary" href="/calendar">Calendar</a>
-					<a class="btn btn-sm btn-outline-primary" href="/ai-workspace">AI Workspace</a>
+			<div class="d-flex flex-column gap-3">
+				<div class="hero-meta text-start p-3">
+					<div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+						<h6 class="mb-0">Lecturer Connect</h6>
+						<div class="d-flex gap-2">
+							{% if lecturer_history %}
+								<a href="/lecturer-messages" class="btn btn-sm btn-outline-secondary">View Sent</a>
+							{% endif %}
+							{% if lecturers %}
+								<button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#composeMessageCollapse" aria-expanded="{% if lecturer_draft %}true{% else %}false{% endif %}" aria-controls="composeMessageCollapse">
+									Compose
+								</button>
+							{% endif %}
+						</div>
+					</div>
+					{% if lecturers %}
+						<p class="small text-muted mb-2">Quickly draft and send a message.</p>
+						<div class="collapse {% if lecturer_draft %}show{% endif %}" id="composeMessageCollapse">
+							<form method="POST" action="/contact-lecturer" class="p-2 bg-light rounded-3">
+								<div class="row g-2 mb-2">
+									<div class="col-sm-6">
+										<label for="lecturer_id" class="form-label small fw-semibold">Lecturer</label>
+										<select id="lecturer_id" name="lecturer_id" class="form-select form-select-sm" required>
+											<option value="">Select...</option>
+											{% for lec in lecturers %}
+												<option value="{{ lec.id }}" {% if lecturer_id and lecturer_id|string == lec.id|string %}selected{% endif %}>
+													{{ lec.name }}{% if lec.module_code %} ({{ lec.module_code }}){% endif %}
+												</option>
+											{% endfor %}
+										</select>
+									</div>
+									<div class="col-sm-6">
+										<label for="lecturer_subject" class="form-label small fw-semibold">Subject</label>
+										<input type="text" id="lecturer_subject" name="subject" class="form-control form-control-sm" placeholder="e.g., Assignment query" value="{{ lecturer_subject or '' }}" required>
+									</div>
+								</div>
+								<div class="mb-2">
+									<label for="lecturer_request" class="form-label small fw-semibold">What do you need?</label>
+									<textarea id="lecturer_request" name="request_text" class="form-control form-control-sm" rows="2" placeholder="Brief description for AI to draft your message">{{ lecturer_request or '' }}</textarea>
+								</div>
+								<div class="mb-2">
+									<label for="lecturer_message" class="form-label small fw-semibold">Message</label>
+									<textarea id="lecturer_message" name="message" class="form-control form-control-sm" rows="2" placeholder="Your message to the lecturer...">{{ lecturer_draft or '' }}</textarea>
+								</div>
+								<div class="d-flex gap-2">
+									<button type="submit" name="action" value="generate" class="btn btn-sm btn-outline-secondary flex-fill">Draft</button>
+									<button type="submit" name="action" value="send" class="btn btn-sm btn-primary flex-fill">Send</button>
+								</div>
+							</form>
+						</div>
+					{% else %}
+						<div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+							<p class="text-muted mb-0 small">No lecturers configured yet.</p>
+							<a class="btn btn-sm btn-outline-primary" href="/add-data">Add Lecturers</a>
+						</div>
+					{% endif %}
+				</div>
+
+				<div class="hero-meta">
+					<h6 class="mb-2">Quick start</h6>
+					<p class="small text-muted mb-3">Add your modules and assignments, then jump into the dashboard for progress insights.</p>
+					<div class="d-flex flex-wrap gap-2">
+						<a class="btn btn-sm btn-outline-primary" href="/semester">Active Semester</a>
+						<a class="btn btn-sm btn-outline-primary" href="/calendar">Calendar</a>
+						<a class="btn btn-sm btn-outline-primary" href="/ai-workspace">AI Workspace</a>
+					</div>
+				</div>
+
+				<div class="hero-meta text-start p-3">
+					<div class="d-flex justify-content-between align-items-center mb-2">
+						<h6 class="mb-0">Voice to Task</h6>
+						<span id="voiceStatusHome" class="small text-muted">Ready</span>
+					</div>
+					<textarea id="voiceTranscriptHome" class="form-control form-control-sm mb-2" rows="1" placeholder="Try: Open modules | Open module IS4408 | Go to analytics"></textarea>
+					<div class="d-flex flex-wrap gap-2">
+						<button id="voiceCaptureBtnHome" type="button" class="btn btn-sm btn-outline-success">Start</button>
+						<button id="voiceCommandBtnHome" type="button" class="btn btn-sm btn-outline-primary">Run</button>
+					</div>
+					<div id="voiceResultHome" class="small text-muted mt-1"></div>
 				</div>
 			</div>
 		</div>
@@ -113,114 +185,6 @@
 	</div>
 </div>
 
-<!-- Compact Utility Row: Voice + Lecturer Connect -->
-<div class="row g-3 mb-3">
-	<div class="col-lg-7">
-		<div class="card dashboard-card h-100">
-			<div class="card-header py-2 d-flex justify-content-between align-items-center">
-				<span>🎙️ Voice Quick Actions</span>
-				<span id="voiceStatusHome" class="small text-muted">Ready</span>
-			</div>
-			<div class="card-body py-2">
-				<textarea id="voiceTranscriptHome" class="form-control form-control-sm mb-2" rows="1" placeholder="Try: Open modules | Open module IS4408 | Go to analytics"></textarea>
-				<div class="d-flex flex-wrap gap-2">
-					<button id="voiceCaptureBtnHome" type="button" class="btn btn-sm btn-outline-success">Start</button>
-					<button id="voiceCommandBtnHome" type="button" class="btn btn-sm btn-outline-primary">Run</button>
-				</div>
-				<div id="voiceResultHome" class="small text-muted mt-1"></div>
-			</div>
-		</div>
-	</div>
-	<div class="col-lg-5">
-		<div class="card dashboard-card h-100">
-			<div class="card-header py-2 d-flex justify-content-between align-items-center">
-				<span>✉️ Lecturer Connect</span>
-				<div class="d-flex gap-2">
-					{% if lecturer_history %}
-						<a href="/lecturer-messages" class="btn btn-sm btn-outline-secondary">View Sent</a>
-					{% endif %}
-					{% if lecturers %}
-						<button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#composeMessageCollapse" aria-expanded="{% if lecturer_draft %}true{% else %}false{% endif %}" aria-controls="composeMessageCollapse">
-							Compose
-						</button>
-					{% endif %}
-				</div>
-			</div>
-			<div class="card-body py-2">
-				{% if lecturers %}
-					<p class="mb-2 text-muted small">Quickly draft and send a message.</p>
-					<div class="collapse {% if lecturer_draft %}show{% endif %}" id="composeMessageCollapse">
-						<form method="POST" action="/contact-lecturer" class="p-2 bg-light rounded-3">
-							<div class="row g-2 mb-2">
-								<div class="col-sm-6">
-									<label for="lecturer_id" class="form-label small fw-semibold">Lecturer</label>
-									<select id="lecturer_id" name="lecturer_id" class="form-select form-select-sm" required>
-										<option value="">Select...</option>
-										{% for lec in lecturers %}
-											<option value="{{ lec.id }}" {% if lecturer_id and lecturer_id|string == lec.id|string %}selected{% endif %}>
-												{{ lec.name }}{% if lec.module_code %} ({{ lec.module_code }}){% endif %}
-											</option>
-										{% endfor %}
-									</select>
-								</div>
-								<div class="col-sm-6">
-									<label for="lecturer_subject" class="form-label small fw-semibold">Subject</label>
-									<input type="text" id="lecturer_subject" name="subject" class="form-control form-control-sm" placeholder="e.g., Assignment query" value="{{ lecturer_subject or '' }}" required>
-								</div>
-							</div>
-							<div class="mb-2">
-								<label for="lecturer_request" class="form-label small fw-semibold">What do you need?</label>
-								<textarea id="lecturer_request" name="request_text" class="form-control form-control-sm" rows="2" placeholder="Brief description for AI to draft your message">{{ lecturer_request or '' }}</textarea>
-							</div>
-							<div class="mb-2">
-								<label for="lecturer_message" class="form-label small fw-semibold">Message</label>
-								<textarea id="lecturer_message" name="message" class="form-control form-control-sm" rows="2" placeholder="Your message to the lecturer...">{{ lecturer_draft or '' }}</textarea>
-							</div>
-							<div class="d-flex gap-2">
-								<button type="submit" name="action" value="generate" class="btn btn-sm btn-outline-secondary flex-fill">🤖 Draft</button>
-								<button type="submit" name="action" value="send" class="btn btn-sm btn-primary flex-fill">📤 Send</button>
-							</div>
-						</form>
-					</div>
-					<script>
-						const lecturerForm = document.querySelector('form[action="/contact-lecturer"]');
-						if (lecturerForm) {
-							const messageField = lecturerForm.querySelector('#lecturer_message');
-							const requestField = lecturerForm.querySelector('#lecturer_request');
-							const subjectField = lecturerForm.querySelector('#lecturer_subject');
-							const lecturerField = lecturerForm.querySelector('#lecturer_id');
-							lecturerForm.addEventListener('submit', (event) => {
-								const submitter = event.submitter;
-								if (!submitter) {
-									return;
-								}
-								const isGenerate = submitter.value === 'generate';
-								if (messageField) {
-									messageField.required = !isGenerate;
-								}
-								if (requestField) {
-									requestField.required = isGenerate;
-								}
-								if (subjectField) {
-									subjectField.required = true;
-								}
-								if (lecturerField) {
-									lecturerField.required = true;
-								}
-							});
-						}
-					</script>
-				{% else %}
-					<div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-						<p class="text-muted mb-0 small">No lecturers configured yet.</p>
-						<a class="btn btn-sm btn-outline-primary" href="/add-data">➕ Add Lecturers</a>
-					</div>
-				{% endif %}
-			</div>
-		</div>
-	</div>
-</div>
-
 <!-- Compact Reminders -->
 <div class="row g-3">
 	<div class="col-12">
@@ -275,9 +239,36 @@ document.addEventListener('DOMContentLoaded', () => {
 	const transcriptEl = document.getElementById('voiceTranscriptHome');
 	const statusEl = document.getElementById('voiceStatusHome');
 	const resultEl = document.getElementById('voiceResultHome');
+	const lecturerForm = document.querySelector('form[action="/contact-lecturer"]');
 	const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 	let recognition = null;
 	let isListening = false;
+
+	if (lecturerForm) {
+		const messageField = lecturerForm.querySelector('#lecturer_message');
+		const requestField = lecturerForm.querySelector('#lecturer_request');
+		const subjectField = lecturerForm.querySelector('#lecturer_subject');
+		const lecturerField = lecturerForm.querySelector('#lecturer_id');
+		lecturerForm.addEventListener('submit', (event) => {
+			const submitter = event.submitter;
+			if (!submitter) {
+				return;
+			}
+			const isGenerate = submitter.value === 'generate';
+			if (messageField) {
+				messageField.required = !isGenerate;
+			}
+			if (requestField) {
+				requestField.required = isGenerate;
+			}
+			if (subjectField) {
+				subjectField.required = true;
+			}
+			if (lecturerField) {
+				lecturerField.required = true;
+			}
+		});
+	}
 
 	if (SpeechRecognition) {
 		recognition = new SpeechRecognition();
