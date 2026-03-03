@@ -215,44 +215,66 @@
 	<div class="col-12">
 		<div class="card dashboard-card" style="background: #1f2937; border: none;">
 			<div class="card-body p-4">
-				<div class="d-flex align-items-center mb-3">
-					<div class="flex-grow-1">
-						<h5 class="text-white mb-1">STUDYING FOR EXAMS</h5>
-						<p class="text-muted mb-0 small">🎧 FOCUS MUSIC | STUDY PLAYLIST | CONCENTRATION SONGS</p>
-					</div>
-					<a href="/focus-music" class="btn btn-sm btn-outline-light">More</a>
-				</div>
-				<div class="d-flex gap-3 mb-3">
-					<div style="width: 120px; height: 120px; background: linear-gradient(135deg, #6366f1 0%, #10b981 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-						<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<div class="d-flex align-items-start gap-3">
+					<!-- Album Art Thumbnail -->
+					<div style="width: 60px; height: 60px; background: linear-gradient(135deg, #6366f1 0%, #10b981 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+						<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 							<path d="M9 18V5l12-2v13"/>
 							<circle cx="6" cy="18" r="3"/>
 							<circle cx="18" cy="16" r="3"/>
 						</svg>
 					</div>
 					<div class="flex-grow-1">
-						<div class="text-white mb-2">
-							<div class="small text-muted mb-1">Now Playing</div>
-							<div class="fw-semibold">STUDYING FOR EXAMS 🎧 FOCUS MUSIC | STUDY PLAYLIST | CONCENTRATION SONGS</div>
-							<div class="small text-muted mt-1">A S Team</div>
+						<div class="d-flex align-items-center justify-content-between mb-2">
+							<h5 class="text-white mb-0">STUDYING FOR EXAMS</h5>
 						</div>
-						<div class="d-flex gap-2 mb-2">
-							<button class="btn btn-sm btn-outline-light" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center;">
-								<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<!-- Track Listings -->
+						<div class="mb-3">
+							<div class="text-white small mb-1" style="opacity: 0.8;">3 Iris - The Goo Goo Dolls</div>
+							<div class="text-white small mb-1" style="opacity: 0.8;">4 Die With A Smile - Lady Gaga, Bruno Mars</div>
+						</div>
+						<!-- Large Album Art -->
+						<div class="mb-3">
+							<div style="width: 100%; max-width: 200px; height: 200px; background: linear-gradient(135deg, #6366f1 0%, #10b981 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; position: relative;">
+								<svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M9 18V5l12-2v13"/>
+									<circle cx="6" cy="18" r="3"/>
+									<circle cx="18" cy="16" r="3"/>
+								</svg>
+							</div>
+							<div class="text-white small mt-2" style="opacity: 0.9;">STUDYING FOR EXAMS 🎧 FOCUS MUSIC | STUDY PLAYLIST | CONCENTRATION SONGS - A S Team</div>
+						</div>
+						<!-- Playback Controls -->
+						<div class="d-flex align-items-center gap-2 mb-3">
+							<button class="btn btn-sm btn-outline-light" style="width: 36px; height: 36px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%;">
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 									<polyline points="15 18 9 12 15 6"/>
 								</svg>
 							</button>
-							<button class="btn btn-sm btn-light" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center;">
-								<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+							<button class="btn btn-sm btn-light" style="width: 40px; height: 40px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%;">
+								<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
 									<polygon points="5 3 19 12 5 21 5 3"/>
+								</svg>
+							</button>
+							<button class="btn btn-sm btn-outline-light" style="width: 36px; height: 36px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%;">
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<polyline points="9 18 15 12 9 6"/>
+								</svg>
+							</button>
+							<button class="btn btn-sm btn-outline-light" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; margin-left: 8px;">
+								<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<polyline points="16 3 21 8 16 13"/>
+									<line x1="21" y1="8" x2="3" y2="8"/>
 								</svg>
 							</button>
 							<button class="btn btn-sm btn-outline-light" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center;">
 								<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<polyline points="9 18 15 12 9 6"/>
+									<polyline points="4 4 4 20 20 20"/>
 								</svg>
 							</button>
+							<button class="btn btn-sm btn-outline-light ms-auto" style="padding: 0.25rem 0.75rem;">Preview</button>
 						</div>
+						<!-- Action Buttons -->
 						<div class="d-flex gap-2">
 							<a href="/focus-music" class="btn btn-sm btn-success" style="background: #10b981; border-color: #10b981;">
 								<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px; vertical-align: middle;">
