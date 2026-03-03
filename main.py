@@ -811,23 +811,77 @@ def index():
 	lecturer_request = session.pop("lecturer_request", "")
 	lecturer_id = session.pop("lecturer_id", "")
 	
-	# Random playlist selection for Spotify widget
+	# Reference: ChatGPT (OpenAI) - Dashboard Spotify Randomized Multi-Genre Refresh
+	# Date: 2026-03-03
+	# Prompt: "I need dashboard Spotify embeds to refresh into a broad range of genres.
+	# Can you provide a session-based Flask pattern that tries Spotify Search with
+	# random genre queries and falls back to a larger curated playlist pool?"
+	# ChatGPT suggested a session-persisted picker with API-first + fallback behavior.
 	refresh_requested = (request.args.get("refresh") or "").strip() in {"1", "true", "yes"}
-	popular_study_playlists = [
-		"37i9dQZF1DX8Uebhn9wzrS",  # Study Music
-		"37i9dQZF1DWZeKCadgRdKQ",  # Deep Focus
-		"37i9dQZF1DX3Ogo9pFvBkY",  # Ambient Study
-		"37i9dQZF1DX8NTLI2TtZa6",  # Peaceful Piano
-		"37i9dQZF1DWZeKCadgRdKQ",  # Lo-Fi Beats
-		"37i9dQZF1DX4sWSpwq3LiO",  # Peaceful Guitar
-		"37i9dQZF1DX8Uebhn9wzrS",  # Focus Flow
+	genre_queries = [
+		"lofi study",
+		"deep focus",
+		"house study playlist",
+		"techno focus",
+		"ambient study",
+		"classical concentration",
+		"jazz focus",
+		"piano study",
+		"instrumental focus",
+		"coding music",
+		"r&b chill focus",
+		"soul study",
+		"indie focus",
+		"acoustic study",
+		"hip hop study",
+		"pop study playlist",
+		"latin chill study",
+		"afrobeats focus",
+		"k-pop focus",
+		"drum and bass focus",
 	]
-	playlist_key = f"dashboard_playlist_idx_{current_user.id}"
-	playlist_index = int(session.get(playlist_key) or 0)
-	if refresh_requested:
-		playlist_index = random.randint(0, len(popular_study_playlists) - 1)
-		session[playlist_key] = playlist_index
-	selected_playlist_id = popular_study_playlists[playlist_index % len(popular_study_playlists)]
+	fallback_playlists = [
+		"37i9dQZF1DX8Uebhn9wzrS",
+		"37i9dQZF1DWZeKCadgRdKQ",
+		"37i9dQZF1DX3Ogo9pFvBkY",
+		"37i9dQZF1DX8NTLI2TtZa6",
+		"37i9dQZF1DX4sWSpwq3LiO",
+		"37i9dQZF1DX2TryRMXu3eC",
+		"37i9dQZF1DX4WYpdgoIcn6",
+		"37i9dQZF1DWYBO1MoTDhZI",
+		"37i9dQZF1DX4dyzvuaRJ0n",
+		"37i9dQZF1DWXRqgorJj26U",
+		"37i9dQZF1DX6VdMW310YC7",
+		"37i9dQZF1DX0XUsuxWHRQd",
+	]
+	playlist_key = f"dashboard_playlist_id_{current_user.id}"
+	selected_playlist_id = (session.get(playlist_key) or "").strip()
+	if refresh_requested or not selected_playlist_id:
+		candidate_ids: List[str] = []
+		token = _spotify_access_token()
+		if token:
+			try:
+				random_query = random.choice(genre_queries)
+				search_resp = requests.get(
+					"https://api.spotify.com/v1/search",
+					params={"q": random_query, "type": "playlist", "limit": 25},
+					headers={"Authorization": f"Bearer {token}"},
+					timeout=10,
+				)
+				if search_resp.ok:
+					items = (search_resp.json().get("playlists") or {}).get("items") or []
+					for item in items:
+						if not isinstance(item, dict):
+							continue
+						playlist_id = (item.get("id") or "").strip()
+						if playlist_id:
+							candidate_ids.append(playlist_id)
+			except Exception as exc:
+				print(f"[spotify] dashboard random search failed user={current_user.id} err={exc}")
+		if not candidate_ids:
+			candidate_ids = fallback_playlists
+		selected_playlist_id = random.choice(candidate_ids)
+		session[playlist_key] = selected_playlist_id
 	spotify_embed_url = f"https://open.spotify.com/embed/playlist/{selected_playlist_id}?utm_source=generator&theme=0"
 	spotify_url = f"https://open.spotify.com/playlist/{selected_playlist_id}"
 

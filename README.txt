@@ -1632,6 +1632,30 @@ Reference:
   behalf of the custom domain.
 
 ================================================================================
+ITERATION 9 ADDITIONS (DASHBOARD SPOTIFY RANDOMIZATION + HEADER STYLING)
+================================================================================
+
+FILE: main.py
+Reference:
+  - ChatGPT (OpenAI). Dashboard Spotify Randomized Multi-Genre Refresh.
+    Date: 2026-03-03
+    Prompt: "I need dashboard Spotify embeds to refresh into a broad range of
+    genres. Can you provide a session-based Flask pattern that tries Spotify
+    Search with random genre queries and falls back to a larger curated playlist
+    pool?"
+  ChatGPT provided the session-based randomized playlist picker pattern used for
+  dashboard refresh behavior (Spotify search with token + fallback pool).
+
+FILE: templates/index.html
+Reference:
+  - ChatGPT (OpenAI). Gradient Header Styling to Match Brand Title.
+    Date: 2026-03-03
+    Prompt: "Can you help me style dashboard section headers so they match the
+    LockIn logo font/gradient style while keeping existing card layouts?"
+  ChatGPT provided the reusable CSS class pattern applied to the "Progress
+  Overview" and "Next assignments" card headers.
+
+================================================================================
 END OF REFERENCES
 ================================================================================
 
