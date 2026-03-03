@@ -1655,6 +1655,28 @@ Reference:
   ChatGPT provided the reusable CSS class pattern applied to the "Progress
   Overview" and "Next assignments" card headers.
 
+FILE: main.py + templates/modules_overview.html + templates/module_detail.html
+Reference:
+  - ChatGPT (OpenAI). Optional Module Name Detection + Overview Simplification.
+    Date: 2026-03-03
+    Prompt: "I need the modules overview to show module code and module name when
+    available, but not break if older databases only have code. Also move high-level
+    task/attendance/grade stats off the overview cards and keep them in the module
+    detail page."
+  ChatGPT provided the information_schema-based optional column detection pattern
+  (name/module_name/title fallback) and the UI simplification approach used to
+  keep stats inside module detail while showing code + display name on overview cards.
+
+FILE: canvas_sync.py
+Reference:
+  - ChatGPT (OpenAI). Optional Schema Column Detection for Safe Sync Upserts.
+    Date: 2026-03-03
+    Prompt: "I need Canvas sync to store module names and course IDs when columns
+    exist, but stay compatible with older databases that may only have modules.code.
+    What's a safe pattern for conditional SQL updates/inserts?"
+  ChatGPT provided the schema-detection + conditional upsert pattern used to
+  populate module `name` (and `canvas_course_id` when available) during Canvas sync.
+
 ================================================================================
 END OF REFERENCES
 ================================================================================

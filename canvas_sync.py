@@ -46,6 +46,29 @@ def sync_canvas_assignments(canvas_url: str, api_token: str, student_id: int, db
         # Limit historical sync to the most recent 6 months.
         # Future assignments remain unbounded.
         past_cutoff_utc = datetime.now(pytz.UTC) - timedelta(days=180)
+        # Reference: ChatGPT (OpenAI) - Optional Schema Column Detection for Safe Sync Upserts
+        # Date: 2026-03-03
+        # Prompt: "I need Canvas sync to store module names and course IDs when columns exist,
+        # but stay compatible with older databases that may only have modules.code. What's a
+        # safe pattern for conditional SQL updates/inserts?"
+        # ChatGPT suggested detecting available columns first, then building conditional SQL.
+        module_columns = set()
+        try:
+            col_rows = db_fetch_all(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'modules'
+                  AND column_name IN ('name', 'canvas_course_id')
+                """
+            )
+            module_columns = {str((row or {}).get("column_name") or "").strip().lower() for row in col_rows}
+        except Exception:
+            module_columns = set()
+        has_module_name_col = "name" in module_columns
+        has_canvas_course_col = "canvas_course_id" in module_columns
+
         # Reference: canvasapi Documentation - Getting Started
         # https://canvasapi.readthedocs.io/en/stable/getting_started.html
         # Connection pattern from canvasapi library examples
@@ -67,22 +90,56 @@ def sync_canvas_assignments(canvas_url: str, api_token: str, student_id: int, db
                 # if needed?"
                 # ChatGPT provided the upsert pattern for modules with fallback course code generation.
                 course_code = course.course_code if hasattr(course, 'course_code') else f"CANVAS-{course.id}"
-                
-                module = db_fetch_one(
-                    "SELECT id FROM modules WHERE code = :code",
-                    {"code": course_code}
-                )
+                course_code = (str(course_code).strip().upper() or f"CANVAS-{course.id}")
+                course_name = getattr(course, 'name', None) or course_code
+                course_name = str(course_name).strip() if course_name else course_code
+
+                if has_canvas_course_col:
+                    module = db_fetch_one(
+                        "SELECT id FROM modules WHERE code = :code OR canvas_course_id = :canvas_course_id LIMIT 1",
+                        {"code": course_code, "canvas_course_id": course.id}
+                    )
+                else:
+                    module = db_fetch_one(
+                        "SELECT id FROM modules WHERE code = :code",
+                        {"code": course_code}
+                    )
                 
                 if not module:
+                    insert_columns = ["code"]
+                    insert_params = {"code": course_code}
+                    insert_values = [":code"]
+                    if has_module_name_col:
+                        insert_columns.append("name")
+                        insert_values.append(":module_name")
+                        insert_params["module_name"] = course_name
+                    if has_canvas_course_col:
+                        insert_columns.append("canvas_course_id")
+                        insert_values.append(":canvas_course_id")
+                        insert_params["canvas_course_id"] = course.id
                     db_execute(
-                        "INSERT INTO modules (code) VALUES (:code)",
-                        {"code": course_code}
+                        f"INSERT INTO modules ({', '.join(insert_columns)}) VALUES ({', '.join(insert_values)})",
+                        insert_params
                     )
                     module = db_fetch_one(
                         "SELECT id FROM modules WHERE code = :code",
                         {"code": course_code}
                     )
                     stats['modules_created'] += 1
+                else:
+                    set_clauses = []
+                    update_params = {"id": module["id"]}
+                    if has_module_name_col:
+                        set_clauses.append("name = :module_name")
+                        update_params["module_name"] = course_name
+                    if has_canvas_course_col:
+                        set_clauses.append("canvas_course_id = :canvas_course_id")
+                        update_params["canvas_course_id"] = course.id
+                    if set_clauses:
+                        db_execute(
+                            f"UPDATE modules SET {', '.join(set_clauses)} WHERE id = :id",
+                            update_params
+                        )
                 
                 module_id = module['id']
                 

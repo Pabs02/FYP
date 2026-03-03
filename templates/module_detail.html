@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ module.code }}{% endblock %}
+{% block title %}{{ module.code }}{% if module.display_name and module.display_name != module.code %} - {{ module.display_name }}{% endif %}{% endblock %}
 {% block content %}
 <style>
 	.mod-page { max-width: 1200px; margin: 0 auto; }
@@ -69,6 +69,9 @@
 
 	<div class="page-header-card mt-3">
 		<h1>📖 {{ module.code }}</h1>
+		{% if module.display_name and module.display_name != module.code %}
+		<p class="mb-1" style="font-weight: 600; color: #334155;">{{ module.display_name }}</p>
+		{% endif %}
 		<p>Detailed progress, tasks, and grades for this module.</p>
 	</div>
 

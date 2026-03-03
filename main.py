@@ -7036,107 +7036,50 @@ def study_group_download_resource_file(resource_id: int):
 @app.route("/modules")
 @login_required
 def modules_overview():
-	"""List all modules with summary stats."""
-	# Reference: ChatGPT (OpenAI) - Module Fallback Matching from Event Title
-	# Date: 2026-02-11
-	# Prompt: "Some Canvas lecture events may not have module_id populated, but the
-	# module code appears in the event title (e.g., IS4408 ...). I need SQL fallback
-	# logic so module attendance still aggregates correctly. Can you provide a safe
-	# PostgreSQL pattern?"
-	# ChatGPT provided the regex extraction fallback used in attendance subqueries.
+	"""List all modules with code + name; detailed stats stay on module_detail."""
+	# Reference: ChatGPT (OpenAI) - Safe Optional Module Name Column Detection
+	# Date: 2026-03-03
+	# Prompt: "I want to display module names if a modules.name/module_name/title
+	# column exists, but keep working on databases that only have code. What's a
+	# safe Flask + SQL pattern to detect optional columns and fallback cleanly?"
+	# ChatGPT suggested the information_schema check + expression fallback below.
+	name_expr = "m.code"
 	try:
-		modules = sb_fetch_all("""
-			SELECT m.id, m.code,
-			       COUNT(t.id) AS total_tasks,
-			       SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) AS completed,
-			       ROUND(
-			           SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) * 100.0
-			           / NULLIF(COUNT(t.id), 0), 1
-			       ) AS completion_rate,
-			       ROUND(AVG(
-			           CASE
-			               WHEN t.canvas_score IS NOT NULL AND t.canvas_possible > 0
-			               THEN (t.canvas_score / t.canvas_possible) * 100
-			               WHEN t.canvas_score IS NOT NULL AND (t.canvas_possible IS NULL OR t.canvas_possible = 0)
-			               THEN t.canvas_score
-			           END
-			       ), 1) AS avg_grade
-			       ,
-			       COALESCE((
-			           SELECT COUNT(*)
-			           FROM events e
-			           WHERE (
-			               e.module_id = m.id
-			               OR (
-			                   e.module_id IS NULL
-			                   AND (
-			                       UPPER(e.title) LIKE '%' || UPPER(m.code) || '%'
-			                       OR UPPER(e.title) LIKE '%' || UPPER(REGEXP_REPLACE(m.code, '^[0-9]{4}-', '')) || '%'
-			                   )
-			               )
-			           )
-			             AND e.student_id = :sid
-			             AND e.canvas_event_id IS NOT NULL
-			             AND e.start_at <= NOW()
-			       ), 0) AS lecture_sessions,
-			       COALESCE((
-			           SELECT COUNT(*)
-			           FROM lecture_attendance la
-			           JOIN events e2 ON e2.id = la.event_id
-			           WHERE la.student_id = :sid
-			             AND la.attended = TRUE
-			             AND (
-			                 e2.module_id = m.id
-			                 OR (
-			                     e2.module_id IS NULL
-			                     AND (
-			                         UPPER(e2.title) LIKE '%' || UPPER(m.code) || '%'
-			                         OR UPPER(e2.title) LIKE '%' || UPPER(REGEXP_REPLACE(m.code, '^[0-9]{4}-', '')) || '%'
-			                     )
-			                 )
-			             )
-			             AND e2.student_id = :sid
-			             AND e2.canvas_event_id IS NOT NULL
-			             AND e2.start_at <= NOW()
-			       ), 0) AS attended_lectures
+		name_columns = sb_fetch_all(
+			"""
+			SELECT column_name
+			FROM information_schema.columns
+			WHERE table_schema = 'public'
+			  AND table_name = 'modules'
+			  AND column_name IN ('name', 'module_name', 'title')
+			"""
+		)
+		column_set = {str(row.get("column_name") or "").strip().lower() for row in name_columns}
+		if "name" in column_set:
+			name_expr = "COALESCE(NULLIF(TRIM(m.name), ''), m.code)"
+		elif "module_name" in column_set:
+			name_expr = "COALESCE(NULLIF(TRIM(m.module_name), ''), m.code)"
+		elif "title" in column_set:
+			name_expr = "COALESCE(NULLIF(TRIM(m.title), ''), m.code)"
+	except Exception as exc:
+		print(f"[modules] name column detection failed user={current_user.id} error={exc}")
+
+	try:
+		modules = sb_fetch_all(
+			f"""
+			SELECT m.id, m.code, {name_expr} AS display_name
 			FROM modules m
-			LEFT JOIN tasks t ON t.module_id = m.id AND t.student_id = :sid
-			GROUP BY m.id, m.code
 			ORDER BY m.code
-		""", {"sid": current_user.id})
+			"""
+		)
 	except Exception as exc:
 		print(f"[modules] overview error: {exc}")
-		try:
-			# Fallback if lecture_attendance table is not migrated yet.
-			modules = sb_fetch_all("""
-				SELECT m.id, m.code,
-				       COUNT(t.id) AS total_tasks,
-				       SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) AS completed,
-				       ROUND(
-				           SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) * 100.0
-				           / NULLIF(COUNT(t.id), 0), 1
-				       ) AS completion_rate,
-				       ROUND(AVG(
-				           CASE
-				               WHEN t.canvas_score IS NOT NULL AND t.canvas_possible > 0
-				               THEN (t.canvas_score / t.canvas_possible) * 100
-				               WHEN t.canvas_score IS NOT NULL AND (t.canvas_possible IS NULL OR t.canvas_possible = 0)
-				               THEN t.canvas_score
-				           END
-				       ), 1) AS avg_grade,
-				       0 AS lecture_sessions,
-				       0 AS attended_lectures
-				FROM modules m
-				LEFT JOIN tasks t ON t.module_id = m.id AND t.student_id = :sid
-				GROUP BY m.id, m.code
-				ORDER BY m.code
-			""", {"sid": current_user.id})
-		except Exception:
-			modules = []
+		modules = []
+
 	for item in modules:
-		total_lectures = int(item.get("lecture_sessions") or 0)
-		attended_lectures = int(item.get("attended_lectures") or 0)
-		item["attendance_rate"] = round((attended_lectures * 100.0 / total_lectures), 1) if total_lectures else None
+		display_name = (item.get("display_name") or "").strip()
+		item["display_name"] = display_name or (item.get("code") or "Module")
+
 	return render_template("modules_overview.html", modules=modules)
 
 
@@ -7144,8 +7087,32 @@ def modules_overview():
 @login_required
 def module_detail(module_id):
 	"""Detailed view for a single module."""
+	module_name_expr = "m.code"
 	try:
-		module = sb_fetch_one("SELECT id, code FROM modules WHERE id = :mid", {"mid": module_id})
+		name_columns = sb_fetch_all(
+			"""
+			SELECT column_name
+			FROM information_schema.columns
+			WHERE table_schema = 'public'
+			  AND table_name = 'modules'
+			  AND column_name IN ('name', 'module_name', 'title')
+			"""
+		)
+		column_set = {str(row.get("column_name") or "").strip().lower() for row in name_columns}
+		if "name" in column_set:
+			module_name_expr = "COALESCE(NULLIF(TRIM(m.name), ''), m.code)"
+		elif "module_name" in column_set:
+			module_name_expr = "COALESCE(NULLIF(TRIM(m.module_name), ''), m.code)"
+		elif "title" in column_set:
+			module_name_expr = "COALESCE(NULLIF(TRIM(m.title), ''), m.code)"
+	except Exception as exc:
+		print(f"[modules] detail name column detection failed user={current_user.id} error={exc}")
+
+	try:
+		module = sb_fetch_one(
+			f"SELECT m.id, m.code, {module_name_expr} AS display_name FROM modules m WHERE m.id = :mid",
+			{"mid": module_id},
+		)
 	except Exception:
 		module = None
 	if not module:
