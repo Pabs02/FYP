@@ -8,6 +8,7 @@ import time as time_module
 import json
 import base64
 import re
+import html
 import secrets
 import requests
 from io import BytesIO
@@ -647,8 +648,8 @@ def update_email_preferences():
 def send_test_email():
 	error = _send_reminder_email(
 		to_email=current_user.email,
-		subject="Test Email - Student Planner",
-		body="This is a test email from your Student Planner notifications."
+		subject="LockIn Test Email",
+		body="This is a test email from your LockIn notifications."
 	)
 	if error:
 		flash(f"Failed to send test email: {error}", "error")
@@ -1675,6 +1676,50 @@ def _build_reminder_message(task: Dict[str, Any], reminder_type: str) -> str:
 	return f"Due soon: {title}{module_part}"
 
 
+def _lockin_email_html(*, subject: str, body: str) -> str:
+	# Reference: ChatGPT (OpenAI) - Branded Transactional Email Shell (LockIn)
+	# Date: 2026-03-01
+	# Prompt: "I want all outgoing app emails to share a consistent LockIn brand:
+	# clean header, readable content area, and a clear footer note. Can you provide
+	# a reusable HTML wrapper that accepts subject/body text safely?"
+	# ChatGPT provided the reusable HTML wrapper pattern adapted below.
+	subject_safe = html.escape((subject or "").strip() or "LockIn Notification")
+	lines = [line for line in (body or "").splitlines()]
+	body_html = "<br>".join(html.escape(line) for line in lines if line.strip()) or html.escape(body or "")
+	app_name = (os.getenv("EMAIL_BRAND_NAME") or "LockIn").strip() or "LockIn"
+	tagline = (
+		os.getenv("EMAIL_BRAND_TAGLINE")
+		or "Intelligent learning management using AI to reduce procrastination and maximise grades."
+	).strip()
+	return f"""<!doctype html>
+<html>
+<body style="margin:0;padding:0;background:#f3f6ff;font-family:Arial,sans-serif;color:#111827;">
+	<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:24px 0;">
+		<tr>
+			<td align="center">
+				<table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;">
+					<tr>
+						<td style="background:linear-gradient(135deg,#4f46e5,#6366f1);padding:18px 24px;border-radius:14px 14px 0 0;color:#ffffff;">
+							<div style="font-size:22px;font-weight:700;">{html.escape(app_name)}</div>
+							<div style="margin-top:4px;font-size:13px;opacity:0.9;">{html.escape(tagline)}</div>
+						</td>
+					</tr>
+					<tr>
+						<td style="background:#ffffff;padding:20px 24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 14px 14px;">
+							<h2 style="margin:0 0 12px 0;font-size:20px;color:#1f2937;">{subject_safe}</h2>
+							<div style="font-size:15px;line-height:1.65;color:#334155;">{body_html}</div>
+							<hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0 12px;">
+							<div style="font-size:12px;color:#64748b;">Sent by {html.escape(app_name)}.</div>
+						</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+	</table>
+</body>
+</html>"""
+
+
 def _send_reminder_email(*, to_email: str, subject: str, body: str) -> Optional[str]:
 	# Reference: ChatGPT (OpenAI) - SMTP Email Sender Pattern
 	# Date: 2026-01-22
@@ -1689,14 +1734,11 @@ def _send_reminder_email(*, to_email: str, subject: str, body: str) -> Optional[
 	# ChatGPT provided the provider-priority + graceful-fallback pattern below.
 	resend_api_key = (os.getenv("RESEND_API_KEY") or "").strip()
 	resend_from_email = (os.getenv("RESEND_FROM_EMAIL") or "").strip()
+	html_message = _lockin_email_html(subject=subject, body=body)
 	if resend_api_key:
 		if not resend_from_email:
 			return "RESEND_FROM_EMAIL is required when RESEND_API_KEY is set."
 		try:
-			html_body = "<br>".join(
-				line.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-				for line in body.splitlines()
-			) or body
 			response = requests.post(
 				"https://api.resend.com/emails",
 				headers={
@@ -1707,7 +1749,7 @@ def _send_reminder_email(*, to_email: str, subject: str, body: str) -> Optional[
 					"from": resend_from_email,
 					"to": [to_email],
 					"subject": subject,
-					"html": f"<p>{html_body}</p>",
+					"html": html_message,
 				},
 				timeout=8,
 			)
@@ -1750,6 +1792,7 @@ def _send_reminder_email(*, to_email: str, subject: str, body: str) -> Optional[
 		message["From"] = smtp_config.from_email
 		message["To"] = to_email
 		message.set_content(body)
+		message.add_alternative(html_message, subtype="html")
 
 		with smtplib.SMTP(smtp_config.host, smtp_config.port, timeout=smtp_timeout) as server:
 			# Ensure TLS/login/send use the same bounded timeout.

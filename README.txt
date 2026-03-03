@@ -1598,6 +1598,21 @@ Reference:
   ChatGPT provided the ALTER TABLE migration pattern with IF NOT EXISTS.
 
 ================================================================================
+ITERATION 8 ADDITIONS (EMAIL BRANDING)
+================================================================================
+
+FILE: main.py
+Reference:
+  - ChatGPT (OpenAI). Branded Transactional Email Shell (LockIn).
+    Date: 2026-03-01
+    Prompt: "I want all outgoing app emails to share a consistent LockIn brand:
+    clean header, readable content area, and a clear footer note. Can you provide
+    a reusable HTML wrapper that accepts subject/body text safely?"
+  ChatGPT provided the reusable email HTML wrapper pattern used in
+  _lockin_email_html and the provider integration updates in _send_reminder_email
+  (Resend HTML + SMTP multipart alternative).
+
+================================================================================
 DOMAIN REGISTRAR
 ================================================================================
 
