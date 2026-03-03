@@ -11,6 +11,7 @@ import re
 import html
 import secrets
 import requests
+import random
 from io import BytesIO
 from email.message import EmailMessage
 import smtplib
@@ -809,6 +810,26 @@ def index():
 	lecturer_subject = session.pop("lecturer_subject", "")
 	lecturer_request = session.pop("lecturer_request", "")
 	lecturer_id = session.pop("lecturer_id", "")
+	
+	# Random playlist selection for Spotify widget
+	refresh_requested = (request.args.get("refresh") or "").strip() in {"1", "true", "yes"}
+	popular_study_playlists = [
+		"37i9dQZF1DX8Uebhn9wzrS",  # Study Music
+		"37i9dQZF1DWZeKCadgRdKQ",  # Deep Focus
+		"37i9dQZF1DX3Ogo9pFvBkY",  # Ambient Study
+		"37i9dQZF1DX8NTLI2TtZa6",  # Peaceful Piano
+		"37i9dQZF1DWZeKCadgRdKQ",  # Lo-Fi Beats
+		"37i9dQZF1DX4sWSpwq3LiO",  # Peaceful Guitar
+		"37i9dQZF1DX8Uebhn9wzrS",  # Focus Flow
+	]
+	playlist_key = f"dashboard_playlist_idx_{current_user.id}"
+	playlist_index = int(session.get(playlist_key) or 0)
+	if refresh_requested:
+		playlist_index = random.randint(0, len(popular_study_playlists) - 1)
+		session[playlist_key] = playlist_index
+	selected_playlist_id = popular_study_playlists[playlist_index % len(popular_study_playlists)]
+	spotify_embed_url = f"https://open.spotify.com/embed/playlist/{selected_playlist_id}?utm_source=generator&theme=0"
+	spotify_url = f"https://open.spotify.com/playlist/{selected_playlist_id}"
 
 	return render_template(
 		"index.html",
@@ -821,6 +842,8 @@ def index():
 		lecturer_subject=lecturer_subject,
 		lecturer_request=lecturer_request,
 		lecturer_id=lecturer_id,
+		spotify_embed_url=spotify_embed_url,
+		spotify_url=spotify_url,
 	)
 
 

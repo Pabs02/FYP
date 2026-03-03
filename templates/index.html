@@ -216,7 +216,7 @@
 		<div class="card dashboard-card" style="background: #1f2937; border: none;">
 			<div class="card-body p-4">
 				<iframe
-					src="https://open.spotify.com/embed/playlist/37i9dQZF1DX8Uebhn9wzrS?utm_source=generator&theme=0"
+					src="{{ spotify_embed_url|default('https://open.spotify.com/embed/playlist/37i9dQZF1DX8Uebhn9wzrS?utm_source=generator&theme=0') }}"
 					width="100%"
 					height="380"
 					frameborder="0"
@@ -225,13 +225,13 @@
 					id="spotify-player">
 				</iframe>
 				<div class="d-flex gap-2 mt-3">
-					<a href="https://open.spotify.com/playlist/37i9dQZF1DX8Uebhn9wzrS" target="_blank" class="btn btn-sm btn-success" style="background: #10b981; border-color: #10b981;">
+					<a href="{{ spotify_url|default('https://open.spotify.com/playlist/37i9dQZF1DX8Uebhn9wzrS') }}" target="_blank" class="btn btn-sm btn-success" style="background: #10b981; border-color: #10b981;">
 						<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px; vertical-align: middle;">
 							<path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.3.421-1.02.599-1.56.3z"/>
 						</svg>
 						Open in Spotify
 					</a>
-					<a href="javascript:void(0);" onclick="location.reload();" class="btn btn-sm btn-outline-primary" style="border-color: rgba(255,255,255,0.3); color: white;">
+					<a href="{{ url_for('index', refresh=1) }}" class="btn btn-sm btn-outline-primary" style="border-color: rgba(255,255,255,0.3); color: white;">
 						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;">
 							<polyline points="23 4 23 10 17 10"></polyline>
 							<polyline points="1 20 1 14 7 14"></polyline>
