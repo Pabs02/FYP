@@ -36,7 +36,7 @@
 		backdrop-filter: blur(8px);
 		-webkit-backdrop-filter: blur(8px);
 		overflow: hidden;
-		animation: heroBubbleLockIn 1.65s cubic-bezier(0.2, 0.9, 0.2, 1) both;
+		animation: heroBubbleLockIn 1.8s cubic-bezier(0.2, 0.9, 0.2, 1) both;
 	}
 	.hero-brand-wordmark-wrap.is-idle {
 		animation: heroBubbleWobble 7s ease-in-out infinite;
@@ -622,7 +622,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 			return Number.parseFloat(firstDuration) || 0;
 		};
-		const lockInDurationMs = getAnimationDurationMs(window.getComputedStyle(wordmarkWrap).animationDuration) || 1650;
+		const lockInDurationMs = getAnimationDurationMs(window.getComputedStyle(wordmarkWrap).animationDuration) || 1800;
 		let hasStartedTyping = false;
 		const beginTypingOnce = () => {
 			if (hasStartedTyping) return;
