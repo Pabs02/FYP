@@ -7270,55 +7270,79 @@ def delete_module(module_id):
 		return redirect(url_for("modules_overview"))
 
 	try:
-		other_task_refs = sb_fetch_one(
-			"""
-			SELECT COUNT(*) AS total
-			FROM tasks
-			WHERE module_id = :mid
-			  AND student_id <> :sid
-			""",
-			{"mid": module_id, "sid": current_user.id},
-		)
-		other_event_refs = sb_fetch_one(
-			"""
-			SELECT COUNT(*) AS total
-			FROM events
-			WHERE module_id = :mid
-			  AND student_id <> :sid
-			""",
-			{"mid": module_id, "sid": current_user.id},
-		)
-		shared_refs = int((other_task_refs or {}).get("total") or 0) + int((other_event_refs or {}).get("total") or 0)
-		if shared_refs > 0:
-			flash("This module is shared with other users and cannot be deleted globally.", "warning")
-			return redirect(url_for("modules_overview"))
+		def _safe_exec(sql: str, params: Dict[str, Any]) -> int:
+			try:
+				return int(sb_execute(sql, params) or 0)
+			except Exception:
+				return 0
 
-		# Remove current user's records tied to this module first.
-		sb_execute(
+		# Clean user-linked child records first so task/event deletes do not fail on FK chains.
+		_safe_exec(
+			"""
+			DELETE FROM reminders
+			WHERE task_id IN (
+				SELECT id FROM tasks
+				WHERE module_id = :mid AND student_id = :sid
+			)
+			""",
+			{"mid": module_id, "sid": current_user.id},
+		)
+		_safe_exec(
+			"""
+			DELETE FROM subtasks
+			WHERE task_id IN (
+				SELECT id FROM tasks
+				WHERE module_id = :mid AND student_id = :sid
+			)
+			""",
+			{"mid": module_id, "sid": current_user.id},
+		)
+		_safe_exec(
+			"""
+			DELETE FROM assignment_reviews
+			WHERE task_id IN (
+				SELECT id FROM tasks
+				WHERE module_id = :mid AND student_id = :sid
+			)
+			""",
+			{"mid": module_id, "sid": current_user.id},
+		)
+		_safe_exec(
+			"""
+			DELETE FROM lecture_attendance
+			WHERE event_id IN (
+				SELECT id FROM events
+				WHERE module_id = :mid AND student_id = :sid
+			)
+			""",
+			{"mid": module_id, "sid": current_user.id},
+		)
+
+		deleted_tasks = _safe_exec(
 			"DELETE FROM tasks WHERE module_id = :mid AND student_id = :sid",
 			{"mid": module_id, "sid": current_user.id},
 		)
-		sb_execute(
+		deleted_events = _safe_exec(
 			"DELETE FROM events WHERE module_id = :mid AND student_id = :sid",
 			{"mid": module_id, "sid": current_user.id},
 		)
 
-		remaining_refs = sb_fetch_one(
+		# Delete module only when no global refs remain.
+		deleted_modules = _safe_exec(
 			"""
-			SELECT
-				(SELECT COUNT(*) FROM tasks WHERE module_id = :mid)
-				+ (SELECT COUNT(*) FROM events WHERE module_id = :mid) AS total
+			DELETE FROM modules
+			WHERE id = :mid
+			  AND NOT EXISTS (SELECT 1 FROM tasks WHERE module_id = :mid)
+			  AND NOT EXISTS (SELECT 1 FROM events WHERE module_id = :mid)
 			""",
 			{"mid": module_id},
 		)
-		if int((remaining_refs or {}).get("total") or 0) == 0:
-			sb_execute(
-				"DELETE FROM modules WHERE id = :mid",
-				{"mid": module_id},
-			)
+		if deleted_modules > 0:
 			flash(f"Module '{module.get('code')}' deleted.", "success")
+		elif deleted_tasks > 0 or deleted_events > 0:
+			flash("Removed your module-linked records, but shared module entry was retained.", "info")
 		else:
-			flash("Module records for your account were removed. Shared module entry was retained.", "info")
+			flash("Module could not be deleted because it is still referenced by existing records.", "warning")
 	except Exception as exc:
 		print(f"[modules] delete failed user={current_user.id} module={module_id} err={exc}")
 		flash("Failed to delete module.", "error")
