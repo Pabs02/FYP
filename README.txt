@@ -1677,6 +1677,17 @@ Reference:
   ChatGPT provided the schema-detection + conditional upsert pattern used to
   populate module `name` (and `canvas_course_id` when available) during Canvas sync.
 
+FILE: main.py + templates/modules_overview.html
+Reference:
+  - ChatGPT (OpenAI). Safe Module Deletion Flow (User-Scoped Cleanup).
+    Date: 2026-03-03
+    Prompt: "Add a delete module button, but keep deletion safe so we don't remove
+    a module if other users still reference it. How can I clean up the current
+    user's tasks/events first, then delete module only when unreferenced?"
+  ChatGPT provided the guarded delete route and UI confirmation flow: user-scoped
+  cleanup of module-linked records first, then module row deletion only when no
+  remaining references exist.
+
 ================================================================================
 END OF REFERENCES
 ================================================================================

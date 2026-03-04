@@ -7249,6 +7249,83 @@ def module_detail(module_id):
 	)
 
 
+# Reference: ChatGPT (OpenAI) - Safe Module Deletion Flow (User-Scoped Cleanup)
+# Date: 2026-03-03
+# Prompt: "Add a delete module button, but keep deletion safe so we don't remove a
+# module if other users still reference it. How can I clean up the current user's
+# tasks/events first, then delete module only when unreferenced?"
+# ChatGPT suggested the guarded flow implemented below.
+@app.route("/modules/<int:module_id>/delete", methods=["POST"])
+@login_required
+def delete_module(module_id):
+	try:
+		module = sb_fetch_one(
+			"SELECT id, code FROM modules WHERE id = :mid",
+			{"mid": module_id},
+		)
+	except Exception:
+		module = None
+	if not module:
+		flash("Module not found.", "error")
+		return redirect(url_for("modules_overview"))
+
+	try:
+		other_task_refs = sb_fetch_one(
+			"""
+			SELECT COUNT(*) AS total
+			FROM tasks
+			WHERE module_id = :mid
+			  AND student_id <> :sid
+			""",
+			{"mid": module_id, "sid": current_user.id},
+		)
+		other_event_refs = sb_fetch_one(
+			"""
+			SELECT COUNT(*) AS total
+			FROM events
+			WHERE module_id = :mid
+			  AND student_id <> :sid
+			""",
+			{"mid": module_id, "sid": current_user.id},
+		)
+		shared_refs = int((other_task_refs or {}).get("total") or 0) + int((other_event_refs or {}).get("total") or 0)
+		if shared_refs > 0:
+			flash("This module is shared with other users and cannot be deleted globally.", "warning")
+			return redirect(url_for("modules_overview"))
+
+		# Remove current user's records tied to this module first.
+		sb_execute(
+			"DELETE FROM tasks WHERE module_id = :mid AND student_id = :sid",
+			{"mid": module_id, "sid": current_user.id},
+		)
+		sb_execute(
+			"DELETE FROM events WHERE module_id = :mid AND student_id = :sid",
+			{"mid": module_id, "sid": current_user.id},
+		)
+
+		remaining_refs = sb_fetch_one(
+			"""
+			SELECT
+				(SELECT COUNT(*) FROM tasks WHERE module_id = :mid)
+				+ (SELECT COUNT(*) FROM events WHERE module_id = :mid) AS total
+			""",
+			{"mid": module_id},
+		)
+		if int((remaining_refs or {}).get("total") or 0) == 0:
+			sb_execute(
+				"DELETE FROM modules WHERE id = :mid",
+				{"mid": module_id},
+			)
+			flash(f"Module '{module.get('code')}' deleted.", "success")
+		else:
+			flash("Module records for your account were removed. Shared module entry was retained.", "info")
+	except Exception as exc:
+		print(f"[modules] delete failed user={current_user.id} module={module_id} err={exc}")
+		flash("Failed to delete module.", "error")
+
+	return redirect(url_for("modules_overview"))
+
+
 @app.route("/study-planner", methods=["GET", "POST"])
 @login_required
 def study_planner():

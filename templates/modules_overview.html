@@ -70,9 +70,19 @@
 	}
 	.module-action-link.view { color: #6366f1; }
 	.module-action-link.group { color: #0f766e; }
+	.module-action-link.delete {
+		color: #b91c1c;
+		border-color: #fecaca;
+		background: #fef2f2;
+	}
 	.module-action-link:hover {
 		transform: translateY(-1px);
 		box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+	}
+	.module-action-link-btn {
+		border: 1px solid #e2e8f0;
+		background: #fff;
+		cursor: pointer;
 	}
 </style>
 
@@ -95,6 +105,9 @@
 			<div class="module-actions">
 				<a class="module-action-link view" href="{{ url_for('module_detail', module_id=m.id) }}">View Module →</a>
 				<a class="module-action-link group" href="{{ url_for('study_groups', module_code=m.code) }}">Join Study Group →</a>
+				<form method="POST" action="{{ url_for('delete_module', module_id=m.id) }}" onsubmit="return confirm('Delete module {{ m.code }}? This removes module-linked tasks/events for your account.');" style="margin: 0;">
+					<button type="submit" class="module-action-link module-action-link-btn delete">Delete Module</button>
+				</form>
 			</div>
 		</div>
 		{% endfor %}
