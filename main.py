@@ -3114,7 +3114,7 @@ def _parse_plan_hint(text: Optional[str], tzinfo) -> Optional[datetime]:
 		"%B %d %Y",
 	]
 	lower = value.lower()
-	hour = 9
+	hour = None
 	if "evening" in lower:
 		hour = 19
 	elif "afternoon" in lower:
@@ -3128,7 +3128,9 @@ def _parse_plan_hint(text: Optional[str], tzinfo) -> Optional[datetime]:
 			dt = datetime.strptime(value.split(" evening")[0].split(" afternoon")[0].split(" morning")[0].split(" night")[0].strip(), fmt)
 			if "hour" in fmt.lower():
 				return dt.replace(tzinfo=tzinfo)
-			return datetime.combine(dt.date(), time(hour=hour), tzinfo)
+			if hour is not None:
+				return datetime.combine(dt.date(), time(hour=hour), tzinfo)
+			return None
 		except ValueError:
 			continue
 	# Try ISO parse
@@ -3175,53 +3177,65 @@ def _schedule_ai_subtasks(
 	scheduled: List[Dict[str, Any]] = []
 	unscheduled: List[Dict[str, Any]] = []
 
-	def consume_slot(idx: int, duration: timedelta) -> Optional[Tuple[datetime, datetime]]:
+	def consume_slot(idx: int, duration: timedelta, preferred_start: Optional[datetime] = None) -> Optional[Tuple[datetime, datetime]]:
 		start, end = slot_queue[idx]
-		# Need duration + 30 min buffer for spacing
-		if end - start < duration + timedelta(minutes=30):
-			return None
-		
-		# Round start time to nearest hour or 30 minutes, but never below slot start
-		assigned_start = _round_to_nearest_half_hour(start)
-		# If rounding went below slot start, round up to next half hour
-		if assigned_start < start:
-			# Round up to next :00 or :30
-			if start.minute < 30:
-				assigned_start = start.replace(minute=30, second=0, microsecond=0)
+
+		effective_start = start
+		if preferred_start and start <= preferred_start < end:
+			effective_start = preferred_start
+
+		if end - effective_start < duration + timedelta(minutes=30):
+			if effective_start != start:
+				effective_start = start
+				if end - effective_start < duration + timedelta(minutes=30):
+					return None
 			else:
-				assigned_start = (start.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1))
-			# If still below, just use the slot start
-			if assigned_start < start:
-				assigned_start = start.replace(second=0, microsecond=0)
-		
+				return None
+
+		assigned_start = _round_to_nearest_half_hour(effective_start)
+		if assigned_start < effective_start:
+			if effective_start.minute < 30:
+				assigned_start = effective_start.replace(minute=30, second=0, microsecond=0)
+			else:
+				assigned_start = (effective_start.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1))
+			if assigned_start < effective_start:
+				assigned_start = effective_start.replace(second=0, microsecond=0)
+
+		if assigned_start < start:
+			assigned_start = start
 		if assigned_start >= end:
 			return None
-		
-		# Calculate end time
+
 		assigned_end = assigned_start + duration
-		# Round end time to nearest half hour, but ensure it doesn't exceed slot end
 		assigned_end_rounded = _round_to_nearest_half_hour(assigned_end)
 		if assigned_end_rounded > end:
-
 			assigned_end = end.replace(second=0, microsecond=0)
 		else:
 			assigned_end = assigned_end_rounded
-		
-		# Ensure end is after start
+
 		if assigned_end <= assigned_start:
 			assigned_end = assigned_start + duration
 			if assigned_end > end:
 				return None
-		
-		# Add 30 minute buffer after event to prevent overlap (increased from 15 to 30)
+
 		buffer_end = assigned_end + timedelta(minutes=30)
-		
-		if buffer_end <= end:
-			slot_queue[idx] = (buffer_end, end)
-		elif assigned_end < end:
-			slot_queue[idx] = (assigned_end, end)
+
+		before_slot = (start, assigned_start) if assigned_start - start >= timedelta(minutes=30) else None
+		if buffer_end <= end and end - buffer_end >= timedelta(minutes=30):
+			after_slot = (buffer_end, end)
+		elif assigned_end < end and end - assigned_end >= timedelta(minutes=30):
+			after_slot = (assigned_end, end)
 		else:
-			slot_queue.pop(idx)
+			after_slot = None
+
+		slot_queue.pop(idx)
+		insert_at = idx
+		if before_slot:
+			slot_queue.insert(insert_at, before_slot)
+			insert_at += 1
+		if after_slot:
+			slot_queue.insert(insert_at, after_slot)
+
 		return assigned_start, assigned_end
 
 	total_subtasks = len(subtasks)
@@ -3271,63 +3285,58 @@ def _schedule_ai_subtasks(
 			slot_start, slot_end = slot_queue[slot_idx]
 			if slot_end - slot_start < duration + timedelta(minutes=30):
 				continue
-			
-			# Calculate what the assigned times would be (before consuming)
-			# Round start time to nearest hour or 30 minutes, but never below slot start
-			potential_start = _round_to_nearest_half_hour(slot_start)
-			if potential_start < slot_start:
-				if slot_start.minute < 30:
-					potential_start = slot_start.replace(minute=30, second=0, microsecond=0)
+
+			effective_start = slot_start
+			if target_time and slot_start <= target_time < slot_end:
+				effective_start = target_time
+
+			if slot_end - effective_start < duration + timedelta(minutes=30):
+				effective_start = slot_start
+				if slot_end - effective_start < duration + timedelta(minutes=30):
+					continue
+
+			potential_start = _round_to_nearest_half_hour(effective_start)
+			if potential_start < effective_start:
+				if effective_start.minute < 30:
+					potential_start = effective_start.replace(minute=30, second=0, microsecond=0)
 				else:
-					potential_start = (slot_start.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1))
-				if potential_start < slot_start:
-					potential_start = slot_start.replace(second=0, microsecond=0)
-			
+					potential_start = (effective_start.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1))
+				if potential_start < effective_start:
+					potential_start = effective_start.replace(second=0, microsecond=0)
+
+			if potential_start < slot_start:
+				potential_start = slot_start
 			if potential_start >= slot_end:
 				continue
-			
+
 			potential_end = potential_start + duration
 			potential_end_rounded = _round_to_nearest_half_hour(potential_end)
 			if potential_end_rounded > slot_end:
 				potential_end = slot_end.replace(second=0, microsecond=0)
 			else:
 				potential_end = potential_end_rounded
-			
+
 			if potential_end <= potential_start:
 				potential_end = potential_start + duration
 				if potential_end > slot_end:
 					continue
-			
-			# Reference: ChatGPT (OpenAI) - Calendar Event Overlap Detection
-			# Date: 2025-11-14
-			# Prompt: "I need to check if a new calendar event would overlap with existing events, 
-			# including a buffer time (30 minutes) between events. The overlap check should account 
-			# for both the new event's time and the buffer. Can you help me write this overlap 
-			# detection logic?"
-			# ChatGPT provided the overlap detection algorithm that checks if a new event (with buffer) 
-			# overlaps with existing events. It compares start and end times with buffers to prevent 
-			# double-booking and ensures events have proper spacing.
-			# Check for overlaps with already-scheduled events (with 30 min buffer)
+
 			overlaps = False
 			for existing in scheduled:
 				existing_start = existing.get("start")
 				existing_end = existing.get("end")
 				if isinstance(existing_start, datetime) and isinstance(existing_end, datetime):
-					# Check if new event overlaps with existing event (with buffers)
 					new_start = potential_start
-					new_end = potential_end + timedelta(minutes=30)  # Include buffer in check
+					new_end = potential_end + timedelta(minutes=30)
 					existing_end_buffered = existing_end + timedelta(minutes=30)
-					# Overlap if: new_start < existing_end_buffered AND new_end > existing_start
 					if new_start < existing_end_buffered and new_end > existing_start:
 						overlaps = True
 						break
-			
+
 			if overlaps:
-				# Skip this slot and try next one
 				continue
-			
-			# No overlap found, consume the slot
-			assignment_slot = consume_slot(slot_idx, duration)
+
+			assignment_slot = consume_slot(slot_idx, duration, target_time)
 			if assignment_slot:
 				start_ts, end_ts = assignment_slot
 				scheduled.append({
