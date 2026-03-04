@@ -36,7 +36,7 @@
 		backdrop-filter: blur(8px);
 		-webkit-backdrop-filter: blur(8px);
 		overflow: hidden;
-		animation: heroBubbleLockIn 0.9s cubic-bezier(0.2, 0.9, 0.2, 1) both;
+		animation: heroBubbleLockIn 1.65s cubic-bezier(0.2, 0.9, 0.2, 1) both;
 	}
 	.hero-brand-wordmark-wrap.is-idle {
 		animation: heroBubbleWobble 7s ease-in-out infinite;
@@ -98,30 +98,36 @@
 		height: 0.95rem;
 	}
 	.hero-card .hero-actions .hero-action-btn {
-		border: none;
+		border: 1px solid rgba(255, 255, 255, 0.26);
 		color: #ffffff;
+		background-clip: padding-box;
 		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.22),
-			0 9px 20px rgba(67, 97, 238, 0.2);
-		transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+			inset 0 1px 0 rgba(255, 255, 255, 0.34),
+			inset 0 -8px 16px rgba(99, 102, 241, 0.16),
+			0 9px 20px rgba(67, 97, 238, 0.24);
+		backdrop-filter: blur(5px);
+		-webkit-backdrop-filter: blur(5px);
+		transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, border-color 0.2s ease;
 	}
 	.hero-card .hero-actions .hero-action-btn:hover,
 	.hero-card .hero-actions .hero-action-btn:focus-visible {
 		color: #ffffff;
 		transform: translateY(-1px);
-		filter: brightness(1.04);
+		border-color: rgba(255, 255, 255, 0.45);
+		filter: brightness(1.05);
 		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.28),
-			0 12px 22px rgba(67, 97, 238, 0.24);
+			inset 0 1px 0 rgba(255, 255, 255, 0.42),
+			inset 0 -8px 16px rgba(99, 102, 241, 0.18),
+			0 12px 24px rgba(67, 97, 238, 0.3);
 	}
 	.hero-card .hero-actions .hero-action-lockin {
-		background: linear-gradient(135deg, #93a3ff 0%, #6366f1 58%, #7c3aed 100%);
+		background: linear-gradient(135deg, rgba(162, 173, 255, 0.96) 0%, rgba(99, 102, 241, 0.96) 55%, rgba(124, 58, 237, 0.94) 100%) !important;
 	}
 	.hero-card .hero-actions .hero-action-group {
-		background: linear-gradient(135deg, #34d399 0%, #10b981 56%, #0f766e 100%);
+		background: linear-gradient(135deg, rgba(74, 222, 173, 0.95) 0%, rgba(16, 185, 129, 0.96) 58%, rgba(13, 148, 136, 0.95) 100%) !important;
 	}
 	.hero-card .hero-actions .hero-action-review {
-		background: linear-gradient(135deg, #f8c768 0%, #f2a53f 58%, #d88a1e 100%);
+		background: linear-gradient(135deg, rgba(250, 211, 128, 0.95) 0%, rgba(245, 158, 11, 0.95) 58%, rgba(217, 119, 6, 0.94) 100%) !important;
 	}
 	.hero-card .hero-meta h6 {
 		color: #1f2a6d;
@@ -131,6 +137,8 @@
 	}
 	.hero-card .hero-meta .btn {
 		border-radius: 0.7rem;
+		backdrop-filter: blur(3px);
+		-webkit-backdrop-filter: blur(3px);
 	}
 	.hero-card .hero-meta .btn-outline-primary {
 		border-color: rgba(79, 70, 229, 0.45);
@@ -142,6 +150,7 @@
 		border-color: rgba(67, 97, 238, 0.65);
 		color: #ffffff;
 		background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+		box-shadow: 0 6px 16px rgba(79, 70, 229, 0.22);
 	}
 	.hero-card .hero-meta .btn-outline-secondary {
 		border-color: rgba(99, 102, 241, 0.35);
@@ -153,6 +162,7 @@
 		border-color: rgba(99, 102, 241, 0.55);
 		color: #2f3f92;
 		background: rgba(199, 210, 254, 0.42);
+		box-shadow: 0 4px 12px rgba(79, 70, 229, 0.14);
 	}
 	.hero-card .hero-meta .btn-primary {
 		border: none;
@@ -191,13 +201,18 @@
 	@keyframes heroBubbleLockIn {
 		0% {
 			opacity: 0;
-			filter: blur(5px);
-			transform: scale(0.86) translateY(12px);
+			filter: blur(7px);
+			transform: scale(0.8) translateY(16px);
 		}
-		70% {
+		58% {
+			opacity: 1;
+			filter: blur(0.8px);
+			transform: scale(1.065) translateY(-1px);
+		}
+		82% {
 			opacity: 1;
 			filter: blur(0);
-			transform: scale(1.03) translateY(0);
+			transform: scale(0.988) translateY(0);
 		}
 		100% {
 			opacity: 1;
@@ -591,12 +606,23 @@ document.addEventListener('DOMContentLoaded', () => {
 			heroTitleEl.textContent = fullHeroTitle;
 			return;
 		}
-		const startTyping = () => window.setTimeout(runHeroTitleTyping, 250);
+		const startTyping = () => runHeroTitleTyping();
 		if (!wordmarkWrap) {
 			startTyping();
 			return;
 		}
-		const lockInDurationMs = 900;
+		const getAnimationDurationMs = (rawDuration) => {
+			if (!rawDuration) return 0;
+			const firstDuration = rawDuration.split(',')[0].trim();
+			if (firstDuration.endsWith('ms')) {
+				return Number.parseFloat(firstDuration);
+			}
+			if (firstDuration.endsWith('s')) {
+				return Number.parseFloat(firstDuration) * 1000;
+			}
+			return Number.parseFloat(firstDuration) || 0;
+		};
+		const lockInDurationMs = getAnimationDurationMs(window.getComputedStyle(wordmarkWrap).animationDuration) || 1650;
 		let hasStartedTyping = false;
 		const beginTypingOnce = () => {
 			if (hasStartedTyping) return;
@@ -605,7 +631,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			startTyping();
 		};
 		wordmarkWrap.addEventListener('animationend', beginTypingOnce, { once: true });
-		window.setTimeout(beginTypingOnce, lockInDurationMs + 100);
+		window.setTimeout(beginTypingOnce, lockInDurationMs + 150);
 	};
 
 	startHeroSequence();
