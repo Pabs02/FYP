@@ -299,14 +299,14 @@
 </div>
 
 <!-- Top Row: Progress Overview + Next Assignments -->
-<div class="row g-4 mb-4">
-	<div class="col-lg-4 col-md-5">
+<div class="row g-4 mb-4 align-items-stretch">
+	<div class="col-lg-4 col-md-5 d-flex">
 		<!-- Reference: ChatGPT (OpenAI) - Dashboard Grade Display Copy
 		     Date: 2026-01-22
 		     Prompt: "I want a clear dashboard label for Canvas grades and a short
 		     explanation for the priority ordering. Can you suggest UI wording?"
 		     ChatGPT provided the UI copy guidance used in this dashboard section. -->
-		<div class="card dashboard-card h-100">
+		<div class="card dashboard-card h-100 w-100">
 			<div class="card-header"><span class="lockin-gradient-heading">Progress Overview</span></div>
 			<div class="card-body">
 				{% if progress %}
@@ -336,13 +336,13 @@
 			</div>
 		</div>
 	</div>
-	<div class="col-lg-8 col-md-7">
+	<div class="col-lg-8 col-md-7 d-flex">
 		<!-- Reference: ChatGPT (OpenAI) - Canvas Grade Display UI
 		     Date: 2026-01-22
 		     Prompt: "I want to show the latest Canvas score in the 'Next assignments'
 		     cards with a simple label. Can you suggest a concise UI label?"
 		     ChatGPT provided the UI label for the grade display. -->
-		<div class="card dashboard-card h-100">
+		<div class="card dashboard-card h-100 w-100">
 			<div class="card-header d-flex justify-content-between align-items-center">
 				<span class="lockin-gradient-heading">Next assignments</span>
 				<span class="text-muted small">Prioritised by impact &amp; urgency</span>
