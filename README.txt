@@ -1714,6 +1714,14 @@ Reference:
     AI support on one line underneath, and animate the bubble subtly."
   ChatGPT provided the centered hero stack + single liquid-glass bubble styling
   and subtle motion pattern used for the dashboard LockIn wordmark block.
+  - ChatGPT (OpenAI). Sequenced Hero Load Motion + Voice Prompt Rotation.
+    Date: 2026-03-04
+    Prompt: "I want the dashboard hero to animate in sequence: LockIn bubble first,
+    then a typed headline, plus rotating voice-command examples and a microphone icon
+    capture control without changing backend voice command behavior."
+  ChatGPT provided the staged animation timeline (bubble lock-in then typed heading),
+  dynamic placeholder rotation pattern for the voice transcript input, and the
+  icon-button state-toggling approach for the voice capture control.
 
 ================================================================================
 END OF REFERENCES
