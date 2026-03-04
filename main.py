@@ -1770,22 +1770,41 @@ def _lockin_email_html(*, subject: str, body: str) -> str:
 	).strip()
 	return f"""<!doctype html>
 <html>
-<body style="margin:0;padding:0;background:#f3f6ff;font-family:Arial,sans-serif;color:#111827;">
-	<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:24px 0;">
+<body style="margin:0;padding:0;background:#eef3ff;font-family:'DM Sans',Inter,Arial,sans-serif;color:#111827;">
+	<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:26px 10px;">
 		<tr>
 			<td align="center">
-				<table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;">
+				<table role="presentation" width="680" cellspacing="0" cellpadding="0" style="max-width:680px;width:100%;">
 					<tr>
-						<td style="background:linear-gradient(135deg,#4f46e5,#6366f1);padding:18px 24px;border-radius:14px 14px 0 0;color:#ffffff;">
-							<div style="font-size:22px;font-weight:700;">{html.escape(app_name)}</div>
-							<div style="margin-top:4px;font-size:13px;opacity:0.9;">{html.escape(tagline)}</div>
+						<td style="background:#f3f9ff;border:1px solid #dbe7ff;border-radius:18px 18px 0 0;padding:20px 24px 18px 24px;">
+							<table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+								<tr>
+									<td style="font-size:48px;line-height:0;">&nbsp;</td>
+								</tr>
+								<tr>
+									<td>
+										<span style="font-size:42px;font-weight:800;letter-spacing:0.3px;background:linear-gradient(120deg,#1f2a6d 0%,#4361ee 45%,#7c3aed 100%);-webkit-background-clip:text;background-clip:text;color:#4361ee;-webkit-text-fill-color:transparent;">{html.escape(app_name)}</span>
+										<span style="display:inline-block;margin-left:8px;padding:4px 10px;border-radius:999px;border:1px solid #d6ddf2;background:#ffffff;font-size:12px;font-weight:600;color:#1f2937;vertical-align:middle;">Canvas-ready</span>
+										<span style="display:inline-block;margin-left:6px;padding:4px 10px;border-radius:999px;border:1px solid #d6ddf2;background:#ffffff;font-size:12px;font-weight:600;color:#1f2937;vertical-align:middle;">AI support</span>
+									</td>
+								</tr>
+								<tr>
+									<td style="padding-top:10px;">
+										<div style="font-size:15px;line-height:1.45;color:#334155;max-width:560px;">{html.escape(tagline)}</div>
+									</td>
+								</tr>
+							</table>
 						</td>
 					</tr>
 					<tr>
-						<td style="background:#ffffff;padding:20px 24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 14px 14px;">
-							<h2 style="margin:0 0 12px 0;font-size:20px;color:#1f2937;">{subject_safe}</h2>
-							<div style="font-size:15px;line-height:1.65;color:#334155;">{body_html}</div>
-							<hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0 12px;">
+						<td style="background:#ffffff;padding:22px 24px;border-left:1px solid #dbe7ff;border-right:1px solid #dbe7ff;">
+							<h2 style="margin:0 0 12px 0;font-size:28px;line-height:1.2;font-weight:800;background:linear-gradient(120deg,#1f2a6d 0%,#4361ee 45%,#7c3aed 100%);-webkit-background-clip:text;background-clip:text;color:#4361ee;-webkit-text-fill-color:transparent;">{subject_safe}</h2>
+							<div style="font-size:17px;line-height:1.68;color:#334155;">{body_html}</div>
+						</td>
+					</tr>
+					<tr>
+						<td style="background:#ffffff;padding:0 24px 20px 24px;border-left:1px solid #dbe7ff;border-right:1px solid #dbe7ff;border-bottom:1px solid #dbe7ff;border-radius:0 0 18px 18px;">
+							<hr style="border:none;border-top:1px solid #e2e8f0;margin:4px 0 12px;">
 							<div style="font-size:12px;color:#64748b;">Sent by {html.escape(app_name)}.</div>
 						</td>
 					</tr>

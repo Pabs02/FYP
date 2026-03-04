@@ -1611,6 +1611,13 @@ Reference:
   ChatGPT provided the reusable email HTML wrapper pattern used in
   _lockin_email_html and the provider integration updates in _send_reminder_email
   (Resend HTML + SMTP multipart alternative).
+  - ChatGPT (OpenAI). Homepage-Matched Email Brand Styling Refresh.
+    Date: 2026-03-04
+    Prompt: "Please restyle outgoing email branding to match the LockIn homepage
+    visual identity (blue-violet gradient wordmark feel, badge accents, cleaner
+    typography) while staying email-client friendly."
+  ChatGPT provided the updated email HTML style structure adapted in
+  _lockin_email_html for closer visual parity with the in-app LockIn branding.
 
 ================================================================================
 DOMAIN REGISTRAR
