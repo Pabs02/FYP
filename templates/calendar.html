@@ -448,7 +448,10 @@
 					}
 				},
 				timeGridWeek: {
-					titleFormat: { year: 'numeric', month: 'long', day: 'numeric' }
+					titleFormat: { year: 'numeric', month: 'long', day: 'numeric' },
+					// Keep short noon events readable in weekly grid without affecting other views.
+					eventMinHeight: 42,
+					eventShortHeight: 42
 				},
 				dayGridMonth: {
 					titleFormat: { year: 'numeric', month: 'long' }
@@ -571,6 +574,16 @@
 	}
 	.fc-timegrid-event {
 		min-height: 30px;
+	}
+	/* Weekly view only: prevent noon-time event content from clipping at the top */
+	.fc .fc-timeGridWeek-view .fc-timegrid-event .fc-event-main {
+		padding-top: 2px;
+		padding-bottom: 2px;
+		overflow: visible;
+	}
+	.fc .fc-timeGridWeek-view .fc-timegrid-event .fc-event-time {
+		line-height: 1.2;
+		margin-bottom: 2px;
 	}
 	.fc-timegrid-event.assignment .fc-event-main {
 		font-weight: 600;
