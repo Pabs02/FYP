@@ -98,36 +98,54 @@
 		height: 0.95rem;
 	}
 	.hero-card .hero-actions .hero-action-btn {
-		border: 1px solid rgba(255, 255, 255, 0.26);
-		color: #ffffff;
+		position: relative;
+		overflow: hidden;
+		border: 1px solid rgba(255, 255, 255, 0.7);
+		background: linear-gradient(135deg, rgba(255, 255, 255, 0.38) 0%, rgba(199, 210, 254, 0.28) 50%, rgba(216, 180, 254, 0.28) 100%) !important;
+		color: transparent;
 		background-clip: padding-box;
 		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.34),
-			inset 0 -8px 16px rgba(99, 102, 241, 0.16),
-			0 9px 20px rgba(67, 97, 238, 0.24);
-		backdrop-filter: blur(5px);
-		-webkit-backdrop-filter: blur(5px);
+			inset 0 1px 0 rgba(255, 255, 255, 0.65),
+			inset 0 -10px 20px rgba(99, 102, 241, 0.08),
+			0 8px 22px rgba(99, 102, 241, 0.16);
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
 		transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, border-color 0.2s ease;
+		font-weight: 700;
+		font-size: 0.85rem;
+	}
+	.hero-card .hero-actions .hero-action-btn span {
+		background: linear-gradient(120deg, #1f2a6d 0%, #4361ee 45%, #7c3aed 100%);
+		-webkit-background-clip: text;
+		background-clip: text;
+		color: transparent;
+		-webkit-text-fill-color: transparent;
+	}
+	.hero-card .hero-actions .hero-action-btn svg {
+		color: #4361ee;
+		stroke: #4361ee;
+	}
+	.hero-card .hero-actions .hero-action-btn::before {
+		content: "";
+		position: absolute;
+		top: 8%;
+		left: 8%;
+		width: 84%;
+		height: 38%;
+		border-radius: 999px;
+		background: linear-gradient(180deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0.15) 100%);
+		filter: blur(0.4px);
+		pointer-events: none;
 	}
 	.hero-card .hero-actions .hero-action-btn:hover,
 	.hero-card .hero-actions .hero-action-btn:focus-visible {
-		color: #ffffff;
 		transform: translateY(-1px);
-		border-color: rgba(255, 255, 255, 0.45);
-		filter: brightness(1.05);
+		border-color: rgba(255, 255, 255, 0.85);
+		filter: brightness(1.03);
 		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.42),
-			inset 0 -8px 16px rgba(99, 102, 241, 0.18),
-			0 12px 24px rgba(67, 97, 238, 0.3);
-	}
-	.hero-card .hero-actions .hero-action-lockin {
-		background: linear-gradient(135deg, rgba(162, 173, 255, 0.96) 0%, rgba(99, 102, 241, 0.96) 55%, rgba(124, 58, 237, 0.94) 100%) !important;
-	}
-	.hero-card .hero-actions .hero-action-group {
-		background: linear-gradient(135deg, rgba(74, 222, 173, 0.95) 0%, rgba(16, 185, 129, 0.96) 58%, rgba(13, 148, 136, 0.95) 100%) !important;
-	}
-	.hero-card .hero-actions .hero-action-review {
-		background: linear-gradient(135deg, rgba(250, 211, 128, 0.95) 0%, rgba(245, 158, 11, 0.95) 58%, rgba(217, 119, 6, 0.94) 100%) !important;
+			inset 0 1px 0 rgba(255, 255, 255, 0.75),
+			inset 0 -10px 20px rgba(99, 102, 241, 0.1),
+			0 12px 28px rgba(99, 102, 241, 0.22);
 	}
 	.hero-card .hero-meta h6 {
 		color: #1f2a6d;
@@ -268,46 +286,46 @@
 				</div>
 			</div>
 			<h1 class="display-6 hero-title mb-3">Intelligent learning management for better outcomes.</h1>
-			<div class="d-flex gap-2 flex-wrap hero-actions">
-				<a class="btn btn-primary hero-action-btn hero-action-lockin" href="/course-bot">
-					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+			<div class="d-flex gap-2 flex-nowrap hero-actions">
+				<a class="btn hero-action-btn" href="/course-bot">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
 						<path d="M9 21h6"/>
 						<path d="M12 3a6 6 0 0 0-6 6c0 2.5 1.5 4.5 3 6l1.5 2h3l1.5-2c1.5-1.5 3-3.5 3-6a6 6 0 0 0-6-6z"/>
 						<line x1="9" y1="18" x2="15" y2="18"/>
 					</svg>
-					Course Bot
+					<span>Course Bot</span>
 				</a>
-				<a class="btn btn-primary hero-action-btn hero-action-lockin" href="/ai-workspace">
-					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+				<a class="btn hero-action-btn" href="/ai-workspace">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
 						<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
 					</svg>
-					AI Workspace
+					<span>AI Workspace</span>
 				</a>
-				<a class="btn btn-success hero-action-btn hero-action-group" href="/group-workspace">
-					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+				<a class="btn hero-action-btn" href="/group-workspace">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
 						<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
 						<circle cx="9" cy="7" r="4"/>
 						<path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
 					</svg>
-					Groupwork
+					<span>Groupwork</span>
 				</a>
-				<a class="btn hero-action-btn hero-action-review" href="/assignment-review">
-					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+				<a class="btn hero-action-btn" href="/assignment-review">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
 						<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
 						<polyline points="14 2 14 8 20 8"/>
 						<line x1="16" y1="13" x2="8" y2="13"/>
 						<line x1="16" y1="17" x2="8" y2="17"/>
 						<polyline points="10 9 9 9 8 9"/>
 					</svg>
-					Review
+					<span>Review</span>
 				</a>
-				<a class="btn btn-primary hero-action-btn hero-action-lockin" href="/sync-canvas">
-					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+				<a class="btn hero-action-btn" href="/sync-canvas">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
 						<polyline points="23 4 23 10 17 10"/>
 						<polyline points="1 20 1 14 7 14"/>
 						<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
 					</svg>
-					Sync
+					<span>Sync</span>
 				</a>
 			</div>
 		</div>
@@ -376,8 +394,8 @@
 						<span id="voiceStatusHome" class="small text-muted">Ready</span>
 					</div>
 					<textarea id="voiceTranscriptHome" class="form-control form-control-sm mb-2" rows="1" placeholder="Try: Open modules"></textarea>
-					<div class="d-flex flex-wrap gap-2">
-						<button id="voiceCaptureBtnHome" type="button" class="btn btn-sm btn-outline-success voice-mic-btn" aria-label="Start voice capture" title="Start voice capture">
+					<div class="d-flex gap-2 w-100">
+						<button id="voiceCaptureBtnHome" type="button" class="btn btn-sm btn-outline-success voice-mic-btn" style="flex: 2 1 0;" aria-label="Start voice capture" title="Start voice capture">
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 								<rect x="9" y="2" width="6" height="12" rx="3"></rect>
 								<path d="M5 10a7 7 0 0 0 14 0"></path>
@@ -385,7 +403,7 @@
 								<line x1="8" y1="22" x2="16" y2="22"></line>
 							</svg>
 						</button>
-						<button id="voiceCommandBtnHome" type="button" class="btn btn-sm btn-outline-primary">Run</button>
+						<button id="voiceCommandBtnHome" type="button" class="btn btn-sm btn-outline-primary" style="flex: 1 1 0;">Run</button>
 					</div>
 					<div id="voiceResultHome" class="small text-muted mt-1"></div>
 				</div>
@@ -478,7 +496,7 @@
 <div class="row g-3">
 	<div class="col-12">
 		<div class="card dashboard-card" style="background: #1f2937; border: none;">
-			<div class="card-body p-4">
+			<div class="card-body p-4" style="color: rgba(240, 244, 255, 1); background-color: rgba(239, 243, 253, 1);">
 				<iframe
 					src="{{ spotify_embed_url|default('https://open.spotify.com/embed/playlist/37i9dQZF1DX8Uebhn9wzrS?utm_source=generator&theme=0') }}"
 					width="100%"
@@ -489,13 +507,13 @@
 					id="spotify-player">
 				</iframe>
 				<div class="d-flex gap-2 mt-3">
-					<a href="{{ spotify_url|default('https://open.spotify.com/playlist/37i9dQZF1DX8Uebhn9wzrS') }}" target="_blank" class="btn btn-sm btn-success" style="background: #10b981; border-color: #10b981;">
+					<a href="{{ spotify_url|default('https://open.spotify.com/playlist/37i9dQZF1DX8Uebhn9wzrS') }}" target="_blank" class="btn btn-success" style="background: #10b981; border-color: #10b981; padding: 0.5rem 1.5rem; font-size: 0.95rem;">
 						<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px; vertical-align: middle;">
 							<path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.3.421-1.02.599-1.56.3z"/>
 						</svg>
 						Open in Spotify
 					</a>
-					<a href="{{ url_for('index', refresh=1) }}" class="btn btn-sm btn-outline-primary" style="border-color: rgba(255,255,255,0.3); color: white;">
+					<a href="{{ url_for('index', refresh=1) }}" class="btn btn-outline-secondary" style="border-color: #6b7280; color: #1f2937; padding: 0.5rem 1.5rem; font-size: 0.95rem;">
 						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;">
 							<polyline points="23 4 23 10 17 10"></polyline>
 							<polyline points="1 20 1 14 7 14"></polyline>
