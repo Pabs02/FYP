@@ -1706,6 +1706,15 @@ Reference:
   blocked hard deletes can still remove modules from the requesting user's
   dashboard view.
 
+FILE: templates/index.html
+Reference:
+  - ChatGPT (OpenAI). Centered Hero Wordmark + Bubble Motion Animation.
+    Date: 2026-03-04
+    Prompt: "Center the LockIn hero wordmark, keep Canvas-ready and AI support on
+    one line underneath, and add a subtle animated bubble motion effect."
+  ChatGPT provided the centered hero brand stack layout + keyframe bubble
+  animation pattern used for the dashboard LockIn wordmark block.
+
 ================================================================================
 END OF REFERENCES
 ================================================================================

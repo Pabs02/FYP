@@ -11,15 +11,112 @@
 		color: transparent;
 		-webkit-text-fill-color: transparent;
 	}
+	.hero-brand-stack {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.6rem;
+		margin: 0 auto 1rem;
+		text-align: center;
+	}
+	.hero-brand-wordmark-wrap {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.25rem 0.5rem;
+	}
+	.hero-brand-wordmark {
+		position: relative;
+		z-index: 2;
+		font-size: 2rem;
+		font-weight: 800;
+		letter-spacing: 0.3px;
+		background: linear-gradient(120deg, #1f2a6d 0%, #4361ee 45%, #7c3aed 100%);
+		-webkit-background-clip: text;
+		background-clip: text;
+		color: transparent;
+		-webkit-text-fill-color: transparent;
+		font-family: 'DM Sans', sans-serif;
+	}
+	.hero-brand-bubble {
+		position: absolute;
+		z-index: 1;
+		border-radius: 999px;
+		pointer-events: none;
+		background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.95) 0%, rgba(129, 140, 248, 0.35) 60%, rgba(129, 140, 248, 0.05) 100%);
+		filter: blur(0.2px);
+		animation: heroBubbleFloat 6.5s ease-in-out infinite;
+	}
+	.hero-brand-bubble.bubble-1 {
+		width: 26px;
+		height: 26px;
+		top: -12px;
+		left: -18px;
+		animation-delay: 0s;
+	}
+	.hero-brand-bubble.bubble-2 {
+		width: 18px;
+		height: 18px;
+		top: -8px;
+		right: -14px;
+		animation-delay: 1.4s;
+	}
+	.hero-brand-bubble.bubble-3 {
+		width: 22px;
+		height: 22px;
+		bottom: -10px;
+		right: 18%;
+		animation-delay: 2.4s;
+	}
+	.hero-brand-badge-row {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: nowrap;
+		justify-content: center;
+		align-items: center;
+		gap: 0.45rem;
+	}
+	/* Reference: ChatGPT (OpenAI) - Hero Wordmark Bubble Motion Styling
+	   Date: 2026-03-04
+	   Prompt: "Center the LockIn hero wordmark, keep Canvas-ready and AI support
+	   on one line underneath, and add a subtle animated bubble motion effect." */
+	@keyframes heroBubbleFloat {
+		0% {
+			transform: translate3d(0, 0, 0) scale(1);
+			opacity: 0.5;
+		}
+		50% {
+			transform: translate3d(0, -7px, 0) scale(1.08);
+			opacity: 0.85;
+		}
+		100% {
+			transform: translate3d(0, 0, 0) scale(1);
+			opacity: 0.5;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.hero-brand-bubble {
+			animation: none;
+		}
+	}
 </style>
 <div class="dashboard-page" style="position: relative;">
 <div class="p-4 p-lg-5 rounded-4 hero-card page-header-card mb-4">
 	<div class="row align-items-center g-4">
 		<div class="col-lg-7">
-			<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-				<span style="font-size: 2rem; font-weight: 800; letter-spacing: 0.3px; background: linear-gradient(120deg, #1f2a6d 0%, #4361ee 45%, #7c3aed 100%); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; font-family: 'DM Sans', sans-serif;">LockIn</span>
-				<span class="badge text-bg-light border">Canvas-ready</span>
-				<span class="badge text-bg-light border">AI support</span>
+			<div class="hero-brand-stack">
+				<div class="hero-brand-wordmark-wrap">
+					<span class="hero-brand-bubble bubble-1" aria-hidden="true"></span>
+					<span class="hero-brand-bubble bubble-2" aria-hidden="true"></span>
+					<span class="hero-brand-bubble bubble-3" aria-hidden="true"></span>
+					<span class="hero-brand-wordmark">LockIn</span>
+				</div>
+				<div class="hero-brand-badge-row">
+					<span class="badge text-bg-light border">Canvas-ready</span>
+					<span class="badge text-bg-light border">AI support</span>
+				</div>
 			</div>
 			<h1 class="display-6 hero-title mb-3">Intelligent learning management for better outcomes.</h1>
 			<p class="lead text-muted mb-4">LockIn is an intelligent learning management tool using AI to reduce procrastination and maximise student grades.</p>
