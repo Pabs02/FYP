@@ -7065,12 +7065,36 @@ def modules_overview():
 		print(f"[modules] name column detection failed user={current_user.id} error={exc}")
 
 	try:
+		# Personal hide list so users can remove shared/test modules from their own dashboard
+		# without affecting other users.
+		sb_execute(
+			"""
+			CREATE TABLE IF NOT EXISTS hidden_modules (
+				student_id BIGINT NOT NULL,
+				module_id BIGINT NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				PRIMARY KEY (student_id, module_id)
+			)
+			"""
+		)
+	except Exception:
+		pass
+
+	try:
 		modules = sb_fetch_all(
 			f"""
 			SELECT m.id, m.code, {name_expr} AS display_name
 			FROM modules m
+			WHERE NOT EXISTS (
+				SELECT 1
+				FROM hidden_modules hm
+				WHERE hm.student_id = :sid
+				  AND hm.module_id = m.id
+			)
 			ORDER BY m.code
 			"""
+			,
+			{"sid": current_user.id},
 		)
 	except Exception as exc:
 		print(f"[modules] overview error: {exc}")
@@ -7342,7 +7366,29 @@ def delete_module(module_id):
 		elif deleted_tasks > 0 or deleted_events > 0:
 			flash("Removed your module-linked records, but shared module entry was retained.", "info")
 		else:
-			flash("Module could not be deleted because it is still referenced by existing records.", "warning")
+			# If hard delete is blocked by shared refs, hide module for this user.
+			try:
+				sb_execute(
+					"""
+					CREATE TABLE IF NOT EXISTS hidden_modules (
+						student_id BIGINT NOT NULL,
+						module_id BIGINT NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
+						created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+						PRIMARY KEY (student_id, module_id)
+					)
+					"""
+				)
+				sb_execute(
+					"""
+					INSERT INTO hidden_modules (student_id, module_id)
+					VALUES (:sid, :mid)
+					ON CONFLICT (student_id, module_id) DO NOTHING
+					""",
+					{"sid": current_user.id, "mid": module_id},
+				)
+				flash("Module is still referenced, so it was hidden from your dashboard.", "info")
+			except Exception:
+				flash("Module could not be deleted because it is still referenced by existing records.", "warning")
 	except Exception as exc:
 		print(f"[modules] delete failed user={current_user.id} module={module_id} err={exc}")
 		flash("Failed to delete module.", "error")

@@ -1688,6 +1688,17 @@ Reference:
   cleanup of module-linked records first, then module row deletion only when no
   remaining references exist.
 
+FILE: main.py
+Reference:
+  - ChatGPT (OpenAI). Per-User Hidden Modules Fallback for Shared Data.
+    Date: 2026-03-04
+    Prompt: "Delete requests are hitting the endpoint but some modules are still
+    shared/referenced, so hard delete fails. Can we add a safe fallback to hide
+    those modules only for the current user while keeping shared data intact?"
+  ChatGPT provided the hidden_modules table + filtered query fallback pattern so
+  blocked hard deletes can still remove modules from the requesting user's
+  dashboard view.
+
 ================================================================================
 END OF REFERENCES
 ================================================================================
