@@ -97,11 +97,92 @@
 		width: 0.95rem;
 		height: 0.95rem;
 	}
+	.hero-card .hero-actions .hero-action-btn {
+		border: none;
+		color: #ffffff;
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.22),
+			0 9px 20px rgba(67, 97, 238, 0.2);
+		transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+	}
+	.hero-card .hero-actions .hero-action-btn:hover,
+	.hero-card .hero-actions .hero-action-btn:focus-visible {
+		color: #ffffff;
+		transform: translateY(-1px);
+		filter: brightness(1.04);
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.28),
+			0 12px 22px rgba(67, 97, 238, 0.24);
+	}
+	.hero-card .hero-actions .hero-action-lockin {
+		background: linear-gradient(135deg, #93a3ff 0%, #6366f1 58%, #7c3aed 100%);
+	}
+	.hero-card .hero-actions .hero-action-group {
+		background: linear-gradient(135deg, #34d399 0%, #10b981 56%, #0f766e 100%);
+	}
+	.hero-card .hero-actions .hero-action-review {
+		background: linear-gradient(135deg, #f8c768 0%, #f2a53f 58%, #d88a1e 100%);
+	}
+	.hero-card .hero-meta h6 {
+		color: #1f2a6d;
+	}
+	.hero-card .hero-meta .text-muted {
+		color: #4c5680 !important;
+	}
+	.hero-card .hero-meta .btn {
+		border-radius: 0.7rem;
+	}
+	.hero-card .hero-meta .btn-outline-primary {
+		border-color: rgba(79, 70, 229, 0.45);
+		color: #4338ca;
+		background: rgba(129, 140, 248, 0.1);
+	}
+	.hero-card .hero-meta .btn-outline-primary:hover,
+	.hero-card .hero-meta .btn-outline-primary:focus-visible {
+		border-color: rgba(67, 97, 238, 0.65);
+		color: #ffffff;
+		background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+	}
+	.hero-card .hero-meta .btn-outline-secondary {
+		border-color: rgba(99, 102, 241, 0.35);
+		color: #4c5680;
+		background: rgba(255, 255, 255, 0.5);
+	}
+	.hero-card .hero-meta .btn-outline-secondary:hover,
+	.hero-card .hero-meta .btn-outline-secondary:focus-visible {
+		border-color: rgba(99, 102, 241, 0.55);
+		color: #2f3f92;
+		background: rgba(199, 210, 254, 0.42);
+	}
+	.hero-card .hero-meta .btn-primary {
+		border: none;
+		background: linear-gradient(135deg, #8b94ff 0%, #6366f1 100%);
+		box-shadow: 0 8px 18px rgba(79, 70, 229, 0.22);
+	}
+	.hero-card .hero-meta .btn-primary:hover,
+	.hero-card .hero-meta .btn-primary:focus-visible {
+		background: linear-gradient(135deg, #7f89fb 0%, #4f46e5 100%);
+	}
+	.hero-card .hero-meta .btn-outline-success {
+		border-color: rgba(16, 185, 129, 0.55);
+		color: #0f766e;
+		background: rgba(16, 185, 129, 0.08);
+	}
+	.hero-card .hero-meta .btn-outline-success:hover,
+	.hero-card .hero-meta .btn-outline-success:focus-visible {
+		border-color: rgba(15, 118, 110, 0.75);
+		color: #ffffff;
+		background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+	}
+	.hero-card .hero-meta .bg-light {
+		background: rgba(248, 250, 255, 0.9) !important;
+		border: 1px solid rgba(129, 140, 248, 0.18);
+	}
 	.voice-mic-btn.is-listening {
-		background: #198754;
+		background: #10b981;
 		color: #fff;
-		border-color: #198754;
-		box-shadow: 0 0 0 0.22rem rgba(25, 135, 84, 0.22);
+		border-color: #10b981;
+		box-shadow: 0 0 0 0.22rem rgba(16, 185, 129, 0.22);
 	}
 	/* Reference: ChatGPT (OpenAI) - Hero Wordmark Liquid Glass Bubble Styling
 	   Date: 2026-03-04
@@ -173,7 +254,7 @@
 			</div>
 			<h1 class="display-6 hero-title mb-3">Intelligent learning management for better outcomes.</h1>
 			<div class="d-flex gap-2 flex-wrap hero-actions">
-				<a class="btn btn-primary" href="/course-bot" style="background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%); border: none;">
+				<a class="btn btn-primary hero-action-btn hero-action-lockin" href="/course-bot">
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
 						<path d="M9 21h6"/>
 						<path d="M12 3a6 6 0 0 0-6 6c0 2.5 1.5 4.5 3 6l1.5 2h3l1.5-2c1.5-1.5 3-3.5 3-6a6 6 0 0 0-6-6z"/>
@@ -181,13 +262,13 @@
 					</svg>
 					Course Bot
 				</a>
-				<a class="btn btn-primary" href="/ai-workspace" style="background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%); border: none;">
+				<a class="btn btn-primary hero-action-btn hero-action-lockin" href="/ai-workspace">
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
 						<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
 					</svg>
 					AI Workspace
 				</a>
-				<a class="btn btn-success" href="/group-workspace" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none;">
+				<a class="btn btn-success hero-action-btn hero-action-group" href="/group-workspace">
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
 						<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
 						<circle cx="9" cy="7" r="4"/>
@@ -195,7 +276,7 @@
 					</svg>
 					Groupwork
 				</a>
-				<a class="btn" href="/assignment-review" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border: none; color: white;">
+				<a class="btn hero-action-btn hero-action-review" href="/assignment-review">
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
 						<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
 						<polyline points="14 2 14 8 20 8"/>
@@ -205,7 +286,7 @@
 					</svg>
 					Review
 				</a>
-				<a class="btn btn-primary" href="/sync-canvas" style="background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%); border: none;">
+				<a class="btn btn-primary hero-action-btn hero-action-lockin" href="/sync-canvas">
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
 						<polyline points="23 4 23 10 17 10"/>
 						<polyline points="1 20 1 14 7 14"/>
