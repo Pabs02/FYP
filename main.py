@@ -3248,7 +3248,9 @@ def _schedule_ai_subtasks(
 			duration_hours = 2.0
 		duration_hours = max(0.5, min(duration_hours, 6.0))
 		duration = timedelta(hours=duration_hours)
-		target_time = _parse_plan_hint(subtask.get("planned_start"), tzinfo)
+		raw_hint = subtask.get("planned_start")
+		target_time = _parse_plan_hint(raw_hint, tzinfo)
+		print(f"[SCHED-DEBUG] task {idx}: raw_hint={raw_hint!r} parse_result={target_time!r}")
 		if not target_time:
 			if due_deadline:
 				window = max(due_deadline - now, timedelta(days=1))
@@ -3266,6 +3268,7 @@ def _schedule_ai_subtasks(
 			stagger_h = int(stagger_hour)
 			stagger_m = int((stagger_hour - stagger_h) * 60)
 			target_time = target_day.replace(hour=stagger_h, minute=stagger_m, second=0, microsecond=0)
+			print(f"[SCHED-DEBUG] task {idx}: gap={gap:.1f} days, target_time={target_time}")
 
 		# Build candidates with preference for spreading across days
 		candidate_indices = list(range(len(slot_queue)))
