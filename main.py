@@ -3161,6 +3161,7 @@ def _schedule_ai_subtasks(
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
 	tzinfo = datetime.now().astimezone().tzinfo
 	now = datetime.now(tzinfo)
+	print(f"[SCHED] ===== _schedule_ai_subtasks v5 ===== now={now}, due={due_date_str}, tasks={len(subtasks)}")
 	free_slots = _generate_free_slots(student_id, tzinfo)
 	if not free_slots:
 		return [], subtasks
@@ -3356,10 +3357,14 @@ def _schedule_ai_subtasks(
 					"focus": subtask.get("focus"),
 					"module_id": module_id,
 				})
+				print(f"[SCHED] PLACED task {idx}: {start_ts} -> {end_ts}")
 				break
 		
 		if not assignment_slot:
 			unscheduled.append(subtask)
+	print(f"[SCHED] DONE: {len(scheduled)} scheduled, {len(unscheduled)} unscheduled")
+	for s in scheduled:
+		print(f"[SCHED]   {s['start']} - {s['end']} | {s['title'][:50]}")
 	return scheduled, unscheduled
 
 
