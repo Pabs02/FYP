@@ -634,15 +634,20 @@ class ChatGPTTaskBreakdownService:
 			"Each micro-task should be comprehensive enough that a student knows exactly what to do, why they're doing it, and has specific ideas to get started."
 		)
 
+		from datetime import datetime as _dt
+		today_str = _dt.now().strftime("%Y-%m-%d")
+
 		lines = [
+			f"Today's date is {today_str}. All planned dates MUST be today or later — never in the past.",
 			"Break the assignment into 8-12 practical micro-tasks ordered by sequence.",
 			"Each micro-task should be focused and achievable in 1-3 hours (prefer shorter, more frequent tasks over long sessions).",
+			"Spread tasks evenly across the available days until the due date — do NOT cluster them on consecutive days when the deadline is far away.",
 			"Each micro-task must include:",
 			"  - A detailed description (3-5 sentences) with specific actionable steps explaining what to do and how to approach it",
 			"  - Concrete ideas and suggestions for completing the task (specific resources, methods, or approaches)",
 			"  - A recommended focus tip or strategy",
 			"  - Estimated hours (aim for 1-3 hours per task, with most tasks around 1.5-2 hours)",
-			"  - A suggested start/end window (use plain language such as 'Thu 14 Nov evening' if precise times are unknown)",
+			"  - A suggested start/end window (use plain language such as '2026-03-10 evening' — always include morning, afternoon, or evening)",
 			"Make descriptions comprehensive enough that a student knows exactly what to do, why they're doing it, and has practical ideas to get started.",
 			"Include specific examples, resources to consult, or methods to use in the descriptions.",
 			"Respect the student's existing assignments and events when proposing dates—avoid overlaps.",

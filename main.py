@@ -3251,7 +3251,9 @@ def _schedule_ai_subtasks(
 		duration = timedelta(hours=duration_hours)
 		raw_hint = subtask.get("planned_start")
 		target_time = _parse_plan_hint(raw_hint, tzinfo)
-		print(f"[SCHED-DEBUG] task {idx}: raw_hint={raw_hint!r} parse_result={target_time!r}")
+		if target_time and target_time < now:
+			print(f"[SCHED] task {idx}: discarding past hint {raw_hint!r} ({target_time})")
+			target_time = None
 		if not target_time:
 			if due_deadline:
 				window = max(due_deadline - now, timedelta(days=1))
