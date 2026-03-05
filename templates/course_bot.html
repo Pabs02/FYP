@@ -391,9 +391,50 @@
         font-weight: 600;
         color: #059669;
     }
-    
+
     .show-answers .answer-line {
         display: inline;
+    }
+
+    .mcq-block {
+        margin-bottom: 1.25rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    .mcq-block:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+    }
+    .mcq-question {
+        font-weight: 600;
+        color: #1a1a2e;
+        margin-bottom: 0.4rem;
+    }
+    .mcq-option {
+        padding: 0.3rem 0 0.3rem 1rem;
+        color: #374151;
+        border-radius: 6px;
+        transition: background 0.2s;
+    }
+    .mcq-correct-answer {
+        display: none;
+        margin-top: 0.45rem;
+        padding: 0.35rem 0.7rem;
+        background: #ecfdf5;
+        border-left: 3px solid #10b981;
+        border-radius: 4px;
+        font-weight: 600;
+        color: #059669;
+        font-size: 0.9rem;
+    }
+    .show-answers .mcq-correct-answer {
+        display: block;
+    }
+    .show-answers .mcq-option.is-correct {
+        background: #ecfdf5;
+        color: #047857;
+        font-weight: 600;
     }
     
     .qa-citations {
@@ -759,12 +800,72 @@
         });
     }
 
+    function parseMCQContent(container) {
+        const raw = container.textContent;
+        const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+        const questionRe = /^\d+[\.\)]\s+/;
+        const optionRe = /^[A-Da-d][\.\)]\s+/;
+        const correctRe = /^(Correct\s+Answer|Answer)\s*:\s*/i;
+
+        let blocks = [];
+        let cur = null;
+
+        for (const line of lines) {
+            if (questionRe.test(line)) {
+                if (cur) blocks.push(cur);
+                cur = { q: line, opts: [], correct: null };
+            } else if (optionRe.test(line) && cur) {
+                cur.opts.push(line);
+            } else if (correctRe.test(line) && cur) {
+                cur.correct = line.replace(correctRe, '').trim();
+            } else if (cur) {
+                if (cur.opts.length === 0) {
+                    cur.q += ' ' + line;
+                } else {
+                    cur.opts[cur.opts.length - 1] += ' ' + line;
+                }
+            }
+        }
+        if (cur) blocks.push(cur);
+        if (blocks.length < 2) return false;
+
+        container.innerHTML = '';
+        for (const b of blocks) {
+            const div = document.createElement('div');
+            div.className = 'mcq-block';
+            const qEl = document.createElement('div');
+            qEl.className = 'mcq-question';
+            qEl.textContent = b.q;
+            div.appendChild(qEl);
+            const correctLetter = b.correct ? b.correct.charAt(0).toUpperCase() : '';
+            for (const opt of b.opts) {
+                const oEl = document.createElement('div');
+                oEl.className = 'mcq-option';
+                oEl.textContent = opt;
+                if (correctLetter && opt.charAt(0).toUpperCase() === correctLetter) {
+                    oEl.classList.add('is-correct');
+                }
+                div.appendChild(oEl);
+            }
+            if (b.correct) {
+                const aEl = document.createElement('div');
+                aEl.className = 'mcq-correct-answer';
+                aEl.textContent = 'Correct Answer: ' + b.correct;
+                div.appendChild(aEl);
+            }
+            container.appendChild(div);
+        }
+        return true;
+    }
+
+    document.querySelectorAll('.qa-answer-content').forEach(parseMCQContent);
+
     document.querySelectorAll(".toggle-answers").forEach((button) => {
         button.addEventListener("click", () => {
             const targetId = button.getAttribute("data-target");
             const container = document.getElementById(targetId);
             if (!container) return;
-            
+
             const isHidden = !container.classList.contains("show-answers");
             container.classList.toggle("show-answers", isHidden);
             button.textContent = isHidden ? "Hide Answers" : "Reveal Answers";
