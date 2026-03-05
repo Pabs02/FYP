@@ -3105,14 +3105,6 @@ def _parse_plan_hint(text: Optional[str], tzinfo) -> Optional[datetime]:
 	value = text.strip()
 	if not value:
 		return None
-	candidates = [
-		"%Y-%m-%d %H:%M",
-		"%Y-%m-%d",
-		"%d %b %Y",
-		"%d %B %Y",
-		"%b %d %Y",
-		"%B %d %Y",
-	]
 	lower = value.lower()
 	hour = None
 	if "evening" in lower:
@@ -3123,22 +3115,28 @@ def _parse_plan_hint(text: Optional[str], tzinfo) -> Optional[datetime]:
 		hour = 10
 	elif "night" in lower:
 		hour = 21
-	for fmt in candidates:
+	else:
+		return None
+	date_part = value.split(" evening")[0].split(" afternoon")[0].split(" morning")[0].split(" night")[0].strip()
+	date_formats = [
+		"%Y-%m-%d",
+		"%Y-%m-%dT%H:%M:%S",
+		"%Y-%m-%dT%H:%M",
+		"%Y-%m-%d %H:%M",
+		"%d %b %Y",
+		"%d %B %Y",
+		"%b %d %Y",
+		"%B %d %Y",
+	]
+	for fmt in date_formats:
 		try:
-			dt = datetime.strptime(value.split(" evening")[0].split(" afternoon")[0].split(" morning")[0].split(" night")[0].strip(), fmt)
-			if "hour" in fmt.lower():
-				return dt.replace(tzinfo=tzinfo)
-			if hour is not None:
-				return datetime.combine(dt.date(), time(hour=hour), tzinfo)
-			return None
+			dt = datetime.strptime(date_part, fmt)
+			return datetime.combine(dt.date(), time(hour=hour), tzinfo)
 		except ValueError:
 			continue
-	# Try ISO parse
 	try:
-		dt = datetime.fromisoformat(value)
-		if dt.tzinfo is None:
-			dt = dt.replace(tzinfo=tzinfo)
-		return dt
+		dt = datetime.fromisoformat(date_part)
+		return datetime.combine(dt.date(), time(hour=hour), tzinfo)
 	except ValueError:
 		return None
 
