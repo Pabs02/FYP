@@ -3256,12 +3256,18 @@ def _schedule_ai_subtasks(
 				window = max(due_deadline - now, timedelta(days=1))
 				available_days = max(window.days, 1)
 				gap = max(available_days / (total_subtasks + 1), 1.0)
-				target_time = now + timedelta(days=gap * (idx + 1))
-				if target_time > due_deadline:
-					target_time = due_deadline - timedelta(hours=1)
+				target_day = now + timedelta(days=gap * (idx + 1))
+				if target_day > due_deadline:
+					target_day = due_deadline - timedelta(hours=1)
 			else:
 				gap = max(2.0, 14.0 / max(total_subtasks, 1))
-				target_time = now + timedelta(days=gap * (idx + 1))
+				target_day = now + timedelta(days=gap * (idx + 1))
+
+			stagger_offset = (idx % 12) * 1.0
+			stagger_hour = 9 + stagger_offset
+			stagger_h = int(stagger_hour)
+			stagger_m = int((stagger_hour - stagger_h) * 60)
+			target_time = target_day.replace(hour=stagger_h, minute=stagger_m, second=0, microsecond=0)
 
 		# Build candidates with preference for spreading across days
 		candidate_indices = list(range(len(slot_queue)))
